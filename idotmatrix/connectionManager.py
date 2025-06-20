@@ -87,15 +87,12 @@ class ConnectionManager(metaclass=SingletonMeta):
         if self.client and self.client.is_connected:
             self.logging.debug("sending message(s) to device")
             ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
-            # if chunk_size < 509:
-            ble_packet_size = 509
             self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
             for i, packet in enumerate(data):
                 for j, ble_paket in enumerate(packet):
                     self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(data)}.{len(packet)}")
                     await self.client.write_gatt_char(UUID_WRITE_DATA, ble_paket, response=response)
-                    await sleep(0.2)
 
             return True
         return False
