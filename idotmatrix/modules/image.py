@@ -387,8 +387,7 @@ class Image:
         """
         try:
             with PilImage.open(file_path) as img:
-                # Resize first (thumbnail)
-                img.resize((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
+                img = img.resize((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
 
                 # Read EXIF orientation tag if exists
                 try:

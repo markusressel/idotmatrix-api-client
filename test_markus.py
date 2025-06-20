@@ -103,7 +103,7 @@ async def main():
     await sleep(0.5)
     await image_client.uploadProcessed(
         pixel_size=64,
-        file_path="./images/demo_64.png",
+        file_path="./images/demo_512.png",
     )
 
     # gif_mode = Gif()
