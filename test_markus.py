@@ -1,12 +1,11 @@
 import asyncio
+from asyncio import sleep
 from datetime import datetime
 from typing import List, Tuple
 
 from PIL import Image as PILImage
-from PIL.GifImagePlugin import GifImageFile
 
-from idotmatrix import ConnectionManager, Common, Graffiti, Gif, Image
-
+from idotmatrix import ConnectionManager, Common, Graffiti, Image
 
 
 def convert_image_to_pixel_array(
@@ -75,10 +74,13 @@ async def draw_shuffled(pixel_data):
         )
         await asyncio.sleep(0.02)
 
+
 async def main():
     # connect
     conn = ConnectionManager()
     await conn.connectByAddress("69:36:4C:4C:B6:B7")
+
+    await sleep(1)
 
     screen_size = 64
 
@@ -94,14 +96,14 @@ async def main():
         second=now.second,
     )
     await common_client.setBrightness(10)
-    await asyncio.sleep(0.1)
+    await sleep(0.2)
     #
     image_client = Image()
     await image_client.setMode(1)
-    await asyncio.sleep(0.5)
+    await sleep(0.5)
     await image_client.uploadProcessed(
-       pixel_size=64,
-       file_path="./images/demo_64.png",
+        pixel_size=64,
+        file_path="./images/demo_64.png",
     )
 
     # gif_mode = Gif()
@@ -112,10 +114,9 @@ async def main():
     # )
 
     # await common_client.setBrightness(95)
-    # await asyncio.sleep(0.02)
+    # await sleep(0.02)
 
     graffiti_client = Graffiti()
-
 
     # pixel_data = convert_image_to_pixel_array(
     #     pixel_size=screen_size,
@@ -133,9 +134,7 @@ async def main():
     #         await graffiti_client.setPixel(
     #             r=color[0], g=color[1], b=color[2], x=x, y=y
     #         )
-    #         await asyncio.sleep(0.02)
-
-
+    #         await sleep(0.02)
 
     # # draw a right angle with three pixels in all four corners of the 64x64 pixel screen to different colours
     # await test.setPixel(255, 255, 255, 0, 0)  # top left corner
@@ -156,7 +155,7 @@ async def main():
     #     # font_path="./fonts/RobotoMono-Regular.ttf",
     # )
 
-    # await asyncio.sleep(1000)
+    # await sleep(1000)
 
     # colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.
     #
@@ -165,7 +164,8 @@ async def main():
     # for i in range(0, 7):
     #     for j in range(2, 7):
     #         await test.setMode(i, colours[:j])
-    #         await asyncio.sleep(1000)
+    #         await sleep(1000)
+
 
 if __name__ == "__main__":
     try:

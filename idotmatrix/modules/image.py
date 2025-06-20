@@ -407,14 +407,14 @@ class Image:
                 except Exception:
                     pass  # no exif or orientation tag, ignore
                 # Convert to RGB if not already in that mode
-                # mode = "RGB"
-                # if img.mode != mode:
-                #     img = img.convert(mode)
+                mode = "RGB"
+                if img.mode != mode:
+                    img = img.convert(mode)
 
                 # png_buffer = io.BytesIO()
                 # img.save(png_buffer, format="PNG")
                 # png_buffer.seek(0)
-                # # png_buffer = bytearray(img.tobytes())
+                png_buffer = bytearray(img.tobytes())
                 # png_buffer = bytearray(png_buffer.getvalue())
 
                 # data_png = self._createPayloads(png_buffer)
@@ -422,13 +422,13 @@ class Image:
                 # data = data_color
                 # packets = self.send_diy_image_data(data_color)
 
-                data_color = self.create_uniform_color_rgb_byte_array(64, 64, (255, 0, 0))
-                packets = self.create_diy_image_data_packets(data_color)
+                data_color = self.create_uniform_color_rgb_byte_array(64, 64, (255, 255, 255))
+                packets = self.create_diy_image_data_packets(png_buffer)
 
                 if self.conn:
                     await self.conn.connect()
                     # flatten chunks
-                    await self.conn.send(data=packets)
+                    await self.conn.send_packets(data=packets)
                 #return data
         except BaseException as error:
             raise error
