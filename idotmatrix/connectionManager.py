@@ -1,8 +1,10 @@
-from bleak import BleakClient, BleakScanner, AdvertisementData
-from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 import logging
-import time
+from asyncio import sleep
 from typing import List, Optional
+
+from bleak import BleakClient, BleakScanner, AdvertisementData
+
+from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 
 
 class SingletonMeta(type):
@@ -73,15 +75,28 @@ class ConnectionManager(metaclass=SingletonMeta):
     async def send(self, data, response=False):
         if self.client and self.client.is_connected:
             self.logging.debug("sending message(s) to device")
-            chunk_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
-            for i in range(0, len(data), chunk_size):
-                await self.client.write_gatt_char(UUID_WRITE_DATA,data[i:i+chunk_size], response=response)
+            ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
+            # if chunk_size < 509:
+            ble_packet_size = 509
+            self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
-            time.sleep(0.01)
+            if isinstance(data, list):
+                for i, packet in enumerate(data):
+                    for j, ble_paket in enumerate(packet):
+                        self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(data)}.{len(packet)}")
+                        await self.client.write_gatt_char(UUID_WRITE_DATA, ble_paket, response=response)
+                        await sleep(0.2)
+            else:
+                for packet in range(0, len(data), ble_packet_size):
+                    self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
+                    await self.client.write_gatt_char(UUID_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
+                    await sleep(0.04)
             return True
+        return False
 
     async def read(self) -> bytes:
         if self.client and self.client.is_connected:
             data = await self.client.read_gatt_char(UUID_READ_DATA)
             self.logging.info("data received")
             return data
+        raise ConnectionError("Not connected to the device.")
