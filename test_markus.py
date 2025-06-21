@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image as PILImage
@@ -15,11 +16,12 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
-    await client.clock.show(
-        style=ClockStyle.RGBCorners,
-    )
+    # await client.clock.show(
+    #     style=ClockStyle.RGBSwipeOutline,
+    #     show_date=False,
+    # )
 
-    await client.set_brightness(20)
+    # await client.set_brightness(20)
 
     # # connect
     # await client.connect()
@@ -39,20 +41,21 @@ async def main():
     # path = Path("/home/markus/pictures/collage/beide ja")
     # path = Path("/home/markus/pictures/Satisfactory Photo Mode")
     #
-    # image_file_paths = []
+    image_file_paths = []
     # # image_file_paths += list(path.glob(pattern="*.jpg", case_sensitive=False))
     # # image_file_paths += list(path.glob(pattern="*.png", case_sensitive=False))
-    # image_file_paths += [
-    #     # Path("/home/markus/pictures/tulogo.png"),
-    #     Path("/home/markus/pictures/viper_logo.jpg"),
-    # ]
-    # await client.image.set_mode(1)
-    # for file in image_file_paths:
-    #     await client.image.upload_image_file(
-    #         # file_path="./images/logo.png",
-    #         # file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
-    #         file_path=file.absolute().as_posix(),
-    #     )
+    image_file_paths += [
+        # Path("/home/markus/pictures/tulogo.png"),
+        # Path("/home/markus/pictures/viper_logo.jpg"),
+        Path("/home/markus/downloads/Geburtsbild Iris.jpg"),
+    ]
+    await client.image.set_mode(1)
+    for file in image_file_paths:
+        await client.image.upload_image_file(
+            # file_path="./images/logo.png",
+            # file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
+            file_path=file.absolute().as_posix(),
+        )
 
     # await client.gif.upload_processed(
     #     # file_path="./images/demo_512.png",

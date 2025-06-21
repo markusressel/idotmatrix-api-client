@@ -16,9 +16,6 @@ class ScoreboardModule(IDotMatrixModule):
         Args:
             count1 (int): first counter, max: 999 (buffer overflow if more! -> might lead to unintended behavior)
             count2 (int): second counter, max: 999 (buffer overflow if more! -> might lead to unintended behavior)
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         # Packing counts into two bytes (big-endian) each, assuming the counts are not exceeding 16-bit max value.
         bytearray_count1 = struct.pack(

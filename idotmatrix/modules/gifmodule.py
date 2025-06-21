@@ -26,9 +26,6 @@ class GifModule(IDotMatrixModule):
 
         Args:
             file_path (str): path to the image file
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise returns bytearray payload
         """
         gif_data = self._load(file_path)
         data = self._create_payloads(gif_data)
@@ -45,9 +42,6 @@ class GifModule(IDotMatrixModule):
 
         Args:
             file_path (str): path to the image file
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise returns bytearray payload
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
 

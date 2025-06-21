@@ -18,9 +18,6 @@ class CountdownModule(IDotMatrixModule):
             mode (int): mode of the countdown. 0 = disable, 1 = start, 2 = pause, 3 = restart
             minutes (int): minutes to count down from
             seconds (int): seconds to count down from
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         if mode not in range(0, 4):
             raise ValueError("Countdown.setMode expects parameter mode to be between 0 and 3")

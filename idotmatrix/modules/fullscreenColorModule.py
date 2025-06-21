@@ -20,9 +20,6 @@ class FullscreenColorModule(IDotMatrixModule):
             r (int, optional): color red. Defaults to 0.
             g (int, optional): color green. Defaults to 0.
             b (int, optional): color blue. Defaults to 0.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         if r not in range(0, 256):
             raise ValueError("FullscreenColor.setMode expects parameter r to be between 0 and 255")

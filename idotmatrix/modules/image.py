@@ -42,9 +42,6 @@ class ImageModule(IDotMatrixModule):
 
         Args:
             mode (int): 0 = disable DIY, 1 = enable DIY, 2 = ?, 3 = ?. Defaults to 1.
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         if isinstance(mode, ImageMode):
             mode = mode.value

@@ -20,9 +20,6 @@ class GraffitiModule(IDotMatrixModule):
             b (int): color blue value
             x (int): pixel x position
             y (int): pixel y position
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         if r not in range(0, 256):
             raise ValueError("Graffiti.setPixel expects parameter r to be between 0 and 255")

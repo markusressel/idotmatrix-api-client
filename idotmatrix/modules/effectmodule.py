@@ -30,9 +30,6 @@ class EffectModule(IDotMatrixModule):
         Args:
             style (int): Style of the effect 0-6.
             rgb_values (list[tuple[int, int, int]]): list of red, green, blue tuples 2-7.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         if style not in range(0, 7):
             raise ValueError("effect.setMode expects parameter style to be between 0 and 6")

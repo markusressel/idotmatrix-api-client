@@ -33,9 +33,6 @@ class MusicSyncModule(IDotMatrixModule):
 
         Args:
             value1 (int): type of the rhythm? Unknown what values can be used.
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [
@@ -59,9 +56,6 @@ class MusicSyncModule(IDotMatrixModule):
         Args:
             mode (int): mode of the rhythm.
             byteArray (bytearray): actual microphone sound data for the visualization.
-
-        Returns:
-            Union[bool, bytearray]: The original byte array or False if there's an error.
         """
         # Assuming `mode` is intended to be used in future or within `byteArray` preparation.
         data = byteArray

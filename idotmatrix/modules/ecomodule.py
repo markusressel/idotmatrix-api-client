@@ -30,9 +30,6 @@ class EcoModule(IDotMatrixModule):
             end_hour (int): hour to end
             end_minute (int): minute to end
             light (int): the brightness of the screen
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         # TODO check parameters for their valid values and discard everything else
         data = bytearray(

@@ -39,9 +39,6 @@ class ClockModule(IDotMatrixModule):
             show_date (bool): Whether the date should be shown or not. Defaults to True.
             hour24 (bool): 12 or 24 hour format. Defaults to True.
             color (tuple, optional): Color of the clock in RGB format. Defaults to (255, 255, 255).
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         if isinstance(style, ClockStyle):
             style = style.value
@@ -72,9 +69,6 @@ class ClockModule(IDotMatrixModule):
 
         Args:
             enabled (bool, optional): Whether to show the time indicator of the clock. Defaults to True.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         data: bytearray = bytearray(
             [

@@ -13,9 +13,6 @@ class SystemModule(IDotMatrixModule):
 
     async def delete_device_data(self):
         """Deletes the device data and resets it to defaults.
-
-        Returns:
-            bytearray: Byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [
@@ -57,9 +54,6 @@ class SystemModule(IDotMatrixModule):
 
     async def get_device_location(self):
         """Gets the device location (untested yet). Missing some AES encryption stuff of iDotMatrix to work.
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         # TODO: implement Aes encryption according to iDotMatrix Android App
         command = bytearray(
