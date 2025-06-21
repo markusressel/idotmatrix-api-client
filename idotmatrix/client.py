@@ -1,6 +1,6 @@
 from typing import Optional
 
-from idotmatrix.connectionManager import ConnectionManager
+from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules.chronograph import ChronographModule
 from idotmatrix.modules.clock import ClockModule
 from idotmatrix.modules.common import CommonModule

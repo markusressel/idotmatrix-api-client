@@ -6,9 +6,14 @@ from typing import List, Tuple
 
 from PIL import Image as PilImage
 
-from idotmatrix.connectionManager import ConnectionManager
+from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
+
+ANIMATION_MAX_FRAMES = 64  # Maximum number of frames in a GIF animation
+DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
+ANIMATION_TOTAL_DURATION_LIMIT_MS = 2000
+DEFAULT_ANIMATION_TOTAL_DURATION = ANIMATION_TOTAL_DURATION_LIMIT_MS
 
 
 class GifModule(IDotMatrixModule):
@@ -41,7 +46,7 @@ class GifModule(IDotMatrixModule):
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
 
-        gif_data = self._load_gig_and_adapt_to_canvas(
+        gif_data = self._load_gif_and_adapt_to_canvas(
             file_path=file_path,
             pixel_size=pixel_size,
             background_color=background_color,
@@ -50,10 +55,10 @@ class GifModule(IDotMatrixModule):
 
         data = self._create_payloads(gif_data)
         for chunk in data:
-            await self.send_bytes(data=chunk, response=True)
+            await self.send_bytes(data=chunk, response=True, chunk_size=514)
 
-    @staticmethod
-    def _load_gig_and_adapt_to_canvas(
+    def _load_gif_and_adapt_to_canvas(
+        self,
         file_path: PathLike | str,
         pixel_size: int,
         background_color: Tuple[int, int, int] = (0, 0, 0),
@@ -81,12 +86,21 @@ class GifModule(IDotMatrixModule):
                     # and adding a black background if necessary.
                     if frame.size != (pixel_size, pixel_size):
                         frame = frame.resize(
-                            (pixel_size, pixel_size),
-                            PilImage.Resampling.NEAREST,  # needs to use NEAREST to stay within color palette limits
+                            size=(pixel_size, pixel_size),
+                            resample=PilImage.Resampling.NEAREST,
+                            # needs to use NEAREST to stay within color palette limits
                         )
                     # convert transparent pixels to the background color
-                    new_image = PilImage.new("RGBA", frame.size, background_color)
-                    new_image.paste(frame, (0, 0), frame.convert("RGBA"))
+                    new_image = PilImage.new(
+                        mode="RGBA",
+                        size=(pixel_size, pixel_size),
+                        color=background_color
+                    )
+                    new_image.paste(
+                        im=frame,
+                        box=(0, 0, pixel_size, pixel_size),
+                        mask=frame.convert("RGBA")
+                    )
                     frame = new_image
 
                     frames.append(frame.copy())
@@ -94,12 +108,13 @@ class GifModule(IDotMatrixModule):
             except EOFError:
                 pass
 
+            frames, duration_per_frame_in_ms = self._ensure_reasonable_frame_count(img, frames,
+                                                                                   duration_per_frame_in_ms)
+
             # TODO: there are still some cases where
             #  - the GIF is not animating all frames
 
             gif_buffer = io.BytesIO()
-            if duration_per_frame_in_ms is None:
-                duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,
@@ -180,3 +195,61 @@ class GifModule(IDotMatrixModule):
             List[bytearray]: returns list with chunks of given data input
         """
         return [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]
+
+    @staticmethod
+    def _ensure_reasonable_frame_count(
+        img: PilImage.Image,
+        frames: List[PilImage.Image],
+        duration_per_frame_in_ms: int = None
+    ) -> Tuple[List[PilImage.Image], int]:
+        """
+        The device can only handle a limited number of frames in a GIF animation, due to limited processing power and memory.
+        This function ensures that the number of frames does not exceed the maximum allowed frames (64) and adjusts the duration per frame if necessary.
+
+        Args:
+            img (PilImage.Image): The image object of the GIF.
+            frames (List[PilImage.Image]): List of frames in the GIF.
+            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+        Returns:
+            Tuple[List[PilImage.Image], int]: A tuple containing the list of frames and the duration per frame in milliseconds.
+        """
+        # determine the optimal duration per frame if not provided
+        if duration_per_frame_in_ms is None:
+            duration_per_frame_in_ms = img.info.get("duration", DEFAULT_DURATION_PER_FRAME_MS)
+            # if the value we get is not reasonable, compute alternative value
+            if (
+                not isinstance(duration_per_frame_in_ms, int)
+                or not duration_per_frame_in_ms
+                or duration_per_frame_in_ms <= 0
+            ):
+                # compute the duration per frame based on the number of frames and the default total duration
+                duration_per_frame_in_ms = DEFAULT_ANIMATION_TOTAL_DURATION / len(frames)
+
+            if duration_per_frame_in_ms < 16:
+                # make sure the duration is at least 16ms, otherwise the device might not be able to handle it
+                duration_per_frame_in_ms = 16
+
+        # make sure the duration of the full animation doesn't exceed (duration_per_frame_in_ms * 64)
+        # because otherwise the upload takes a very long time
+
+        if len(frames) * duration_per_frame_in_ms > ANIMATION_TOTAL_DURATION_LIMIT_MS:
+            # if the time limit is exceeded, skip frames (except for the first and last one) to stay within the time limit
+            number_of_frames_to_keep = int(ANIMATION_TOTAL_DURATION_LIMIT_MS / duration_per_frame_in_ms)
+            number_of_frames_to_keep = min(ANIMATION_MAX_FRAMES, number_of_frames_to_keep)
+            available_frames = len(frames)
+
+            if number_of_frames_to_keep >= available_frames:
+                # if the number of frames to keep is greater than or equal to the available frames, do nothing
+                return frames, duration_per_frame_in_ms
+            # calculate the step size to skip frames
+            step_size = max(1, available_frames // number_of_frames_to_keep)
+            frames = [frames[i] for i in range(0, available_frames, step_size)]
+            # if the number of frames exceeds the maximum allowed frames, truncate the list
+            if len(frames) > ANIMATION_MAX_FRAMES:
+                frames = frames[:ANIMATION_MAX_FRAMES]
+
+        print(f"GIF frames: {len(frames)}")
+        print(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
+        print(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
+
+        return frames, duration_per_frame_in_ms

@@ -7,7 +7,7 @@ from typing import List, Tuple
 
 from PIL import Image as PilImage, ExifTags
 
-from idotmatrix.connectionManager import ConnectionManager
+from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 

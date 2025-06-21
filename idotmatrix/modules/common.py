@@ -1,4 +1,5 @@
 import logging
+from asyncio import sleep
 from datetime import datetime
 from typing import Optional, Union, List
 
@@ -109,6 +110,7 @@ class CommonModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
 
     async def set_speed(self, speed: int):
         """

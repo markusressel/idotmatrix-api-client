@@ -135,12 +135,28 @@ class ConnectionManager:
             return False
         return self.client.is_connected
 
-    async def send_bytes(self, data: bytearray | bytes, response=False):
+    async def send_bytes(
+        self,
+        data: bytearray | bytes,
+        response=False,
+        chunk_size: Optional[int] = None
+    ):
+        """
+        Sends raw data to the device.
+
+        Args:
+            data (bytearray | bytes): The data to send to the device.
+            response (bool): If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
+            chunk_size (Optional[int]): The size of the chunks to split the data into. If None, the maximum write size of the characteristic will be used. Use with care.
+        """
         if not await self.is_connected():
             await self.connect()
 
         self.logging.debug("sending raw data to device")
-        ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
+        if chunk_size is not None:
+            ble_packet_size = chunk_size
+        else:
+            ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
         for packet in range(0, len(data), ble_packet_size):
             self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
             await self.client.write_gatt_char(UUID_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
