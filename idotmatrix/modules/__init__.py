@@ -20,10 +20,10 @@ class IDotMatrixModule:
         """Sends raw data to the IDotMatrix device."""
         await self._connection_manager.send_bytes(data=data, response=response)
         # sometimes the device needs a moment to process the command before it is able to receive the next one
-        await sleep(1)
+        await sleep(0.5)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response=False):
         """Sends multiple packets to the IDotMatrix device."""
         await self._connection_manager.send_packets(packets=packets, response=response)
         # sometimes the device needs a moment to process the command before it is able to receive the next one
-        await sleep(1)
+        await sleep(0.5)
