@@ -1,7 +1,7 @@
 import logging
 import struct
 from os import PathLike
-from typing import Union, List
+from typing import Union, List, Tuple
 
 from PIL import Image as PilImage, ExifTags
 
@@ -77,7 +77,7 @@ class Image:
             chunks.append(data[i:i + chunk_size])
         return chunks
 
-    def create_ble_packets(self, data_chunk, ble_device_mtu_enabled=True):
+    def _create_ble_packets(self, data_chunk, ble_device_mtu_enabled=True):
         """
         Splits a data chunk into smaller BLE packets based on MTU size.
         This corresponds to the inner chunking logic in `getSendData`.
@@ -92,7 +92,11 @@ class Image:
         mtu = MTU_SIZE_IF_ENABLED if ble_device_mtu_enabled else MTU_SIZE_IF_DISABLED
         return self.chunk_data_by_size(data_chunk, mtu)
 
-    def _create_diy_image_data_packets(self, image_data, ble_device_mtu_enabled=True):
+    def _create_diy_image_data_packets(
+        self,
+        image_data: bytearray,
+        ble_device_mtu_enabled=True
+    ) -> List[List[bytearray]]:
         """
         Recreates the sendData3 structure for DIY image data.
         This corresponds to the logic in `sendDIYImageData`.
@@ -146,79 +150,10 @@ class Image:
         # 3. Split each "large packet" into smaller BLE packets
         # This corresponds to the loop calling `getSendData` and adding to `sendData3`
         for i, large_packet in enumerate(processed_large_packets):
-            ble_packets_for_chunk = self.create_ble_packets(large_packet, ble_device_mtu_enabled)
+            ble_packets_for_chunk = self._create_ble_packets(large_packet, ble_device_mtu_enabled)
             send_data_3.append(ble_packets_for_chunk)
 
         return send_data_3
-
-    def compute_send_diy_image_data(self, image_bytes: bytes) -> List[bytes]:
-        send_data3 = []
-
-        int2byte = image_bytes.__len__().to_bytes(4, byteorder='little')
-        send_data_4096 = self._split_into_chunks(image_bytes, 4096)
-
-        packet_list = []
-        for i, chunk in enumerate(send_data_4096):
-            length = len(chunk) + 9
-            short2bytes = length.to_bytes(2, byteorder='little')
-
-            packet = bytearray(length)
-            packet[0] = short2bytes[1]
-            packet[1] = short2bytes[0]
-            packet[2] = 0
-            packet[3] = 0
-            packet[4] = 2 if i > 0 else 0
-            packet[5:9] = int2byte
-            packet[9:] = chunk
-
-            packet_list.append(packet)
-
-        for i, packet in enumerate(packet_list):
-            send_data3.extend(self.get_send_data(packet))
-
-        return send_data3
-
-    @staticmethod
-    def get_send_data_4096(data: bytes) -> list[bytes]:
-        chunk_size = 4096
-        chunks = []
-
-        total_chunks = (len(data) + chunk_size - 1) // chunk_size  # ceil division
-        index = 0
-
-        for i in range(total_chunks):
-            if i == total_chunks - 1:
-                # Last chunk: may be less than 4096 bytes
-                chunk = data[index:]
-            else:
-                chunk = data[index:index + chunk_size]
-                index += chunk_size
-            chunks.append(chunk)
-
-        return chunks
-
-    @staticmethod
-    def get_send_data(data: bytes) -> list[bytes] | None:
-        # mtu_enabled = ble_device.is_mtu_status()
-        mtu_enabled = True
-        print(f"MTU setting status: {mtu_enabled}")
-
-        chunk_size = 509 if mtu_enabled else 18
-        chunks = []
-
-        total_chunks = (len(data) + chunk_size - 1) // chunk_size  # ceil division
-        index = 0
-
-        for i in range(total_chunks):
-            if i == total_chunks - 1:
-                # Last chunk may be smaller
-                chunk = data[index:]
-            else:
-                chunk = data[index:index + chunk_size]
-                index += chunk_size
-            chunks.append(chunk)
-
-        return chunks
 
     @staticmethod
     def create_uniform_color_rgb_byte_array(width, height, color_rgb):
@@ -265,38 +200,6 @@ class Image:
 
         return rgb_byte_array
 
-    def _createPayloadByColor(self, color_rgb: tuple[int, int, int]) -> List[bytearray]:
-        IMAGE_WIDTH = 64
-        IMAGE_HEIGHT = 64
-        TOTAL_PIXELS = IMAGE_WIDTH * IMAGE_HEIGHT  # 4096
-        BYTES_PER_IMAGE = TOTAL_PIXELS * 3  # 3 bytes per pixel = 12288
-        MAX_CHUNK_SIZE = 4096
-
-        # RGB triplet for the color (same value for R, G, B)
-        r, g, b = color_rgb
-        pixel = bytes([r, g, b])
-        image_data = pixel * TOTAL_PIXELS  # Full frame of solid color
-
-        total_length_bytes = struct.pack(">I", BYTES_PER_IMAGE)  # Big-endian 4 bytes
-        chunks = self._split_into_chunks(bytearray(image_data), MAX_CHUNK_SIZE)
-
-        packets = []
-
-        for i, chunk in enumerate(chunks):
-            packet_length = len(chunk) + 9  # 9-byte header
-            packet_length_le = struct.pack("<H", packet_length)
-            packet_length_bytes = bytearray([packet_length_le[1], packet_length_le[0]])
-
-            header = bytearray()
-            header += packet_length_bytes  # [0-1] swapped LE length
-            header += b'\x00\x00'  # [2-3] reserved
-            header += b'\x00' if i == 0 else b'\x02'  # [4] flag
-            header += total_length_bytes  # [5-8] total length
-
-            packets.append(header + chunk)
-
-        return packets
-
     # async def uploadUnprocessed(self, file_path: str) -> Union[bool, bytearray]:
     #     """Uploads an image without further checks and resizes.
     #
@@ -323,10 +226,34 @@ class Image:
         """Uploads a file processed and makes sure everything is correct before uploading to the device.
 
         Args:
-            file_path (str): path to the image file
-            pixel_size (int, optional): amount of pixels (either 16 or 32 makes sense). Defaults to 32.
+            file_path (str): path-like object to the image file
+            pixel_size (int, optional): number of pixels (one of 16, 32 or 64). Defaults to 64.
         """
         pixel_data = self._load_image_and_adapt_to_canvas(file_path, pixel_size)
+        return await self._send_diy_image_data(pixel_data)
+
+    async def upload_image_pixeldata(
+        self, pixel_data: List[Tuple[int, int, int]], pixel_size: int = 64
+    ) -> None:
+        if pixel_size not in [16, 32, 64]:
+            raise ValueError("pixel_size must be one of [16, 32, 64]")
+        if len(pixel_data) != pixel_size * pixel_size:
+            raise ValueError(
+                f"pixel_data must contain exactly {pixel_size * pixel_size} pixels (quared pixel_size), got: {len(pixel_data)}"
+            )
+
+        # Convert pixel_data to a bytearray in RGB format
+        pixel_data = bytearray()
+        for r, g, b in pixel_data:
+            if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
+                raise ValueError(f"Invalid RGB value: ({r}, {g}, {b}). Values must be between 0 and 255.")
+            pixel_data.extend([r, g, b])
+
+        return await self._send_diy_image_data(pixel_data)
+
+    async def _send_diy_image_data(
+        self, pixel_data: bytearray,
+    ) -> None:
         packets = self._create_diy_image_data_packets(pixel_data)
         if self.conn:
             await self.conn.connect()
