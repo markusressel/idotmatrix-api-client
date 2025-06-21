@@ -161,9 +161,7 @@ class GifModule(IDotMatrixModule):
                             (pixel_size, pixel_size),
                             PilImage.Resampling.NEAREST,  # needs to use NEAREST to stay within color palette limits
                         )
-                    # TODO: There are still some GIF files that do not work. We might need to adapt the colors of the gif to the device's color palette,
-                    #  but I don't know what that looks like yet.
-                    #  There are GIFs that have transparency in them, but the iDotMatrix does not support transparency.
+                    # convert transparent pixels to the background color
                     new_image = PilImage.new("RGBA", frame.size, background_color)
                     new_image.paste(frame, (0, 0), frame.convert("RGBA"))
                     frame = new_image
