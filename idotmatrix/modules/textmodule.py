@@ -1,10 +1,32 @@
 import logging
 import zlib
+from enum import Enum
 from typing import Tuple, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
 from idotmatrix.modules import IDotMatrixModule
+
+
+class TextMode(Enum):
+    REPLACE = 0
+    MARQUEE = 1
+    REVERSED_MARQUEE = 2
+    VERTICAL_RISING_MARQUEE = 3
+    VERTICAL_LOWERING_MARQUEE = 4
+    BLINKING = 5
+    FADING = 6
+    TETRIS = 7
+    FILLING = 8
+
+
+class TextColorMode(Enum):
+    WHITE = 0
+    RGB = 1
+    RAINBOW_1 = 2
+    RAINBOW_2 = 3
+    RAINBOW_3 = 4
+    RAINBOW_4 = 5
 
 
 class TextModule(IDotMatrixModule):
@@ -22,13 +44,20 @@ class TextModule(IDotMatrixModule):
         text: str,
         font_size: int = 16,
         font_path: Optional[str] = None,
-        text_mode: int = 1,
+        text_mode: TextMode | int = TextMode.MARQUEE,
         speed: int = 95,
-        text_color_mode: int = 1,
-        text_color: Tuple[int, int, int] = (255, 0, 0),
-        text_bg_mode: int = 0,
-        text_bg_color: Tuple[int, int, int] = (0, 255, 0),
+        text_color_mode: TextColorMode | int = TextColorMode.WHITE,
+        text_color: Tuple[int, int, int] = None,
+        text_bg_color: Optional[Tuple[int, int, int]] = None,
     ):
+        if isinstance(text_mode, TextMode):
+            text_mode = text_mode.value
+
+        if isinstance(text_color_mode, TextColorMode):
+            text_color_mode = text_color_mode.value
+
+        text_bg_mode = 0 if text_bg_color is None else 1
+
         data = self._build_string_packet(
             text_mode=text_mode,
             speed=speed,
@@ -47,10 +76,10 @@ class TextModule(IDotMatrixModule):
     def _build_string_packet(
         self,
         text_bitmaps: bytearray,
-        text_mode: int = 1,
+        text_mode: int,
         speed: int = 95,
-        text_color_mode: int = 1,
-        text_color: Tuple[int, int, int] = (255, 0, 0),
+        text_color_mode: int = 0,
+        text_color: Tuple[int, int, int] = (255, 255, 255),
         text_bg_mode: int = 0,
         text_bg_color: Tuple[int, int, int] = (0, 255, 0),
     ) -> bytearray:
@@ -58,9 +87,9 @@ class TextModule(IDotMatrixModule):
 
         Args:
             text_bitmaps (bytearray): bitmap list of the text characters
-            text_mode (int, optional): Text mode. Defaults to 0. 0 = replace text, 1 = marquee, 2 = reversed marquee, 3 = vertical rising marquee, 4 = vertical lowering marquee, 5 = blinking, 6 = fading, 7 = tetris, 8 = filling
+            text_mode (int, optional): Text mode. 0 = replace text, 1 = marquee, 2 = reversed marquee, 3 = vertical rising marquee, 4 = vertical lowering marquee, 5 = blinking, 6 = fading, 7 = tetris, 8 = filling
             speed (int, optional): Speed of Text. Defaults to 95.
-            text_color_mode (int, optional): Text Color Mode. Defaults to 1. 0 = white, 1 = use given RGB color, 2,3,4,5 = rainbow modes
+            text_color_mode (int, optional): Text Color Mode. Defaults to 0. 0 = white, 1 = use given RGB color, 2,3,4,5 = rainbow modes
             text_color (Tuple[int, int, int], optional): Text RGB Color. Defaults to (255, 0, 0).
             text_bg_mode (int, optional): Text Background Mode. Defaults to 0. 0 = black, 1 = use given RGB color
             text_bg_color (Tuple[int, int, int], optional): Background RGB Color. Defaults to (0, 0, 0).
