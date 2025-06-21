@@ -26,19 +26,26 @@ class GifModule(IDotMatrixModule):
         self.screen_size = screen_size
 
     async def upload_gif_file(
-        self, file_path: PathLike | str
+        self,
+        file_path: PathLike | str,
+        background_color: Tuple[int, int, int] = (0, 0, 0),
+        duration_per_frame_in_ms: int = None,
     ):
         """
         Uploads a GIF file to the device.
 
         Args:
             file_path (str): path to the image file
+            background_color (Tuple[int, int, int]): RGB color to fill transparent pixels. Defaults to black (0, 0, 0).
+            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
 
         gif_data = self._load_gig_and_adapt_to_canvas(
             file_path=file_path,
             pixel_size=pixel_size,
+            background_color=background_color,
+            duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
 
         data = self._create_payloads(gif_data)
@@ -98,6 +105,7 @@ class GifModule(IDotMatrixModule):
                 gif_buffer,
                 format="GIF",
                 save_all=True,
+                optimize=True,  # optimization can cause issues with some GIFs
                 append_images=frames[1:],
                 loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,
