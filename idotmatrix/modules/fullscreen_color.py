@@ -1,4 +1,5 @@
 import logging
+from asyncio import sleep
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -11,7 +12,7 @@ class FullscreenColorModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def set_mode(
+    async def show_color(
         self, r: int = 0, g: int = 0, b: int = 0
     ):
         """
@@ -33,6 +34,7 @@ class FullscreenColorModule(IDotMatrixModule):
             r=r, g=g, b=b
         )
         await self.send_bytes(data=data)
+        await sleep(0.5)  # wait for the device to process the command
 
     @staticmethod
     def _create_payload(r, g, b) -> bytearray:

@@ -30,7 +30,7 @@ async def main():
     time.sleep(5)
 
     # FullscreenColor
-    await client.color.set_mode(r=255, g=255, b=0)
+    await client.color.show_color(r=255, g=255, b=0)
     time.sleep(5)
 
     # GIF

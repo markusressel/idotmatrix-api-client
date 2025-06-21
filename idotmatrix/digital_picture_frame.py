@@ -5,6 +5,7 @@ from os import PathLike
 from typing import List
 
 from idotmatrix.client import IDotMatrixClient
+from idotmatrix.modules.image import ImageMode
 
 
 class PictureFrameGif:
@@ -33,6 +34,8 @@ class DigitalPictureFrame:
         self.images = images
 
         self._slideshow_task: Task | None = None
+
+        self._is_in_diy_mode: bool = False
 
     async def start_slideshow(self, interval: int = 30):
         """
@@ -64,6 +67,13 @@ class DigitalPictureFrame:
         """
         Internal method to handle the slideshow loop.
         """
+        await self.device_client.color.show_color(0, 0, 0)
+        await self.device_client.reset()
+        await self.device_client.text.show_text("Starting Slideshow...")
+        await sleep(6)
+        await self.device_client.color.show_color(0, 0, 0)
+        await sleep(1)
+        await self.device_client.reset()
         while True:
             for image in self.images:
                 if isinstance(image, PictureFrameImage):
@@ -90,7 +100,7 @@ class DigitalPictureFrame:
     ):
         self.logging.info(f"Setting image file: {file_path}")
         # await self.device_client.reset()
-        await self.device_client.image.set_mode()
+        await self._switch_device_to_image_mode()
         await self.device_client.image.upload_image_file(
             file_path=file_path
         )
@@ -101,7 +111,26 @@ class DigitalPictureFrame:
         duration_per_frame_in_ms: int = None
     ):
         self.logging.info(f"Setting GIF file: {file_path} with ({duration_per_frame_in_ms} ms per frame)")
+        await self._switch_device_to_gif_mode()
         await self.device_client.gif.upload_gif_file(
             file_path=file_path,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
+        # give the device some time to process the GIF
+        await sleep(3)
+
+    async def _switch_device_to_image_mode(self):
+        if self._is_in_diy_mode:
+            return
+        self.logging.info("Switching device to image mode")
+        await self.device_client.image.set_mode(ImageMode.EnableDIY)
+        self._is_in_diy_mode = True
+
+    async def _switch_device_to_gif_mode(self):
+        if not self._is_in_diy_mode:
+            return
+        self.logging.info("Switching device to GIF mode")
+        await self.device_client.image.set_mode(ImageMode.DisableDIY)
+        await self.device_client.reset()
+        await self.device_client.color.show_color(0, 0, 0)
+        self._is_in_diy_mode = False
