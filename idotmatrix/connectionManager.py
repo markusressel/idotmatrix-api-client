@@ -149,7 +149,6 @@ class ConnectionManager:
         for packet in range(0, len(data), ble_packet_size):
             self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
             await self.client.write_gatt_char(UUID_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
-            await sleep(0.04)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response: bool = False):
         """

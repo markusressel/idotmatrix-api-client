@@ -138,33 +138,44 @@ class GifModule(IDotMatrixModule):
         file_path: PathLike,
         pixel_size: int
     ) -> bytes:
+        """
+        Loads a GIF file and adapts it to the pixel size of the device's canvas.
+        Args:
+            file_path (PathLike): Path to the GIF file.
+            pixel_size (int): Size of the pixel in the device's canvas.
+        Returns:
+            bytes: A byte representation of the GIF file, adapted to fit the pixel size.
+        """
         with PilImage.open(file_path) as img:
             frames = []
             try:
                 # there doesn't seem to be a frame limit, I have seen gifts with 34 frames in the "cloud material".
                 # but to be on the safe side, we limit it to 34 frames.
-                while len(frames) < 34:
+                while True:
                     frame = img.copy()
                     # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
                     # and adding a black background if necessary.
                     if frame.size != (pixel_size, pixel_size):
                         frame = frame.resize(
                             (pixel_size, pixel_size),
-                            PilImage.Resampling.LANCZOS,
+                            PilImage.Resampling.NEAREST,  # needs to use NEAREST to stay within color palette limits
                         )
-                    if frame.mode != "P":
-                        frame = frame.convert("P")
+                    # TODO: There are still some GIF files that do not work. We might need to adapt the colors of the gif to the device's color palette,
+                    #  but I don't know what that looks like yet.
+
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
             except EOFError:
                 pass
+
             gif_buffer = io.BytesIO()
             duration_per_frame_in_ms = img.info.get("duration", 100)  # default to 100ms if not set
+            # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,
                 format="GIF",
                 save_all=True,
-                append_images=frames[0:],
+                append_images=frames[1:],
                 loop=1,
                 duration=duration_per_frame_in_ms,
                 disposal=2,
