@@ -195,8 +195,6 @@ files = [
 
 [package.dependencies]
 cffi = ">=1.8,<1.11.3 || >1.11.3"
-enum34 = { version = "*", markers = "python_version < \"3\"" }
-ipaddress = { version = "*", markers = "python_version < \"3\"" }
 six = ">=1.4.1"
 
 [package.extras]
@@ -205,20 +203,6 @@ docstest = ["doc8", "pyenchant (>=1.6.11)", "sphinxcontrib-spelling (>=4.0.1)", 
 idna = ["idna (>=2.1)"]
 pep8test = ["flake8", "flake8-import-order", "pep8-naming"]
 test = ["hypothesis (>=1.11.4,!=3.79.2)", "iso8601", "pretend", "pytest (>=3.6.0,!=3.9.0,!=3.9.1,!=3.9.2)", "pytz"]
-
-[[package]]
-name = "enum34"
-version = "1.1.10"
-description = "Python 3.4 Enum backported to 3.3, 3.2, 3.1, 2.7, 2.6, 2.5, and 2.4"
-optional = false
-python-versions = "*"
-groups = ["main"]
-markers = "python_version == \"2.7\""
-files = [
-    { file = "enum34-1.1.10-py2-none-any.whl", hash = "sha256:a98a201d6de3f2ab3db284e70a33b0f896fbf35f8086594e8c9e74b909058d53" },
-    { file = "enum34-1.1.10-py3-none-any.whl", hash = "sha256:c3858660960c984d6ab0ebad691265180da2b43f07e061c0f8dca9ef3cffd328" },
-    { file = "enum34-1.1.10.tar.gz", hash = "sha256:cce6a7477ed816bd2542d03d53db9f0db935dd013b70f336a95c73979289f248" },
-]
 
 [[package]]
 name = "hyperlink"
@@ -235,7 +219,6 @@ files = [
 
 [package.dependencies]
 idna = ">=2.5"
-typing = { version = "*", markers = "python_version < \"3.5\"" }
 
 [[package]]
 name = "idna"
@@ -266,19 +249,6 @@ files = [
 [package.extras]
 mypy = ["click (>=6.0)", "mypy (==0.812)", "twisted (>=16.4.0)"]
 scripts = ["click (>=6.0)", "twisted (>=16.4.0)"]
-
-[[package]]
-name = "ipaddress"
-version = "1.0.23"
-description = "IPv4/IPv6 manipulation library"
-optional = false
-python-versions = "*"
-groups = ["main"]
-markers = "python_version == \"2.7\""
-files = [
-    { file = "ipaddress-1.0.23-py2.py3-none-any.whl", hash = "sha256:6e0f4a39e66cb5bb9a137b00276a2eff74f93b71dcbdad6f10ff7df9d3557fcc" },
-    { file = "ipaddress-1.0.23.tar.gz", hash = "sha256:b7f8e0369580bb4a24d5ba1d7cc29660a4a6987763faf1d8a8046830e020e7e2" },
-]
 
 [[package]]
 name = "pillow"
@@ -565,20 +535,6 @@ six = "*"
 twisted = ">=10.1"
 
 [[package]]
-name = "typing"
-version = "3.10.0.0"
-description = "Type Hints for Python"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <3.5"
-groups = ["main"]
-markers = "platform_system == \"Linux\" and python_version < \"3.5\""
-files = [
-    { file = "typing-3.10.0.0-py2-none-any.whl", hash = "sha256:c7219ef20c5fbf413b4567092adfc46fa6203cb8454eda33c3fc1afe1398a308" },
-    { file = "typing-3.10.0.0-py3-none-any.whl", hash = "sha256:12fbdfbe7d6cca1a42e485229afcb0b0c8259258cfb919b8a5e2a5c953742f89" },
-    { file = "typing-3.10.0.0.tar.gz", hash = "sha256:13b4ad211f54ddbf93e5901a9967b1e07720c1d1b78d596ac6a439641aa1b130" },
-]
-
-[[package]]
 name = "zope-interface"
 version = "4.6.0"
 description = "Interfaces for Python"
@@ -628,5 +584,5 @@ testing = ["coverage", "nose", "zope.event"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "*"
-content-hash = "bef02e01246e2e7b37761d707c232a45c008771153c504aaa4929949f76ee10e"
+python-versions = ">=3.8"
+content-hash = "dfb93f1113f0446086ff37598fb6461d92109616027371aad8d61d5a72b69cbf"
