@@ -132,3 +132,30 @@ class IDotMatrixClient:
         Disconnect from the IDotMatrix server.
         """
         await self._connection_manager.disconnect()
+
+    async def turn_on(self):
+        """
+        Turn on the IDotMatrix device.
+        """
+        await self.common.turn_on()
+
+    async def turn_off(self):
+        """
+        Turn off the IDotMatrix device.
+        """
+        await self.common.turn_off()
+
+    async def set_brightness(self, brightness_percent: int):
+        """
+        Set the brightness of the IDotMatrix device.
+
+        Args:
+            brightness_percent (int): Brightness level (5-100).
+        """
+        await self.common.set_brightness(brightness_percent=brightness_percent)
+
+    async def reset(self):
+        """
+        Reset the IDotMatrix device.
+        """
+        await self.common.reset()

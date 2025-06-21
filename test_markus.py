@@ -19,6 +19,8 @@ async def main():
         style=ClockStyle.RGBCorners,
     )
 
+    await client.set_brightness(20)
+
     # # connect
     # await client.connect()
     #
