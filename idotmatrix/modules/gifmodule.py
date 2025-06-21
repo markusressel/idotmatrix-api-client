@@ -44,7 +44,7 @@ class GifModule(IDotMatrixModule):
 
     @staticmethod
     def _load_gig_and_adapt_to_canvas(
-        file_path: PathLike,
+        file_path: PathLike | str,
         pixel_size: int,
         background_color: Tuple[int, int, int] = (0, 0, 0),
     ) -> bytes:
