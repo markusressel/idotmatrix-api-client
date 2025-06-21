@@ -108,7 +108,8 @@ class ConnectionManager:
             ValueError: If the device address is not set.
         """
         if not self.address:
-            raise ValueError("Device address is not set. Use set_address() or connect_by_address() or connect_by_discovery() first.")
+            raise ValueError(
+                "Device address is not set. Use set_address() or connect_by_address() or connect_by_discovery() first.")
         if not await self.is_connected():
             await self.client.connect()
             self.logging.info(f"connected to {self.address}")
@@ -135,12 +136,10 @@ class ConnectionManager:
         return self.client.is_connected
 
     async def send_bytes(self, data: bytearray | bytes, response=False):
-        if not self.address:
-            raise ValueError("Device address is not set. Use set_address(), connect_by_address() or connect_by_discovery() first.")
         if not await self.is_connected():
             await self.connect()
 
-        self.logging.debug("sending message(s) to device")
+        self.logging.debug("sending raw data to device")
         ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
         for packet in range(0, len(data), ble_packet_size):
             self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
@@ -161,7 +160,7 @@ class ConnectionManager:
         """
         if not await self.is_connected():
             await self.connect()
-        self.logging.debug("sending message(s) to device")
+        self.logging.debug(f"sending {len(packets)} packet(s) to device")
         ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
         self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 

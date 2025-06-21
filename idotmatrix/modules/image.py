@@ -2,7 +2,7 @@ import logging
 import struct
 from enum import Enum
 from os import PathLike
-from typing import Union, List, Tuple
+from typing import List, Tuple
 
 from PIL import Image as PilImage, ExifTags
 
@@ -62,7 +62,7 @@ class ImageModule(IDotMatrixModule):
             file_path=file_path,
             pixel_size=self.screen_size.value[0]  # assuming square canvas, so width == height
         )
-        return await self._send_diy_image_data(pixel_data)
+        await self._send_diy_image_data(pixel_data)
 
     @staticmethod
     def _load_image_and_adapt_to_canvas(

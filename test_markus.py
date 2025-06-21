@@ -26,13 +26,13 @@ async def main():
         show_date=False,
     )
 
-    # folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
-    folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths: List[Path] = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
-    gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
+    # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
 
     for idx, gif_file in enumerate(gif_file_paths):
         if not gif_file.exists():
@@ -42,6 +42,7 @@ async def main():
         # await client.reset()
         await client.gif.upload_gif_file(
             file_path=gif_file,
+            duration_per_frame_in_ms=200,
         )
         if idx < len(gif_file_paths) - 1:
             print(f"Waiting...")
