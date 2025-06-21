@@ -25,7 +25,9 @@ class IDotMatrixClient:
         screen_size: ScreenSize,
         mac_address: Optional[str] = None,
     ):
-        self._connection_manager = ConnectionManager()
+        self._connection_manager = ConnectionManager(
+            address=mac_address,
+        )
         self._connection_manager.address = mac_address
         self.screen_size = screen_size
         self.mac_address = mac_address

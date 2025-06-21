@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from asyncio import sleep
+from importlib.metadata import always_iterable
 from typing import List, Optional
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
@@ -10,9 +12,15 @@ from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 class ConnectionManager:
     logging = logging.getLogger(__name__)
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        address: Optional[str] = None,
+    ) -> None:
         self.address: Optional[str] = None
         self.client: Optional[BleakClient] = None
+
+        if address:
+            self.set_address(address)
 
     @staticmethod
     async def discover_devices() -> List[str]:
@@ -57,8 +65,9 @@ class ConnectionManager:
     async def connect(self) -> None:
         if not self.address:
             raise ValueError("Device address is not set. Use set_address() or connect_by_address() or connect_by_discovery() first.")
-        if not self.is_connected():
+        if not await self.is_connected():
             await self.client.connect()
+            await asyncio.sleep(2)  # wait for connection to stabilize
             self.logging.info(f"connected to {self.address}")
         else:
             self.logging.info(f"already connected to {self.address}")
@@ -76,7 +85,7 @@ class ConnectionManager:
     async def send_bytes(self, data: bytearray | bytes, response=False):
         if not self.address:
             raise ValueError("Device address is not set. Use set_address(), connect_by_address() or connect_by_discovery() first.")
-        if not self.client.is_connected:
+        if not await self.is_connected():
             await self.connect()
 
         self.logging.debug("sending message(s) to device")
@@ -87,7 +96,7 @@ class ConnectionManager:
             await sleep(0.04)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response=False):
-        if not self.client.is_connected:
+        if not await self.is_connected():
             await self.connect()
         self.logging.debug("sending message(s) to device")
         ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size

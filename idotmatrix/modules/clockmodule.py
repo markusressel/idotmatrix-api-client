@@ -11,28 +11,7 @@ class ClockModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def set_time_indicator(self, enabled: bool = True):
-        """Sets the time indicator of the clock. Does not seem to work currently (maybe in a future update?).
-        It is inside the source code of BleProtocolN.java, but not referenced anywhere.
-
-        Args:
-            enabled (bool, optional): Whether or not to show the time indicator of the clock. Defaults to True.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
-        """
-        data: bytearray = bytearray(
-            [
-                5,
-                0,
-                7,
-                128,
-                1 if enabled else 0,
-            ]
-        )
-        await self.send_bytes(data=data)
-
-    async def set_mode(
+    async def show(
         self,
         style: int,
         show_date: bool = True,
@@ -84,6 +63,27 @@ class ClockModule(IDotMatrixModule):
                 r % 256,
                 g % 256,
                 b % 256,
+            ]
+        )
+        await self.send_bytes(data=data)
+
+    async def set_time_indicator(self, enabled: bool = True):
+        """Sets the time indicator of the clock. Does not seem to work currently (maybe in a future update?).
+        It is inside the source code of BleProtocolN.java, but not referenced anywhere.
+
+        Args:
+            enabled (bool, optional): Whether to show the time indicator of the clock. Defaults to True.
+
+        Returns:
+            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
+        """
+        data: bytearray = bytearray(
+            [
+                5,
+                0,
+                7,
+                128,
+                1 if enabled else 0,
             ]
         )
         await self.send_bytes(data=data)

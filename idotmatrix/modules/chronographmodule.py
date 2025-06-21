@@ -7,7 +7,19 @@ from idotmatrix.modules import IDotMatrixModule
 class ChronographModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
-    async def set_mode(self, mode: int):
+    async def reset(self):
+        await self._set_mode(0)
+
+    async def start_from_zero(self):
+        await self._set_mode(1)
+
+    async def pause(self):
+        await self._set_mode(2)
+
+    async def resume(self):
+        await self._set_mode(3)
+
+    async def _set_mode(self, mode: int):
         """Starts/Stops the Chronograph.
 
         Args:

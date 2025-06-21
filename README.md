@@ -1,4 +1,4 @@
-> [!NOTE]  
+from idotmatrix.screensize import ScreenSizefrom idotmatrix.client import IDotMatrixClient> [!NOTE]  
 > Due to a long-term health condition (post-COVID since almost three years), I am unable to continue developing this project. Although many amazing contributors have helped over the years, I am unsure when I will be able to resume work. This is my most popular project (over 61 stars!), and I hope others will continue to improve the client and library for various use cases, such as Home Assistant integration. Thank you for your understanding and support.
 
 <br/>
@@ -89,13 +89,16 @@ If you want to use the integrated bleak library to talk to your device, you have
 
 ```python
 import asyncio
-from idotmatrix import ConnectionManager
+from idotmatrix import IDotMatrixClient, ScreenSize
 
 
 async def main():
+  client = IDotMatrixClient(
+    screen_size=ScreenSize.SIZE_64x64
+  )
   # connect to first found iDotMatrix Pixel Display
-  conn = ConnectionManager()
-  await conn.connect_by_discovery()
+  await client.connect()
+  
   # do something with this connection afterwards
 
 
@@ -116,10 +119,13 @@ The Chronograph has 4 different modes. Using mode 1 will automatically open the 
 - 3 = continue after pause
 
 ```python
-from idotmatrix import Chronograph
-
-chronograph = Chronograph()
-await chronograph.set_mode(1)
+client = IDotMatrixClient(
+    screen_size=ScreenSize.SIZE_64x64
+)
+await client.chronograph.reset()
+await client.chronograph.start_from_zero()
+await client.chronograph.pause()
+await client.chronograph.continue_after_pause()
 ```
 
 ## Roadmap
