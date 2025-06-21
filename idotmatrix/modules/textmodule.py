@@ -1,11 +1,13 @@
-from ..connectionManager import ConnectionManager
 import logging
-from PIL import Image, ImageDraw, ImageFont
-from typing import Tuple, Optional, Union
 import zlib
+from typing import Tuple, Optional
+
+from PIL import Image, ImageDraw, ImageFont
+
+from idotmatrix.modules import IDotMatrixModule
 
 
-class Text:
+class TextModule(IDotMatrixModule):
     """Manages text processing and packet creation for iDotMatrix devices. With help from https://github.com/8none1/idotmatrix/ :)"""
 
     logging = logging.getLogger(__name__)
@@ -15,10 +17,7 @@ class Text:
     # must be x05 for 16x32 or x02 for 8x16
     separator = b"\x05\xff\xff\xff"
 
-    def __init__(self) -> None:
-        self.conn: ConnectionManager = ConnectionManager()
-
-    async def setMode(
+    async def set_mode(
         self,
         text: str,
         font_size: int = 16,
@@ -29,30 +28,23 @@ class Text:
         text_color: Tuple[int, int, int] = (255, 0, 0),
         text_bg_mode: int = 0,
         text_bg_color: Tuple[int, int, int] = (0, 255, 0),
-    ) -> Union[bool, bytearray]:
-        try:
-            data = self._buildStringPacket(
-                text_mode=text_mode,
-                speed=speed,
-                text_color_mode=text_color_mode,
-                text_color=text_color,
-                text_bg_mode=text_bg_mode,
-                text_bg_color=text_bg_color,
-                text_bitmaps=self._StringToBitmaps(
-                    text=text,
-                    font_size=font_size,
-                    font_path=font_path,
-                ),
-            )
-            if self.conn:
-                await self.conn.connect()
-                await self.conn.send(data=data)
-            return data
-        except BaseException as error:
-            self.logging.error(f"could send the text to the device: {error}")
-            return False
+    ):
+        data = self._build_string_packet(
+            text_mode=text_mode,
+            speed=speed,
+            text_color_mode=text_color_mode,
+            text_color=text_color,
+            text_bg_mode=text_bg_mode,
+            text_bg_color=text_bg_color,
+            text_bitmaps=self._string_to_bitmaps(
+                text=text,
+                font_size=font_size,
+                font_path=font_path,
+            ),
+        )
+        await self.send_bytes(data=data)
 
-    def _buildStringPacket(
+    def _build_string_packet(
         self,
         text_bitmaps: bytearray,
         text_mode: int = 1,
@@ -123,7 +115,7 @@ class Text:
 
         return header + packet
 
-    def _StringToBitmaps(
+    def _string_to_bitmaps(
         self, text: str, font_path: Optional[str] = None, font_size: Optional[int] = 20
     ) -> bytearray:
         """Converts text to bitmap images suitable for iDotMatrix devices."""

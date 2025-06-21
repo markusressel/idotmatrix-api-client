@@ -1,0 +1,30 @@
+import logging
+from typing import Union
+
+from idotmatrix.modules import IDotMatrixModule
+
+
+class ChronographModule(IDotMatrixModule):
+    logging = logging.getLogger(__name__)
+
+    async def set_mode(self, mode: int):
+        """Starts/Stops the Chronograph.
+
+        Args:
+            mode (int): 0 = reset, 1 = (re)start, 2 = pause, 3 = continue after pause
+
+        Returns:
+            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
+        """
+        if mode not in range(0, 4):
+            raise ValueError("Chronograph.setMode expects parameter mode to be between 0 and 3")
+        data: bytearray = bytearray(
+            [
+                5,
+                0,
+                9,
+                128,
+                mode,
+            ]
+        )
+        await self.send_bytes(data=data)

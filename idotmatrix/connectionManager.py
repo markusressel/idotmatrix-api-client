@@ -57,7 +57,7 @@ class ConnectionManager:
             await self.client.disconnect()
             self.logging.info(f"disconnected from {self.address}")
 
-    async def send(self, data, response=False):
+    async def send_bytes(self, data: bytearray | bytes, response=False):
         if self.client and self.client.is_connected:
             self.logging.debug("sending message(s) to device")
             ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size

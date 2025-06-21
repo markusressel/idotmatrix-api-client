@@ -1,83 +1,60 @@
 import asyncio
 import time
-from idotmatrix import ConnectionManager
-from idotmatrix import Chronograph
-from idotmatrix import Clock
-from idotmatrix import Common
-from idotmatrix import Countdown
-from idotmatrix import Effect
 
-# from idotmatrix import Eco
-from idotmatrix import FullscreenColor
-from idotmatrix import Gif
-from idotmatrix import Graffiti
-from idotmatrix import ImageModule
-
-# from idotmatrix import MusicSync
-from idotmatrix import Scoreboard
-
-# from idotmatrix import System
-from idotmatrix import Text
+from idotmatrix.client import IDotMatrixClient
+from idotmatrix.screensize import ScreenSize
 
 
 async def main():
+    client = IDotMatrixClient(
+        screen_size=ScreenSize.SIZE_64x64,
+    )
+
     # connect
-    conn = ConnectionManager()
-    await conn.connect_by_search()
+    await client.connect()
     # chronograph
-    test = Chronograph()
-    await test.setMode(1)
+    await client.chronograph.set_mode(1)
     time.sleep(5)
     # clock
-    test = Clock()
-    await test.setMode(1)
+    await client.clock.set_mode(1)
     time.sleep(5)
     # Common
-    test = Common()
-    await test.flipScreen(True)
+    await client.common.set_screen_flipped(True)
     time.sleep(5)
-    await test.flipScreen(False)
+    await client.common.set_screen_flipped(False)
     # Countdown
-    test = Countdown()
-    await test.setMode(1, 0, 5)
+    await client.countdown.set_mode(1, 0, 5)
     time.sleep(5)
     # FullscreenColor
-    test = FullscreenColor()
-    await test.setMode(r=255, g=255, b=0)
+    await client.color.set_mode(r=255, g=255, b=0)
     time.sleep(5)
     # show GIF
-    test = Gif()
-    await test.uploadProcessed(
+    await client.gif.upload_processed(
         file_path="./images/demo.gif",
         pixel_size=32,
     )
     time.sleep(5)
     # Graffiti
-    test = Graffiti()
-    await test.setPixel(r=255, g=255, b=255, x=10, y=10)
+    await client.graffiti.set_pixel(r=255, g=255, b=255, x=10, y=10)
     time.sleep(5)
     # Image
-    test = ImageModule()
-    await test.upload_image_file(
+    await client.image.upload_image_file(
         file_path="./images/demo_512.png",
-        pixel_size=32,
     )
     time.sleep(5)
     # Scoreboard
-    test = Scoreboard()
-    await test.setMode(10, 5)
+    await client.scoreboard.set_mode(10, 5)
     time.sleep(5)
     # Text
-    test = Text()
-    await test.setMode(
+    await client.text.set_mode(
         "HELLO WORLD",
         font_path="./fonts/Rain-DRM3.otf",
     )
     time.sleep(5)
     # Effect
-    test = Effect()
-    await test.setMode(1, [(255,0,0), (255,162,0), (255,255,0), (0,255,0), (0,0,255), (255,0,255)])
+    await client.effect.set_mode(1, [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)])
     time.sleep(5)
+
 
 if __name__ == "__main__":
     try:

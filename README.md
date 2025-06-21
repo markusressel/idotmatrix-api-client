@@ -119,7 +119,7 @@ The Chronograph has 4 different modes. Using mode 1 will automatically open the 
 from idotmatrix import Chronograph
 
 chronograph = Chronograph()
-await chronograph.setMode(1)
+await chronograph.set_mode(1)
 ```
 
 ## Roadmap

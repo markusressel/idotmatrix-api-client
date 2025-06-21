@@ -1,18 +1,17 @@
-from ..connectionManager import ConnectionManager
-from cryptography.fernet import Fernet
 import logging
 from typing import Union
 
+from cryptography.fernet import Fernet
 
-class System:
+from idotmatrix.modules import IDotMatrixModule
+
+
+class SystemModule(IDotMatrixModule):
     """This class contains system calls for the iDotMatrix device."""
 
     logging = logging.getLogger(__name__)
 
-    def __init__(self) -> None:
-        self.conn: ConnectionManager = ConnectionManager()
-
-    async def deleteDeviceData(self) -> bytearray:
+    async def delete_device_data(self):
         """Deletes the device data and resets it to defaults.
 
         Returns:
@@ -39,12 +38,10 @@ class System:
                 11,
             ]
         )
-        if self.conn:
-            await self.conn.connect()
-            await self.conn.send(data=data)
-        return data
+        await self.send_bytes(data=data)
 
-    def _encryptAes(self, data: bytes, key: bytes) -> bytes:
+    @staticmethod
+    def _encrypt_aes(data: bytes, key: bytes) -> bytes:
         """Encrypts data using AES encryption with the given key.
 
         Args:
@@ -58,40 +55,33 @@ class System:
         encrypted_data = f.encrypt(data)
         return encrypted_data
 
-    async def getDeviceLocation(self) -> Union[bool, bytearray]:
+    async def get_device_location(self):
         """Gets the device location (untested yet). Missing some AES encryption stuff of iDotMatrix to work.
 
         Returns:
             Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         # TODO: implement Aes encryption according to iDotMatrix Android App
-        try:
-            command = bytearray(
-                [
-                    6,
-                    76,
-                    79,
-                    67,
-                    65,
-                    84,
-                    69,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                ]
-            )
-            key = Fernet.generate_key()
-            data = self._encryptAes(bytes(command), key)
-            if self.conn:
-                await self.conn.connect()
-                await self.conn.send(data=data)
-            return data
-        except Exception as error:
-            self.logging.error(f"could not get device location: {error}")
-            return False
+        command = bytearray(
+            [
+                6,
+                76,
+                79,
+                67,
+                65,
+                84,
+                69,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+        key = Fernet.generate_key()
+        data = self._encrypt_aes(bytes(command), key)
+        await self.send_bytes(data=data)

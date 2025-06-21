@@ -1,12 +1,12 @@
 import asyncio
 from asyncio import sleep
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.modules.graffiti import Graffiti
 from idotmatrix.screensize import ScreenSize
 
 
@@ -43,7 +43,7 @@ def convert_image_to_pixel_array(
         return pixel_array
 
 
-async def draw_shuffled(pixel_data):
+async def draw_shuffled(client: IDotMatrixClient, pixel_data: List[List[Tuple[int, int, int]]]) -> None:
     """
     Draws the pixel data on the iDotMatrix display in a shuffled manner.
     Args:
@@ -60,8 +60,6 @@ async def draw_shuffled(pixel_data):
     import random
     random.shuffle(shuffled_coordinate_pairs)
 
-    graffiti_client = Graffiti()
-
     for x, y in shuffled_coordinate_pairs:
         color = pixel_data[y][x]
         if color == (0, 0, 0):
@@ -70,7 +68,7 @@ async def draw_shuffled(pixel_data):
         red = color[0]
         green = color[1]
         blue = color[2]
-        await graffiti_client.setPixel(
+        await client.graffiti.set_pixel(
             r=red, g=green, b=blue,
             x=x, y=y
         )
@@ -87,23 +85,21 @@ async def main():
     await client.connect()
     await sleep(2)
 
-    # common_client = Common()
-    # # await common_client.flipScreen(False)
-    # now = datetime.now()
-    # await common_client.setTime(
-    #     year=now.year,
-    #     month=now.month,
-    #     day=now.day,
-    #     hour=now.hour,
-    #     minute=now.minute,
-    #     second=now.second,
-    # )
-    # await common_client.setBrightness(10)
-    # await sleep(0.2)
-    # #
-    # image_client = ImageModule()
-    # await image_client.set_mode(1)
-    # await sleep(0.5)
+    # await common_client.flipScreen(False)
+    now = datetime.now()
+    await client.common.set_time(
+        year=now.year,
+        month=now.month,
+        day=now.day,
+        hour=now.hour,
+        minute=now.minute,
+        second=now.second,
+    )
+    await client.common.set_brightness(10)
+    await sleep(0.2)
+    #
+    await client.image.set_mode(1)
+    await sleep(0.5)
 
     path = Path("/home/markus/pictures/collage/beide ja")
     path = Path("/home/markus/pictures/Satisfactory Photo Mode")
@@ -123,65 +119,59 @@ async def main():
             file_path=file.absolute().as_posix(),
         )
 
-    # gif_mode = Gif()
-    # await gif_mode.uploadProcessed(
-    #     pixel_size=screen_size,
-    #     # file_path="./images/demo_512.png",
-    #     file_path="/home/markus/Downloads/1624051-square-zoomed.jpg"
-    # )
+    await client.gif.upload_processed(
+        # file_path="./images/demo_512.png",
+        file_path="/home/markus/Downloads/1624051-square-zoomed.jpg"
+    )
 
-    # await common_client.setBrightness(95)
-    # await sleep(0.02)
+    await client.common.set_brightness(95)
+    await sleep(0.02)
 
-    # graffiti_client = Graffiti()
+    pixel_data = convert_image_to_pixel_array(
+        pixel_size=client.screen_size.value[0],  # assuming square canvas, so width == height
+        # file_path="./images/demo_512.png",
+        file_path="/home/markus/Downloads/1624051-square-zoomed.jpg"
+    )
 
-    # pixel_data = convert_image_to_pixel_array(
-    #     pixel_size=screen_size,
-    #     # file_path="./images/demo_512.png",
-    #     file_path="/home/markus/Downloads/1624051-square-zoomed.jpg"
-    # )
-    #
-    # await draw_shuffled(pixel_data)
+    await draw_shuffled(client, pixel_data)
 
     # Upload the pixel data to the iDotMatrix display
-    # for y, column in enumerate(pixel_data):
-    #     for x, color in enumerate(column):
-    #         if color == (0, 0, 0):
-    #             continue
-    #         await graffiti_client.setPixel(
-    #             r=color[0], g=color[1], b=color[2], x=x, y=y
-    #         )
-    #         await sleep(0.02)
+    for y, column in enumerate(pixel_data):
+        for x, color in enumerate(column):
+            if color == (0, 0, 0):
+                continue
+            await client.graffiti.set_pixel(
+                r=color[0], g=color[1], b=color[2], x=x, y=y
+            )
+            await sleep(0.02)
 
-    # # draw a right angle with three pixels in all four corners of the 64x64 pixel screen to different colours
-    # await test.setPixel(255, 255, 255, 0, 0)  # top left corner
-    # await test.setPixel(255, 0, 0, 0, 63)  # top right corner
-    # await test.setPixel(0, 255, 0, 63, 0)  # bottom left corner
-    # await test.setPixel(0, 0, 255, 63, 63)  # bottom right corner
+    # draw a right angle with three pixels in all four corners of the 64x64 pixel screen to different colours
+    await client.graffiti.set_pixel(255, 255, 255, 0, 0)  # top left corner
+    await client.graffiti.set_pixel(255, 0, 0, 0, 63)  # top right corner
+    await client.graffiti.set_pixel(0, 255, 0, 63, 0)  # bottom left corner
+    await client.graffiti.set_pixel(0, 0, 255, 63, 63)  # bottom right corner
 
-    # test = Text()
-    # await test.setMode(
-    #     text="Hello World!",
-    #     font_size=16,
-    #     text_mode=3,
-    #     speed=95,
-    #     text_color_mode=1,
-    #     text_color=(255, 0, 0),
-    #     text_bg_mode=0,
-    #     text_bg_color=(0, 255, 0),
-    #     # font_path="./fonts/RobotoMono-Regular.ttf",
-    # )
+    await client.text.set_mode(
+        text="Hello World!",
+        font_size=16,
+        text_mode=3,
+        speed=95,
+        text_color_mode=1,
+        text_color=(255, 0, 0),
+        text_bg_mode=0,
+        text_bg_color=(0, 255, 0),
+        # font_path="./fonts/RobotoMono-Regular.ttf",
+    )
 
-    # await sleep(1000)
+    await sleep(1000)
 
-    # colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.
-    #
-    # # Effect
-    # test = Effect()
-    # for i in range(0, 7):
-    #     for j in range(2, 7):
-    #         await test.setMode(i, colours[:j])
-    #         await sleep(1000)
+    colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.
+
+    # Effect
+    for i in range(0, 7):
+        for j in range(2, 7):
+            await client.effect.set_mode(i, colours[:j])
+            await sleep(1000)
 
 
 if __name__ == "__main__":

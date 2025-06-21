@@ -6,6 +6,7 @@ from typing import Union, List, Tuple
 from PIL import Image as PilImage, ExifTags
 
 from idotmatrix.connectionManager import ConnectionManager
+from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 
 MTU_SIZE_IF_ENABLED = 509
@@ -13,7 +14,7 @@ MTU_SIZE_IF_DISABLED = 18
 CHUNK_SIZE_4096 = 4096
 
 
-class ImageModule:
+class ImageModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
     def __init__(
@@ -21,7 +22,7 @@ class ImageModule:
         connection_manager: ConnectionManager,
         screen_size: ScreenSize,
     ):
-        self.conn: ConnectionManager = connection_manager
+        super().__init__(connection_manager=connection_manager)
         self.screen_size = screen_size
 
     async def set_mode(
@@ -37,12 +38,11 @@ class ImageModule:
             Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray([5, 0, 4, 1, mode % 256])
-        await self.conn.connect()
-        await self.conn.send(data=data)
+        await self.send_bytes(data=data)
 
     async def upload_image_file(
         self,
-        file_path: PathLike,
+        file_path: PathLike | str,
     ) -> None:
         """Uploads a file processed and makes sure everything is correct before uploading to the device.
 
@@ -136,9 +136,7 @@ class ImageModule:
         self, pixel_data: bytearray,
     ) -> None:
         packets = self._create_diy_image_data_packets(pixel_data)
-        if self.conn:
-            await self.conn.connect()
-            await self.conn.send_packets(data=packets)
+        await self.send_packets(packets)
 
     @staticmethod
     def _short_to_bytes_le(value: int) -> bytes:
