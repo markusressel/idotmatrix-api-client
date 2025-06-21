@@ -58,8 +58,6 @@ connect and control these displays without the need for the official app.
 
 ## Getting Started
 
-To get a local copy up and running or use the latest pypi package follow these simple example steps:
-
 ### Prerequisites
 
 Please install the following for your distribution (Windows may work but it is untested):
