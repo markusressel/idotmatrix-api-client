@@ -31,7 +31,7 @@
     <br/>
     <br/>
     <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Report Bug</a>
-    .
+    or
     <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Request Feature</a>
   </p>
 </p>
