@@ -12,6 +12,9 @@ from idotmatrix.screensize import ScreenSize
 
 
 class GifModule(IDotMatrixModule):
+    """
+    This class handles GIF file uploads to the iDotMatrix device.
+    """
     logging = logging.getLogger(__name__)
 
     def __init__(
@@ -47,6 +50,7 @@ class GifModule(IDotMatrixModule):
         file_path: PathLike | str,
         pixel_size: int,
         background_color: Tuple[int, int, int] = (0, 0, 0),
+        duration_per_frame_in_ms: int = None,
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -54,6 +58,8 @@ class GifModule(IDotMatrixModule):
         Args:
             file_path (PathLike): Path to the GIF file.
             pixel_size (int): Size of the pixel in the device's canvas.
+            background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
+            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
@@ -81,8 +87,12 @@ class GifModule(IDotMatrixModule):
             except EOFError:
                 pass
 
+            # TODO: there are still some cases where
+            #  - the GIF is not animating all frames
+
             gif_buffer = io.BytesIO()
-            duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
+            if duration_per_frame_in_ms is None:
+                duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,
