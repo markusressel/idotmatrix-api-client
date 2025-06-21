@@ -1,6 +1,9 @@
 > [!NOTE]  
-> This is a fork of the original project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no longer maintained due to the
-> author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it remains functional and up-to-date for users who rely on it for
+> This is a fork of the original
+> project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no
+> longer maintained due to the
+> author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it
+> remains functional and up-to-date for users who rely on it for
 > controlling iDotMatrix pixel displays.
 
 > **The structure of the original project has been significantly altered to improve usability and maintainability.**
@@ -8,7 +11,7 @@
 
 <br/>
 <p align="center">
-  <a href="https://github.com/derkalle4/python3-idotmatrix-library">
+  <a href="https://github.com/derkamarkusressel/python3-idotmatrix-library">
     <img src="images/logo.png" alt="Logo" width="250" height="250">
   </a>
 
@@ -18,12 +21,12 @@
     control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
     <br/>
     <br/>
-    <a href="https://github.com/derkalle4/python3-idotmatrix-library"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/markusressel/python3-idotmatrix-library"><strong>Explore the docs »</strong></a>
     <br/>
     <br/>
-    <a href="https://github.com/derkalle4/python3-idotmatrix-library/issues">Report Bug</a>
+    <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Report Bug</a>
     .
-    <a href="https://github.com/derkalle4/python3-idotmatrix-library/issues">Request Feature</a>
+    <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Request Feature</a>
   </p>
 </p>
 
@@ -45,8 +48,11 @@
 
 ## About The Project
 
-This repository aims to reverse engineer the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen displays
-like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a simple library which you can use to connect to your display(s).
+This repository aims to reverse engineer
+the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen
+displays
+like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a simple
+library which you can use to connect to your display(s).
 
 ## Built With
 
@@ -83,20 +89,13 @@ cd python3-idotmatrix-library/
 pip install .
 ```
 
-#### install latest public version via pypi
-
-```sh
-pip install idotmatrix
-```
-
 ## Usage
-
-If you want to use the integrated bleak library to talk to your device, you have to initialize the ConnectionManager first. If you omit this step all classes will return the
-bytecode which you then can send to the device with your own bluetooth implementation.
 
 ```python
 import asyncio
+
 from idotmatrix import IDotMatrixClient, ScreenSize
+
 
 async def main():
   # create a new IDotMatrixClient instance with the screen size of your device
@@ -120,22 +119,12 @@ if __name__ == "__main__":
     quit()
 ```
 
-### Chronograph
-
-```python
-from idotmatrix import IDotMatrixClient, ScreenSize
-client = IDotMatrixClient(
-    screen_size=ScreenSize.SIZE_64x64
-)
-await client.chronograph.reset()  # reset the chronograph / switch to chronograph screen
-await client.chronograph.start_from_zero()  # start the chronograph from zero
-await client.chronograph.pause()  # pause the chronograph
-await client.chronograph.continue_after_pause()  # continue the chronograph after pause
-```
+For more examples please check the [example.py](./example.py).
 
 ## Roadmap
 
-If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good. Many thanks for all contributions! If you want to dive deep
+If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good.
+Many thanks for all contributions! If you want to dive deep
 into other issues please check for "#TODO" comments in the source code as well.
 
 * [ ] Reverse Engineering
@@ -159,13 +148,17 @@ into other issues please check for "#TODO" comments in the source code as well.
 
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any
+contributions you make are **greatly appreciated**.
 
-* If you have suggestions for adding or removing projects, feel free to [open an issue](https://github.com/markusressel/python3-idotmatrix-library/issues/new) to discuss it, or
+* If you have suggestions for adding or removing projects, feel free
+  to [open an issue](https://github.com/markusressel/python3-idotmatrix-library/issues/new) to discuss it, or
   directly create a pull request after you edit the *README.md* file with necessary changes.
 * Please make sure you check your spelling and grammar.
 * Create individual PR for each suggestion.
-* Please also read through the [Code Of Conduct](https://github.com/markusressel/python3-idotmatrix-library/blob/main/CODE_OF_CONDUCT.md) before posting your first idea as well.
+* Please also read through
+  the [Code Of Conduct](https://github.com/markusressel/python3-idotmatrix-library/blob/main/CODE_OF_CONDUCT.md) before
+  posting your first idea as well.
 
 ### Creating A Pull Request
 
@@ -177,7 +170,8 @@ Contributions are what make the open source community such an amazing place to b
 
 ## License
 
-Distributed under the GNU GENERAL PUBLIC License. See [LICENSE](https://github.com/markusressel/python3-idotmatrix-library/blob/main/LICENSE) for more information.
+Distributed under the GNU GENERAL PUBLIC License.
+See [LICENSE](https://github.com/markusressel/python3-idotmatrix-library/blob/main/LICENSE) for more information.
 
 ## Acknowledgements
 
