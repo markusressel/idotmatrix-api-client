@@ -176,6 +176,7 @@ class CommonModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
 
     async def set_joint(self, mode: int):
         """

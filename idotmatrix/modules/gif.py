@@ -10,10 +10,10 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 
-ANIMATION_MAX_FRAMES = 64  # Maximum number of frames in a GIF animation
+ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
 ANIMATION_TOTAL_DURATION_LIMIT_MS = 2000
-DEFAULT_ANIMATION_TOTAL_DURATION = ANIMATION_TOTAL_DURATION_LIMIT_MS
+DEFAULT_ANIMATION_TOTAL_DURATION_MS = ANIMATION_TOTAL_DURATION_LIMIT_MS
 
 
 class GifModule(IDotMatrixModule):
@@ -201,7 +201,11 @@ class GifModule(IDotMatrixModule):
     def _ensure_reasonable_frame_count(
         img: PilImage.Image,
         frames: List[PilImage.Image],
-        duration_per_frame_in_ms: int = None
+        duration_per_frame_in_ms: int = None,
+        default_total_duration: int = DEFAULT_ANIMATION_TOTAL_DURATION_MS,
+        default_duration_per_frame: int = DEFAULT_DURATION_PER_FRAME_MS,
+        total_duration_limit_ms: int = ANIMATION_TOTAL_DURATION_LIMIT_MS,
+        max_total_frame_count: int = ANIMATION_MAX_FRAME_COUNT,
     ) -> Tuple[List[PilImage.Image], int]:
         """
         The device can only handle a limited number of frames in a GIF animation, due to limited processing power and memory.
@@ -216,40 +220,50 @@ class GifModule(IDotMatrixModule):
         """
         # determine the optimal duration per frame if not provided
         if duration_per_frame_in_ms is None:
-            duration_per_frame_in_ms = img.info.get("duration", DEFAULT_DURATION_PER_FRAME_MS)
+            duration_per_frame_in_ms = img.info.get("duration", default_duration_per_frame)
             # if the value we get is not reasonable, compute alternative value
             if (
                 not isinstance(duration_per_frame_in_ms, int)
                 or not duration_per_frame_in_ms
                 or duration_per_frame_in_ms <= 0
             ):
-                # compute the duration per frame based on the number of frames and the default total duration
-                duration_per_frame_in_ms = DEFAULT_ANIMATION_TOTAL_DURATION / len(frames)
+                if len(frames) > max_total_frame_count:
+                    # if the number of frames exceeds the maximum allowed frames, set the duration so that exactly max_total_frame_count frames fit into the total duration limit
+                    duration_per_frame_in_ms = total_duration_limit_ms / max_total_frame_count
+                else:
+                    # compute the duration per frame based on the number of frames and the default total duration
+                    duration_per_frame_in_ms = default_total_duration / len(frames)
 
             if duration_per_frame_in_ms < 16:
-                # make sure the duration is at least 16ms, otherwise the device might not be able to handle it
+                # make sure the duration is at least 16ms (60fps), otherwise the device might not be able to handle it
                 duration_per_frame_in_ms = 16
 
         # make sure the duration of the full animation doesn't exceed (duration_per_frame_in_ms * 64)
         # because otherwise the upload takes a very long time
+        original_frame_count = len(frames)
+        original_duration = original_frame_count * duration_per_frame_in_ms
+        if original_duration > total_duration_limit_ms:
+            # if the total duration limit is exceeded, skip frames (except for the first and last one) to stay within the limit
+            result_frames = [frames[0], frames[-1]]  # always keep the first and last frame
 
-        if len(frames) * duration_per_frame_in_ms > ANIMATION_TOTAL_DURATION_LIMIT_MS:
-            # if the time limit is exceeded, skip frames (except for the first and last one) to stay within the time limit
-            number_of_frames_to_keep = int(ANIMATION_TOTAL_DURATION_LIMIT_MS / duration_per_frame_in_ms)
-            number_of_frames_to_keep = min(ANIMATION_MAX_FRAMES, number_of_frames_to_keep)
-            available_frames = len(frames)
+            number_of_frames_to_keep = int(
+                total_duration_limit_ms / duration_per_frame_in_ms) - 2  # -2 because we keep the first and last frame
+            number_of_frames_to_keep = min(max_total_frame_count - 2, number_of_frames_to_keep)
 
-            if number_of_frames_to_keep >= available_frames:
+            if number_of_frames_to_keep >= original_frame_count:
                 # if the number of frames to keep is greater than or equal to the available frames, do nothing
                 return frames, duration_per_frame_in_ms
-            # calculate the step size to skip frames
-            step_size = max(1, available_frames // number_of_frames_to_keep)
-            frames = [frames[i] for i in range(0, available_frames, step_size)]
-            # if the number of frames exceeds the maximum allowed frames, truncate the list
-            if len(frames) > ANIMATION_MAX_FRAMES:
-                frames = frames[:ANIMATION_MAX_FRAMES]
 
-        print(f"GIF frames: {len(frames)}")
+            frames_excluding_first_and_last = frames[1:-1]
+            # evenly select number_of_frames_to_keep frames from frames_excluding_first_and_last and insert them into result_frames between the first and last frame
+            step = len(frames_excluding_first_and_last) // number_of_frames_to_keep
+            for i in range(0, len(frames_excluding_first_and_last), step):
+                if len(result_frames) < max_total_frame_count - 1:
+                    result_frames.insert(-1, frames_excluding_first_and_last[i])
+            frames = result_frames
+
+        print(f"GIF original frame count: {original_frame_count}")
+        print(f"GIF adjusted frame count: {len(frames)}")
         print(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
         print(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
 
