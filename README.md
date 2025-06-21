@@ -11,6 +11,9 @@
 > While the featureset should be identical (or better), the structure of the original project has been significantly
 > altered to improve usability and maintainability. This means it is not possible to switch between the original and
 > this fork without manually adjusting the code.
+>
+> In addition to that, the support for returning the raw bytearray data for specific commands **has been dropped**
+> to simplify maintenance and usability of the library.
 
 <br/>
 <p align="center">
