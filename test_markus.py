@@ -16,21 +16,23 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
+    await client.set_brightness(100)
     await client.clock.show(
         style=ClockStyle.RGBSwipeOutline,
         show_date=False,
     )
-    await client.set_brightness(20)
 
-    folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
-    folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
-    folder = Path("/home/markus/pictures/Pixel Art GIF/work")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
+    gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
 
     for idx, gif_file in enumerate(gif_file_paths):
         print(f"Uploading GIF: {gif_file.name}")
-        await client.reset()
+        # await client.reset()
         await client.gif.upload_gif_file(
             file_path=gif_file,
         )
@@ -80,7 +82,6 @@ async def main():
     # )
     #
     # await client.common.set_brightness(95)
-    # await sleep(0.02)
     #
     # pixel_data = convert_image_to_pixel_array(
     #     pixel_size=client.screen_size.value[0],  # assuming square canvas, so width == height
@@ -172,8 +173,6 @@ async def draw_shuffled(client: IDotMatrixClient, pixel_data: List[List[Tuple[in
             r=red, g=green, b=blue,
             x=x, y=y
         )
-        # add a small delay, to avoid overwhelming the device with requests
-        await asyncio.sleep(0.02)
 
 
 if __name__ == "__main__":
