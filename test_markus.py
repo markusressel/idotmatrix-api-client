@@ -22,7 +22,7 @@ async def main():
 
     for idx, gif_file in enumerate(gif_file_paths):
         print(f"Uploading GIF: {gif_file.name}")
-        await client.gif.upload_processed(
+        await client.gif.upload_gif_file(
             file_path=gif_file,
         )
         if idx < len(gif_file_paths) - 1:
@@ -88,7 +88,7 @@ async def main():
     #
     # await draw_shuffled(client, pixel_data)
 
-    # await client.text.set_mode(
+    # await client.text.show_text(
     #     text="HELLO WORLD!",
     #     # font_size=16,
     #     # text_mode=TextMode.MARQUEE,

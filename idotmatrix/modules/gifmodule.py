@@ -22,24 +22,11 @@ class GifModule(IDotMatrixModule):
         super().__init__(connection_manager=connection_manager)
         self.screen_size = screen_size
 
-    async def upload_unprocessed(self, file_path: str):
-        """uploads an image without further checks and resizes.
-
-        Args:
-            file_path (str): path to the image file
-        """
-        gif_data = self._load(file_path)
-        data = self._create_payloads(gif_data)
-        for chunk in data:
-            await self.send_bytes(
-                data=chunk,
-                response=True,
-            )
-
-    async def upload_processed(
+    async def upload_gif_file(
         self, file_path: PathLike | str
     ):
-        """uploads a file processed to make sure everything is correct before uploading to the device.
+        """
+        Uploads a GIF file to the device.
 
         Args:
             file_path (str): path to the image file
@@ -57,7 +44,8 @@ class GifModule(IDotMatrixModule):
 
     @staticmethod
     def _load(file_path: str) -> bytes:
-        """Load a gif file into a byte buffer.
+        """
+        Load a gif file into a byte buffer.
 
         Args:
             file_path (str): path to file
@@ -70,7 +58,8 @@ class GifModule(IDotMatrixModule):
 
     @staticmethod
     def _split_into_chunks(data: bytearray, chunk_size: int) -> List[bytearray]:
-        """Split the data into chunks of specified size.
+        """
+        Split the data into chunks of specified size.
 
         Args:
             data (bytearray): data to split into chunks
@@ -84,7 +73,8 @@ class GifModule(IDotMatrixModule):
     def _create_payloads(
         self, gif_data: bytearray | bytes, chunk_size: int = 4096
     ) -> List[bytearray]:
-        """Creates payloads from a GIF file.
+        """
+        Creates payloads from a GIF file.
 
         Args:
             gif_data (bytearray): data of the gif file
@@ -141,6 +131,7 @@ class GifModule(IDotMatrixModule):
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
+
         Args:
             file_path (PathLike): Path to the GIF file.
             pixel_size (int): Size of the pixel in the device's canvas.

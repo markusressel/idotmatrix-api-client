@@ -30,6 +30,7 @@ class IDotMatrixClient:
     ):
         """
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
+
         Args:
             screen_size (ScreenSize): The size of the screen, e.g., ScreenSize.SIZE_64x64.
             mac_address (Optional[str]): The Bluetooth MAC address of the iDotMatrix device. If not provided,

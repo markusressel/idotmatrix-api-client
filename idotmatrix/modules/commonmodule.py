@@ -6,14 +6,16 @@ from idotmatrix.modules import IDotMatrixModule
 
 
 class CommonModule(IDotMatrixModule):
-    """This class contains generic Bluetooth functions for the iDotMatrix.
+    """
+    This class contains generic Bluetooth functions for the iDotMatrix.
     Based on the BleProtocolN.java file of the iDotMatrix Android App.
     """
 
     logging = logging.getLogger(__name__)
 
     async def freeze_screen(self):
-        """Freezes or unfreezes the screen.
+        """
+        Freezes or unfreezes the screen.
 
         Returns:
             bytearray: Command to be sent to the device.
@@ -29,7 +31,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def turn_off(self):
-        """Turns the screen off.
+        """
+        Turns the screen off.
 
         Returns:
             bytearray: Command to be sent to the device.
@@ -46,7 +49,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def turn_on(self):
-        """Turns the screen on.
+        """
+        Turns the screen on.
 
         Returns:
             bytearray: Command to be sent to the device.
@@ -63,7 +67,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_screen_flipped(self, flip: bool = True):
-        """Rotates the screen 180 degrees.
+        """
+        Rotates the screen 180 degrees.
 
         Args:
             flip (bool): False = normal, True = rotated. Defaults to True.
@@ -83,7 +88,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_brightness(self, brightness_percent: int):
-        """Set screen brightness. Range 5-100 (%).
+        """
+        Set screen brightness. Range 5-100 (%).
 
         Args:
             brightness_percent (int): Set the brightness in percent.
@@ -105,7 +111,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_speed(self, speed: int):
-        """Sets the speed of ? - not referenced anywhere in the iDotMatrix Android App.
+        """
+        Sets the speed of ? - not referenced anywhere in the iDotMatrix Android App.
 
         Args:
             speed (int): Set the speed.
@@ -127,7 +134,8 @@ class CommonModule(IDotMatrixModule):
     async def set_time(
         self, year: int, month: int, day: int, hour: int, minute: int, second: int
     ):
-        """Sets the date and time of the device.
+        """
+        Sets the date and time of the device.
 
         Args:
             year (int): Year (4 digits).
@@ -158,7 +166,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_joint(self, mode: int):
-        """Currently no idea what this is doing.
+        """
+        Currently no idea what this is doing.
 
         Args:
             mode (int): Set the joint mode.
@@ -178,7 +187,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_password(self, password: int):
-        """Setting password: 6 digits in range 000000..999999. Reset device to clear.
+        """
+        Setting password: 6 digits in range 000000..999999. Reset device to clear.
 
         Args:
             password (int): Password.
@@ -204,7 +214,8 @@ class CommonModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def reset(self):
-        """Sends a command that resets the device and its internals.
+        """
+        Sends a command that resets the device and its internals.
         Can fix issues that appear over time.
 
         Note:

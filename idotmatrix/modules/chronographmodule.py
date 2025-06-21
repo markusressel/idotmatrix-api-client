@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -20,7 +19,8 @@ class ChronographModule(IDotMatrixModule):
         await self._set_mode(3)
 
     async def _set_mode(self, mode: int):
-        """Starts/Stops the Chronograph.
+        """
+        Starts/Stops the Chronograph.
 
         Args:
             mode (int): 0 = reset, 1 = (re)start, 2 = pause, 3 = continue after pause

@@ -39,7 +39,7 @@ class TextModule(IDotMatrixModule):
     # must be x05 for 16x32 or x02 for 8x16
     separator = b"\x05\xff\xff\xff"
 
-    async def set_mode(
+    async def show_text(
         self,
         text: str,
         font_size: int = 16,
@@ -50,6 +50,24 @@ class TextModule(IDotMatrixModule):
         text_color: Tuple[int, int, int] = None,
         text_bg_color: Optional[Tuple[int, int, int]] = None,
     ):
+        """
+        Displays text on the iDotMatrix device with specified settings.
+        Args:
+            text (str): The text to display.
+            font_size (int): Size of the font. Defaults to 16.
+            font_path (Optional[str]): Path to the font file. Defaults to None, which uses a default font.
+            text_mode (TextMode | int): Mode for displaying text. Defaults to TextMode.MARQUEE.
+            speed (int): Speed of the text display. Defaults to 95.
+            text_color_mode (TextColorMode | int): Color mode for the text. Defaults to TextColorMode.WHITE.
+            text_color (Tuple[int, int, int]): RGB color for the text. Defaults to None, which uses white.
+            text_bg_color (Optional[Tuple[int, int, int]]): RGB color for the background. Defaults to None, which uses black.
+        Raises:
+            ValueError: If text_color is None and text_color_mode is RGB.
+        Raises:
+            TypeError: If text_mode or text_color_mode is not an instance of TextMode or TextColorMode.
+        Raises:
+            ValueError: If text_color is None when text_color_mode is RGB.
+        """
         if isinstance(text_mode, TextMode):
             text_mode = text_mode.value
 

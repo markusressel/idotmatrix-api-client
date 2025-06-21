@@ -1,11 +1,11 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
 
 class EcoModule(IDotMatrixModule):
-    """This class contains code for the eco mode of the iDotMatrix device.
+    """
+    This class contains code for the eco mode of the iDotMatrix device.
     With this class you can enable or disable the screen and change the brightness automatically depending on the time.
     Based on the BleProtocolN.java file of the iDotMatrix Android App.
     """
@@ -21,7 +21,8 @@ class EcoModule(IDotMatrixModule):
         end_minute: int,
         light: int,
     ):
-        """Sets the eco mode of the device (e.g. turning on or off the device, set the color, ....)
+        """
+        Sets the eco mode of the device (e.g. turning on or off the device, set the color, ....)
 
         Args:
             flag (int): currently unknown, seems to be either 1 or 0
@@ -31,7 +32,18 @@ class EcoModule(IDotMatrixModule):
             end_minute (int): minute to end
             light (int): the brightness of the screen
         """
-        # TODO check parameters for their valid values and discard everything else
+        # TODO: input validation
+        data = self._compute_payload(
+            flag=flag,
+            start_hour=start_hour,
+            start_minute=start_minute,
+            end_hour=end_hour,
+            end_minute=end_minute,
+            light=light,
+        )
+        await self.send_bytes(data=data)
+
+    def _compute_payload(self, flag, start_hour, start_minute, end_hour, end_minute, light) -> bytearray:
         data = bytearray(
             [
                 10,
@@ -46,4 +58,4 @@ class EcoModule(IDotMatrixModule):
                 int(light) % 256,
             ]
         )
-        await self.send_bytes(data=data)
+        return data

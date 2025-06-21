@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -12,7 +11,8 @@ class CountdownModule(IDotMatrixModule):
     async def set_mode(
         self, mode: int, minutes: int, seconds: int
     ):
-        """Sets the countdown (and activates or disables it)
+        """
+        Sets the countdown (and activates or disables it)
 
         Args:
             mode (int): mode of the countdown. 0 = disable, 1 = start, 2 = pause, 3 = restart

@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import Union, Tuple
+from typing import Tuple
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -64,7 +64,8 @@ class ClockModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     async def set_time_indicator(self, enabled: bool = True):
-        """Sets the time indicator of the clock. Does not seem to work currently (maybe in a future update?).
+        """
+        Sets the time indicator of the clock. Does not seem to work currently (maybe in a future update?).
         It is inside the source code of BleProtocolN.java, but not referenced anywhere.
 
         Args:

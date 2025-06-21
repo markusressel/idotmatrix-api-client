@@ -1,6 +1,5 @@
 import logging
 import struct
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -11,7 +10,8 @@ class ScoreboardModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
     async def set_mode(self, count1: int, count2: int):
-        """Set the scoreboard of the device.
+        """
+        Set the scoreboard of the device.
 
         Args:
             count1 (int): first counter, max: 999 (buffer overflow if more! -> might lead to unintended behavior)

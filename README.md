@@ -1,5 +1,11 @@
-from idotmatrix.screensize import ScreenSizefrom idotmatrix.client import IDotMatrixClient> [!NOTE]  
-> Due to a long-term health condition (post-COVID since almost three years), I am unable to continue developing this project. Although many amazing contributors have helped over the years, I am unsure when I will be able to resume work. This is my most popular project (over 61 stars!), and I hope others will continue to improve the client and library for various use cases, such as Home Assistant integration. Thank you for your understanding and support.
+[!NOTE]  
+This is a fork of the original project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no longer maintained due to the
+author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it remains functional and up-to-date for users who rely on it for
+controlling iDotMatrix pixel
+displays.
+
+**The structure of the original project has been significantly altered to improve usability and maintainability.**
+This means it is not possible to switch between the original and this fork without manually adjusting the code.
 
 <br/>
 <p align="center">
@@ -7,10 +13,10 @@ from idotmatrix.screensize import ScreenSizefrom idotmatrix.client import IDotMa
     <img src="images/logo.png" alt="Logo" width="250" height="250">
   </a>
 
-  <h3 align="center">Pixel Display Library</h3>
+<h3 align="center">Pixel Display Library</h3>
 
   <p align="center">
-    control all your 16x16 or 32x32 iDotMatrix Pixel Displays
+    control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
     <br/>
     <br/>
     <a href="https://github.com/derkalle4/python3-idotmatrix-library"><strong>Explore the docs »</strong></a>
@@ -22,7 +28,7 @@ from idotmatrix.screensize import ScreenSizefrom idotmatrix.client import IDotMa
   </p>
 </p>
 
-![Downloads](https://img.shields.io/github/downloads/derkalle4/python3-idotmatrix-library/total) ![Contributors](https://img.shields.io/github/contributors/derkalle4/python3-idotmatrix-library?color=dark-green) ![Forks](https://img.shields.io/github/forks/derkalle4/python3-idotmatrix-library?style=social) ![Stargazers](https://img.shields.io/github/stars/derkalle4/python3-idotmatrix-library?style=social) ![Issues](https://img.shields.io/github/issues/derkalle4/python3-idotmatrix-library) ![License](https://img.shields.io/github/license/derkalle4/python3-idotmatrix-library) 
+![Downloads](https://img.shields.io/github/downloads/derkalle4/python3-idotmatrix-library/total) ![Contributors](https://img.shields.io/github/contributors/derkalle4/python3-idotmatrix-library?color=dark-green) ![Forks](https://img.shields.io/github/forks/derkalle4/python3-idotmatrix-library?style=social) ![Stargazers](https://img.shields.io/github/stars/derkalle4/python3-idotmatrix-library?style=social) ![Issues](https://img.shields.io/github/issues/derkalle4/python3-idotmatrix-library) ![License](https://img.shields.io/github/license/derkalle4/python3-idotmatrix-library)
 
 ## Table Of Contents
 
@@ -40,7 +46,8 @@ from idotmatrix.screensize import ScreenSizefrom idotmatrix.client import IDotMa
 
 ## About The Project
 
-This repository aims to reverse engineer the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen displays like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a simple library which you can use to connect to your display(s).
+This repository aims to reverse engineer the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen displays
+like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a simple library which you can use to connect to your display(s).
 
 ## Built With
 
@@ -67,7 +74,7 @@ Please install the following for your distribution (Windows may work but it is u
 1. Clone the repo
 
 ```sh
-git clone https://github.com/derkalle4/python3-idotmatrix-library.git
+git clone https://github.com/markusressel/python3-idotmatrix-library.git
 ```
 
 2. Install the latest version locally
@@ -85,21 +92,26 @@ pip install idotmatrix
 
 ## Usage
 
-If you want to use the integrated bleak library to talk to your device, you have to initialize the ConnectionManager first. If you omit this step all classes will return the bytecode which you then can send to the device with your own bluetooth implementation.
+If you want to use the integrated bleak library to talk to your device, you have to initialize the ConnectionManager first. If you omit this step all classes will return the
+bytecode which you then can send to the device with your own bluetooth implementation.
 
 ```python
 import asyncio
 from idotmatrix import IDotMatrixClient, ScreenSize
 
-
 async def main():
+  # create a new IDotMatrixClient instance with the screen size of your device
   client = IDotMatrixClient(
     screen_size=ScreenSize.SIZE_64x64
   )
-  # connect to first found iDotMatrix Pixel Display
+  # (optional) connect to first found iDotMatrix Pixel Display
+  # If the device is not connected when issuing commands, an automatic connection attempt will be made.
   await client.connect()
-  
-  # do something with this connection afterwards
+
+  # do something with the device by using one of the toplevel functions or modules e.g. chronograph, clock, countdown, etc.
+  await client.set_brightness(50)  # set brightness to 50%
+
+  await client.text.display_text("Hello World!")  # display text on the screen
 
 
 if __name__ == "__main__":
@@ -111,26 +123,21 @@ if __name__ == "__main__":
 
 ### Chronograph
 
-The Chronograph has 4 different modes. Using mode 1 will automatically open the Chronograph on the device and start the countdown. This should be the first mode used or otherwise the device may does not respond properly.
-
-- 0 = reset
-- 1 = (re)start
-- 2 = pause
-- 3 = continue after pause
-
 ```python
+from idotmatrix import IDotMatrixClient, ScreenSize
 client = IDotMatrixClient(
     screen_size=ScreenSize.SIZE_64x64
 )
-await client.chronograph.reset()
-await client.chronograph.start_from_zero()
-await client.chronograph.pause()
-await client.chronograph.continue_after_pause()
+await client.chronograph.reset()  # reset the chronograph / switch to chronograph screen
+await client.chronograph.start_from_zero()  # start the chronograph from zero
+await client.chronograph.pause()  # pause the chronograph
+await client.chronograph.continue_after_pause()  # continue the chronograph after pause
 ```
 
 ## Roadmap
 
-If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good. Many thanks for all contributions! If you want to dive deep into other issues please check for "#TODO" comments in the source code as well.
+If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good. Many thanks for all contributions! If you want to dive deep
+into other issues please check for "#TODO" comments in the source code as well.
 
 * [ ] Reverse Engineering
     * [X] Chronograph
@@ -154,10 +161,12 @@ If you want to contribute please focus on the reverse-engineering part because m
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-* If you have suggestions for adding or removing projects, feel free to [open an issue](https://github.com/derkalle4/python3-idotmatrix-library/issues/new) to discuss it, or directly create a pull request after you edit the *README.md* file with necessary changes.
+
+* If you have suggestions for adding or removing projects, feel free to [open an issue](https://github.com/markusressel/python3-idotmatrix-library/issues/new) to discuss it, or
+  directly create a pull request after you edit the *README.md* file with necessary changes.
 * Please make sure you check your spelling and grammar.
 * Create individual PR for each suggestion.
-* Please also read through the [Code Of Conduct](https://github.com/derkalle4/python3-idotmatrix-library/blob/main/CODE_OF_CONDUCT.md) before posting your first idea as well.
+* Please also read through the [Code Of Conduct](https://github.com/markusressel/python3-idotmatrix-library/blob/main/CODE_OF_CONDUCT.md) before posting your first idea as well.
 
 ### Creating A Pull Request
 
@@ -169,14 +178,11 @@ Contributions are what make the open source community such an amazing place to b
 
 ## License
 
-Distributed under the GNU GENERAL PUBLIC License. See [LICENSE](https://github.com/derkalle4/python3-idotmatrix-library/blob/main/LICENSE) for more information.
-
-## Authors
-
-* [Kalle Minkner](https://github.com/derkalle4) - *Project Founder*
-* [Jon-Mailes Graeffe](https://github.com/jmgraeffe) - *Co-Founder*
+Distributed under the GNU GENERAL PUBLIC License. See [LICENSE](https://github.com/markusressel/python3-idotmatrix-library/blob/main/LICENSE) for more information.
 
 ## Acknowledgements
+
+Original project by [derkalle4](https://github.com/derkalle4) and [jmgraeffe](https://github.com/jmgraeffe).
 
 * [Othneil Drew](https://github.com/othneildrew/Best-README-Template) - *README Template*
 * [LordRippon](https://github.com/LordRippon) - *Reverse Engineering for the Displays*

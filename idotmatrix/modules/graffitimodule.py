@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -10,9 +9,12 @@ class GraffitiModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
     async def set_pixel(
-        self, r: int, g: int, b: int, x: int, y: int
+        self,
+        r: int, g: int, b: int,
+        x: int, y: int,
     ):
-        """Set the scoreboard of the device.
+        """
+        Set the scoreboard of the device.
 
         Args:
             r (int): color red value
@@ -33,6 +35,18 @@ class GraffitiModule(IDotMatrixModule):
         if y not in range(0, 256):
             raise ValueError("Graffiti.setPixel expects parameter y to be between 0 and 255")
 
+        data = self._create_payload(
+            r, g, b,
+            x, y
+        )
+
+        await self.send_bytes(data=data)
+
+    @staticmethod
+    def _create_payload(
+        r: int, g: int, b: int,
+        x: int, y: int
+    ) -> bytearray:
         data = bytearray(
             [
                 10,
@@ -47,4 +61,4 @@ class GraffitiModule(IDotMatrixModule):
                 y % 256,
             ]
         )
-        await self.send_bytes(data=data)
+        return data

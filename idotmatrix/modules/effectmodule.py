@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -25,7 +24,8 @@ class EffectModule(IDotMatrixModule):
         style: int,
         rgb_values: list[tuple[int, int, int]],
     ):
-        """Set the effect mode of the device.
+        """
+        Set the effect mode of the device.
 
         Args:
             style (int): Style of the effect 0-6.
@@ -42,6 +42,17 @@ class EffectModule(IDotMatrixModule):
                 if r not in range(0, 256) or g not in range(0, 256) or b not in range(0, 256):
                     raise ValueError("effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
 
+        data = self._compute_payload(style=style, rgb_values=rgb_values)
+        await self.send_bytes(data=data)
+
+    def _compute_payload(self, style, rgb_values) -> bytearray:
+        """
+        Computes the payload for the effect mode command.
+
+        Args:
+            style (int): The effect style, must be between 0 and 6.
+            rgb_values (list[tuple[int, int, int]]): List of RGB tuples, each tuple contains red, green, and blue values.
+        """
         processed_rgb_values = [
             (r % 256, g % 256, b % 256)
             for rgb in rgb_values
@@ -60,4 +71,4 @@ class EffectModule(IDotMatrixModule):
             ] + [component for rgb in processed_rgb_values for component in rgb]
         )
 
-        await self.send_bytes(data=data)
+        return data
