@@ -44,14 +44,14 @@ class ClockModule(IDotMatrixModule):
             style = style.value
 
         if style not in range(0, 8):
-            raise ValueError("Clock.setMode expects parameter style to be between 0 and 7")
+            raise ValueError("style must be one of the ClockStyle enum values or an integer between 0 and 7")
 
         r, g, b = 255, 255, 255
         if isinstance(color, tuple) and len(color) == 3:
             if not all(isinstance(c, int) for c in color):
-                raise ValueError("Clock.setMode expects color to be a tuple of three integers (r, g, b)")
+                raise ValueError("color must be a tuple of three integers (r, g, b)")
             if not all(0 <= c < 256 for c in color):
-                raise ValueError("Clock.setMode expects color values to be between 0 and 255")
+                raise ValueError("color values must be between 0 and 255")
 
             r, g, b = color
 
@@ -83,7 +83,12 @@ class ClockModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     @staticmethod
-    def _create_payload(style, show_date, hour24, r, g, b) -> bytearray:
+    def _create_payload(
+        style: int,
+        show_date: bool,
+        hour24: bool,
+        r: int, g: int, b: int
+    ) -> bytearray:
         """Create a payload for the clock settings.
 
         Args:
