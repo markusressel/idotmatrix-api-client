@@ -46,7 +46,7 @@ class ClockModule(IDotMatrixModule):
         if style not in range(0, 8):
             raise ValueError("style must be one of the ClockStyle enum values or an integer between 0 and 7")
 
-        r, g, b = 255, 255, 255
+        r, g, b = (255, 255, 255)
         if isinstance(color, tuple) and len(color) == 3:
             if not all(isinstance(c, int) for c in color):
                 raise ValueError("color must be a tuple of three integers (r, g, b)")
@@ -99,7 +99,7 @@ class ClockModule(IDotMatrixModule):
             g (int): Color green.
             b (int): Color blue.
         """
-        data = bytearray(
+        data: bytearray = bytearray(
             [
                 8,
                 0,

@@ -1,7 +1,4 @@
-import asyncio
-from asyncio import sleep
 import logging
-from asyncio import sleep
 from typing import List, Optional
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
@@ -114,7 +111,6 @@ class ConnectionManager:
             raise ValueError("Device address is not set. Use set_address() or connect_by_address() or connect_by_discovery() first.")
         if not await self.is_connected():
             await self.client.connect()
-            await sleep(5)  # wait for connection to stabilize
             self.logging.info(f"connected to {self.address}")
         else:
             self.logging.info(f"already connected to {self.address}")
