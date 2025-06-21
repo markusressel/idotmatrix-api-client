@@ -4,7 +4,8 @@ from typing import List, Tuple
 from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.modules.textmodule import TextColorMode
+from idotmatrix.modules.clockmodule import ClockStyle
+from idotmatrix.modules.image import ImageMode
 from idotmatrix.screensize import ScreenSize
 
 
@@ -12,6 +13,10 @@ async def main():
     client = IDotMatrixClient(
         screen_size=ScreenSize.SIZE_64x64,
         mac_address="69:36:4C:4C:B6:B7"
+    )
+
+    await client.clock.show(
+        style=ClockStyle.RGBCorners,
     )
 
     # # connect
@@ -63,16 +68,16 @@ async def main():
     #
     # await draw_shuffled(client, pixel_data)
 
-    await client.text.set_mode(
-        text="HELLO WORLD!",
-        font_size=16,
-        text_mode=3,
-        speed=95,
-        text_color_mode=TextColorMode.RGB,
-        text_color=(255, 0, 0),
-        text_bg_color=(0, 50, 0),
-        # font_path="./fonts/RobotoMono-Regular.ttf",
-    )
+    # await client.text.set_mode(
+    #     text="HELLO WORLD!",
+    #     # font_size=16,
+    #     # text_mode=TextMode.MARQUEE,
+    #     # speed=95,
+    #     # text_color_mode=TextColorMode.WHITE,
+    #     # text_color=(255, 0, 0),
+    #     # text_bg_color=(0, 20, 0),
+    #     # font_path="./fonts/Rain-DRM3.otf",
+    # )
 
     # colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.
     #

@@ -1,5 +1,6 @@
 import logging
 import struct
+from enum import Enum
 from os import PathLike
 from typing import Union, List, Tuple
 
@@ -12,6 +13,14 @@ from idotmatrix.screensize import ScreenSize
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
 CHUNK_SIZE_4096 = 4096
+
+
+class ImageMode(Enum):
+    """Enum for image modes."""
+    DisableDIY = 0  # Disable DIY mode
+    EnableDIY = 1  # Enable DIY mode
+    Unknown2 = 2  # Unknown mode 2
+    Unknown3 = 3  # Unknown mode 3
 
 
 class ImageModule(IDotMatrixModule):
@@ -27,7 +36,7 @@ class ImageModule(IDotMatrixModule):
 
     async def set_mode(
         self,
-        mode: int = 1
+        mode: ImageMode | int = ImageMode.EnableDIY,
     ):
         """Enter the DIY draw mode of the iDotMatrix device.
 
@@ -37,6 +46,9 @@ class ImageModule(IDotMatrixModule):
         Returns:
             Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
+        if isinstance(mode, ImageMode):
+            mode = mode.value
+
         data = bytearray([5, 0, 4, 1, mode % 256])
         await self.send_bytes(data=data)
 

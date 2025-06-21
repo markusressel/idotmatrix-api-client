@@ -56,7 +56,14 @@ class TextModule(IDotMatrixModule):
         if isinstance(text_color_mode, TextColorMode):
             text_color_mode = text_color_mode.value
 
+        if text_color is None:
+            if text_color_mode == TextColorMode.RGB.value:
+                raise ValueError("text_color must be provided when text_color_mode is RGB")
+            text_color = (255, 255, 255)
+
         text_bg_mode = 0 if text_bg_color is None else 1
+        if text_bg_color is None:
+            text_bg_color = (0, 0, 0)
 
         data = self._build_string_packet(
             text_mode=text_mode,

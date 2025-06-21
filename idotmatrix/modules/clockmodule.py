@@ -1,7 +1,21 @@
 import logging
-from typing import Union
+from enum import Enum
+from typing import Union, Tuple
 
 from idotmatrix.modules import IDotMatrixModule
+
+
+class ClockStyle(Enum):
+    """Enum for the different clock styles."""
+
+    RGBSwipeOutline = 0
+    ChristmasTree = 1
+    Checkers = 2
+    Color = 3
+    Hourglass = 4
+    AlarmClock = 5
+    Outlines = 6
+    RGBCorners = 7
 
 
 class ClockModule(IDotMatrixModule):
@@ -13,12 +27,10 @@ class ClockModule(IDotMatrixModule):
 
     async def show(
         self,
-        style: int,
+        style: ClockStyle | int = ClockStyle.RGBSwipeOutline,
         show_date: bool = True,
         hour24: bool = True,
-        r: int = 255,
-        g: int = 255,
-        b: int = 255,
+        color: Tuple[int, int, int] | None = None,
     ):
         """Set the clock mode of the device.
 
@@ -26,44 +38,31 @@ class ClockModule(IDotMatrixModule):
             style (int): Style of the clock.
             show_date (bool): Whether the date should be shown or not. Defaults to True.
             hour24 (bool): 12 or 24 hour format. Defaults to True.
-            r (int, optional): Color red. Defaults to 255.
-            g (int, optional): Color green. Defaults to 255.
-            b (int, optional): Color blue. Defaults to 255.
+            color (tuple, optional): Color of the clock in RGB format. Defaults to (255, 255, 255).
 
         Returns:
             Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
+        if isinstance(style, ClockStyle):
+            style = style.value
+
         if style not in range(0, 8):
-            self.logging.error(
-                "Clock.setMode expects parameter style to be between 0 and 7"
-            )
-            return False
-        if r not in range(0, 256):
-            self.logging.error(
-                "Clock.setMode expects parameter r to be between 0 and 255"
-            )
-            return False
-        if g not in range(0, 256):
-            self.logging.error(
-                "Clock.setMode expects parameter g to be between 0 and 255"
-            )
-            return False
-        if b not in range(0, 256):
-            self.logging.error(
-                "Clock.setMode expects parameter b to be between 0 and 255"
-            )
-            return False
-        data: bytearray = bytearray(
-            [
-                8,
-                0,
-                6,
-                1,
-                (style | (128 if show_date else 0)) | (64 if hour24 else 0),
-                r % 256,
-                g % 256,
-                b % 256,
-            ]
+            raise ValueError("Clock.setMode expects parameter style to be between 0 and 7")
+
+        r, g, b = 255, 255, 255
+        if isinstance(color, tuple) and len(color) == 3:
+            if not all(isinstance(c, int) for c in color):
+                raise ValueError("Clock.setMode expects color to be a tuple of three integers (r, g, b)")
+            if not all(0 <= c < 256 for c in color):
+                raise ValueError("Clock.setMode expects color values to be between 0 and 255")
+
+            r, g, b = color
+
+        data = self._create_payload(
+            style=style,
+            show_date=show_date,
+            hour24=hour24,
+            r=r, g=g, b=b
         )
         await self.send_bytes(data=data)
 
@@ -87,3 +86,29 @@ class ClockModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+
+    @staticmethod
+    def _create_payload(style, show_date, hour24, r, g, b) -> bytearray:
+        """Create a payload for the clock settings.
+
+        Args:
+            style (int): Style of the clock.
+            show_date (bool): Whether the date should be shown or not.
+            hour24 (bool): 12 or 24 hour format.
+            r (int): Color red.
+            g (int): Color green.
+            b (int): Color blue.
+        """
+        data = bytearray(
+            [
+                8,
+                0,
+                6,
+                1,
+                (style | (128 if show_date else 0)) | (64 if hour24 else 0),
+                r % 256,
+                g % 256,
+                b % 256,
+            ]
+        )
+        return data
