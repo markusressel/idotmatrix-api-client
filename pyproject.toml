@@ -1,0 +1,32 @@
+[project]
+name = "idotmatrix"
+description = "A library for controlling iDotMatrix displays."
+license = "GPL-3.0-or-later"
+readme = "README.md"
+requires-python = ">=3.8"
+version = "0.1.0"
+classifiers = [
+    "Intended Audience :: Developers",
+]
+
+dependencies = [
+    "asyncio",
+    "bleak",
+    "pillow",
+    "cryptography",
+]
+
+[project.urls]
+homepage = "https://github.com/markusressel/python3-idotmatrix-library"
+repository = "https://github.com/markusressel/python3-idotmatrix-library"
+documentation = "https://github.com/markusressel/python3-idotmatrix-library"
+"Bug Tracker" = "https://github.com/markusressel/python3-idotmatrix-library/issues"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "idotmatrix" },
+]

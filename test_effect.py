@@ -11,22 +11,22 @@ async def main():
     )
     await client.connect()
 
-    colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.
+    # default colours used in the app.
+    colours = [
+        (255, 0, 0),
+        (255, 162, 0),
+        (255, 255, 0),
+        (0, 255, 0),
+        (0, 0, 255),
+        (255, 0, 255),
+        (255, 255, 255)
+    ]
 
     # Effect
     for i in range(0, 7):
-        await client.effect.set_mode(i, colours[:2])
-        time.sleep(5)
-        await client.effect.set_mode(i, colours[:3])
-        time.sleep(5)
-        await client.effect.set_mode(i, colours[:4])
-        time.sleep(5)
-        await client.effect.set_mode(i, colours[:5])
-        time.sleep(5)
-        await client.effect.set_mode(i, colours[:6])
-        time.sleep(5)
-        await client.effect.set_mode(i, colours[:7])
-        time.sleep(5)
+        for j in range(2, 8):
+            await client.effect.set_mode(i, colours[:j])
+            time.sleep(5)
 
 
 if __name__ == "__main__":
