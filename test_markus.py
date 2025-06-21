@@ -1,12 +1,13 @@
 import asyncio
 from asyncio import sleep
-from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image as PILImage
 
-from idotmatrix import ConnectionManager, Common, Graffiti, Image
+from idotmatrix.client import IDotMatrixClient
+from idotmatrix.modules.graffiti import Graffiti
+from idotmatrix.screensize import ScreenSize
 
 
 def convert_image_to_pixel_array(
@@ -77,31 +78,32 @@ async def draw_shuffled(pixel_data):
 
 
 async def main():
-    # connect
-    conn = ConnectionManager()
-    await conn.connectByAddress("69:36:4C:4C:B6:B7")
-
-    await sleep(1)
-
-    screen_size = 64
-
-    common_client = Common()
-    # await common_client.flipScreen(False)
-    now = datetime.now()
-    await common_client.setTime(
-        year=now.year,
-        month=now.month,
-        day=now.day,
-        hour=now.hour,
-        minute=now.minute,
-        second=now.second,
+    client = IDotMatrixClient(
+        screen_size=ScreenSize.SIZE_64x64,
+        mac_address="69:36:4C:4C:B6:B7"
     )
-    await common_client.setBrightness(10)
-    await sleep(0.2)
-    #
-    image_client = Image()
-    await image_client.set_mode(1)
-    await sleep(0.5)
+
+    # connect
+    await client.connect()
+    await sleep(2)
+
+    # common_client = Common()
+    # # await common_client.flipScreen(False)
+    # now = datetime.now()
+    # await common_client.setTime(
+    #     year=now.year,
+    #     month=now.month,
+    #     day=now.day,
+    #     hour=now.hour,
+    #     minute=now.minute,
+    #     second=now.second,
+    # )
+    # await common_client.setBrightness(10)
+    # await sleep(0.2)
+    # #
+    # image_client = ImageModule()
+    # await image_client.set_mode(1)
+    # await sleep(0.5)
 
     path = Path("/home/markus/pictures/collage/beide ja")
     path = Path("/home/markus/pictures/Satisfactory Photo Mode")
@@ -110,17 +112,16 @@ async def main():
     # image_file_paths += list(path.glob(pattern="*.jpg", case_sensitive=False))
     # image_file_paths += list(path.glob(pattern="*.png", case_sensitive=False))
     image_file_paths += [
-        #Path("/home/markus/pictures/tulogo.png"),
+        # Path("/home/markus/pictures/tulogo.png"),
         Path("/home/markus/pictures/viper_logo.jpg"),
     ]
+    await client.image.set_mode(1)
     for file in image_file_paths:
-        await image_client.upload_image_file(
-            pixel_size=64,
-            #file_path="./images/logo.png",
-            #file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
-            file_path = file.absolute().as_posix(),
+        await client.image.upload_image_file(
+            # file_path="./images/logo.png",
+            # file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
+            file_path=file.absolute().as_posix(),
         )
-
 
     # gif_mode = Gif()
     # await gif_mode.uploadProcessed(

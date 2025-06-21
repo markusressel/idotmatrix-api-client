@@ -7,22 +7,7 @@ from bleak import BleakClient, BleakScanner, AdvertisementData
 from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 
 
-class SingletonMeta(type):
-    logging = logging.getLogger(__name__)
-    _instances: dict = {}
-
-    def __call__(cls, *args, **kwargs) -> "SingletonMeta":
-        if cls not in cls._instances:
-            try:
-                instance = super().__call__(*args, **kwargs)
-                cls._instances[cls] = instance
-            except:
-                # return None if wrong (or no arguments are given)
-                cls._instances[cls] = None
-        return cls._instances[cls]
-
-
-class ConnectionManager(metaclass=SingletonMeta):
+class ConnectionManager:
     logging = logging.getLogger(__name__)
 
     def __init__(self) -> None:
@@ -44,11 +29,11 @@ class ConnectionManager(metaclass=SingletonMeta):
                 filtered_devices.append(device.address)
         return filtered_devices
 
-    async def connectByAddress(self, address: str) -> None:
+    async def connect_by_address(self, address: str) -> None:
         self.address = address
         await self.connect()
 
-    async def connectBySearch(self) -> None:
+    async def connect_by_search(self) -> None:
         devices = await self.scan()
         if devices:
             # connect to first device

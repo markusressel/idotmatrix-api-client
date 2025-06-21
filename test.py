@@ -11,7 +11,7 @@ from idotmatrix import Effect
 from idotmatrix import FullscreenColor
 from idotmatrix import Gif
 from idotmatrix import Graffiti
-from idotmatrix import Image
+from idotmatrix import ImageModule
 
 # from idotmatrix import MusicSync
 from idotmatrix import Scoreboard
@@ -23,7 +23,7 @@ from idotmatrix import Text
 async def main():
     # connect
     conn = ConnectionManager()
-    await conn.connectBySearch()
+    await conn.connect_by_search()
     # chronograph
     test = Chronograph()
     await test.setMode(1)
@@ -57,7 +57,7 @@ async def main():
     await test.setPixel(r=255, g=255, b=255, x=10, y=10)
     time.sleep(5)
     # Image
-    test = Image()
+    test = ImageModule()
     await test.upload_image_file(
         file_path="./images/demo_512.png",
         pixel_size=32,

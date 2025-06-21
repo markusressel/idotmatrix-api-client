@@ -6,7 +6,7 @@ from idotmatrix import Effect
 async def main():
     # connect
     conn = ConnectionManager()
-    await conn.connectBySearch()
+    await conn.connect_by_search()
 
     colours = [(255,0,0), (255,162,0), (255,255,0), (0,255,0), (0,0,255), (255,0,255), (255,255,255)] #default colours used in the app.
 

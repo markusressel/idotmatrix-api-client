@@ -91,17 +91,19 @@ If you want to use the integrated bleak library to talk to your device, you have
 import asyncio
 from idotmatrix import ConnectionManager
 
+
 async def main():
-    # connect to first found iDotMatrix Pixel Display
-    conn = ConnectionManager()
-    await conn.connectBySearch()
-    # do something with this connection afterwards
+  # connect to first found iDotMatrix Pixel Display
+  conn = ConnectionManager()
+  await conn.connect_by_search()
+  # do something with this connection afterwards
+
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        quit()
+  try:
+    asyncio.run(main())
+  except KeyboardInterrupt:
+    quit()
 ```
 
 ### Chronograph

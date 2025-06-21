@@ -5,20 +5,29 @@ from typing import Union, List, Tuple
 
 from PIL import Image as PilImage, ExifTags
 
-from ..connectionManager import ConnectionManager
+from idotmatrix.connectionManager import ConnectionManager
+from idotmatrix.screensize import ScreenSize
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
 CHUNK_SIZE_4096 = 4096
 
 
-class Image:
+class ImageModule:
     logging = logging.getLogger(__name__)
 
-    def __init__(self) -> None:
-        self.conn: ConnectionManager = ConnectionManager()
+    def __init__(
+        self,
+        connection_manager: ConnectionManager,
+        screen_size: ScreenSize,
+    ):
+        self.conn: ConnectionManager = connection_manager
+        self.screen_size = screen_size
 
-    async def set_mode(self, mode: int = 1) -> Union[bool, bytearray]:
+    async def set_mode(
+        self,
+        mode: int = 1
+    ):
         """Enter the DIY draw mode of the iDotMatrix device.
 
         Args:
@@ -27,28 +36,23 @@ class Image:
         Returns:
             Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
-        try:
-            data = bytearray([5, 0, 4, 1, mode % 256])
-            if self.conn:
-                await self.conn.connect()
-                await self.conn.send(data=data)
-            return data
-        except BaseException as error:
-            self.logging.error(f"could not enter image mode due to {error}")
-            return False
+        data = bytearray([5, 0, 4, 1, mode % 256])
+        await self.conn.connect()
+        await self.conn.send(data=data)
 
     async def upload_image_file(
         self,
         file_path: PathLike,
-        pixel_size: int = 64
     ) -> None:
         """Uploads a file processed and makes sure everything is correct before uploading to the device.
 
         Args:
             file_path (str): path-like object to the image file
-            pixel_size (int, optional): number of pixels (one of 16, 32 or 64). Defaults to 64.
         """
-        pixel_data = self._load_image_and_adapt_to_canvas(file_path, pixel_size)
+        pixel_data = self._load_image_and_adapt_to_canvas(
+            file_path=file_path,
+            pixel_size=self.screen_size.value[0]  # assuming square canvas, so width == height
+        )
         return await self._send_diy_image_data(pixel_data)
 
     @staticmethod
@@ -198,12 +202,10 @@ class Image:
         send_data_3 = []
 
         image_data_len_bytes = self._int_to_bytes_le(len(image_data))
-        print(f"========== Image file data length: {len(image_data)}")
 
         # 1. Chunk the image_data into 4096-byte chunks (or smaller for the last one)
         # This corresponds to `getSendData4096`
         chunks_4096 = self.chunk_data_by_size(image_data, CHUNK_SIZE_4096)
-        print(f"=== Number of 4096B (or smaller) chunks: {len(chunks_4096)}")
 
         # 2. Process each 4096-byte chunk to create the "large packet" structure
         # This corresponds to the loop creating `arrayList` in `sendDIYImageData`
