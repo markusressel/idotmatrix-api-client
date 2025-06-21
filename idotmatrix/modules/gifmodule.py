@@ -2,7 +2,7 @@ import io
 import logging
 import zlib
 from os import PathLike
-from typing import List
+from typing import List, Tuple
 
 from PIL import Image as PilImage
 
@@ -136,7 +136,8 @@ class GifModule(IDotMatrixModule):
     @staticmethod
     def _load_gig_and_adapt_to_canvas(
         file_path: PathLike,
-        pixel_size: int
+        pixel_size: int,
+        background_color: Tuple[int, int, int] = (0, 0, 0),
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -162,6 +163,10 @@ class GifModule(IDotMatrixModule):
                         )
                     # TODO: There are still some GIF files that do not work. We might need to adapt the colors of the gif to the device's color palette,
                     #  but I don't know what that looks like yet.
+                    #  There are GIFs that have transparency in them, but the iDotMatrix does not support transparency.
+                    new_image = PilImage.new("RGBA", frame.size, background_color)
+                    new_image.paste(frame, (0, 0), frame.convert("RGBA"))
+                    frame = new_image
 
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
@@ -169,7 +174,7 @@ class GifModule(IDotMatrixModule):
                 pass
 
             gif_buffer = io.BytesIO()
-            duration_per_frame_in_ms = img.info.get("duration", 100)  # default to 100ms if not set
+            duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,

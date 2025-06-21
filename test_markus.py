@@ -16,18 +16,18 @@ async def main():
     )
 
     folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
-    folder = Path("/home/markus/pictures/Pixel Art GIF/work")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
 
-    for gif_file in gif_file_paths:
-        if "tumblr" not in gif_file.name.lower():
-            continue
+    for idx, gif_file in enumerate(gif_file_paths):
         print(f"Uploading GIF: {gif_file.name}")
         await client.gif.upload_processed(
             file_path=gif_file,
         )
-        await sleep(10)
+        if idx < len(gif_file_paths) - 1:
+            print(f"Waiting...")
+            await sleep(10)
 
     exit(0)
 
