@@ -28,9 +28,6 @@ async def main():
     # GIFs
     gif_file_paths: List[Path] = []
 
-    # gif_folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
-    # gif_folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
-    # gif_folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     gif_folder = Path("/home/markus/pictures/Pixel Art GIF/work")
 
     gif_file_paths += list(gif_folder.glob(pattern="*.gif", case_sensitive=False))
@@ -42,7 +39,6 @@ async def main():
     image_file_paths += list(image_folder.glob(pattern="*.jpg", case_sensitive=False))
 
     all_file_paths = gif_file_paths + image_file_paths
-    all_file_paths = image_file_paths
     shuffle(all_file_paths)
 
     digital_picture_frame = DigitalPictureFrame(
