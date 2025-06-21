@@ -43,32 +43,58 @@ class GifModule(IDotMatrixModule):
             await self.send_bytes(data=chunk, response=True)
 
     @staticmethod
-    def _load(file_path: str) -> bytes:
+    def _load_gig_and_adapt_to_canvas(
+        file_path: PathLike,
+        pixel_size: int,
+        background_color: Tuple[int, int, int] = (0, 0, 0),
+    ) -> bytes:
         """
-        Load a gif file into a byte buffer.
+        Loads a GIF file and adapts it to the pixel size of the device's canvas.
 
         Args:
-            file_path (str): path to file
-
+            file_path (PathLike): Path to the GIF file.
+            pixel_size (int): Size of the pixel in the device's canvas.
         Returns:
-            bytes: returns the file contents
+            bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
-        with open(file_path, "rb") as file:
-            return file.read()
+        with PilImage.open(file_path) as img:
+            frames = []
+            try:
+                # there doesn't seem to be a frame limit, I have seen gifts with 34 frames in the "cloud material".
+                # but to be on the safe side, we limit it to 34 frames.
+                while True:
+                    frame = img.copy()
+                    # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
+                    # and adding a black background if necessary.
+                    if frame.size != (pixel_size, pixel_size):
+                        frame = frame.resize(
+                            (pixel_size, pixel_size),
+                            PilImage.Resampling.NEAREST,  # needs to use NEAREST to stay within color palette limits
+                        )
+                    # convert transparent pixels to the background color
+                    new_image = PilImage.new("RGBA", frame.size, background_color)
+                    new_image.paste(frame, (0, 0), frame.convert("RGBA"))
+                    frame = new_image
 
-    @staticmethod
-    def _split_into_chunks(data: bytearray, chunk_size: int) -> List[bytearray]:
-        """
-        Split the data into chunks of specified size.
+                    frames.append(frame.copy())
+                    img.seek(img.tell() + 1)
+            except EOFError:
+                pass
 
-        Args:
-            data (bytearray): data to split into chunks
-            chunk_size (int): size of the chunks
-
-        Returns:
-            List[bytearray]: returns list with chunks of given data input
-        """
-        return [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]
+            gif_buffer = io.BytesIO()
+            duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
+            # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
+            frames[0].save(
+                gif_buffer,
+                format="GIF",
+                save_all=True,
+                append_images=frames[1:],
+                loop=1,
+                duration=duration_per_frame_in_ms,
+                disposal=2,
+            )
+            gif_buffer.seek(0)
+            return gif_buffer.getvalue()
 
     def _create_payloads(
         self, gif_data: bytearray | bytes, chunk_size: int = 4096
@@ -124,55 +150,15 @@ class GifModule(IDotMatrixModule):
         return chunks
 
     @staticmethod
-    def _load_gig_and_adapt_to_canvas(
-        file_path: PathLike,
-        pixel_size: int,
-        background_color: Tuple[int, int, int] = (0, 0, 0),
-    ) -> bytes:
+    def _split_into_chunks(data: bytearray, chunk_size: int) -> List[bytearray]:
         """
-        Loads a GIF file and adapts it to the pixel size of the device's canvas.
+        Split the data into chunks of specified size.
 
         Args:
-            file_path (PathLike): Path to the GIF file.
-            pixel_size (int): Size of the pixel in the device's canvas.
+            data (bytearray): data to split into chunks
+            chunk_size (int): size of the chunks
+
         Returns:
-            bytes: A byte representation of the GIF file, adapted to fit the pixel size.
+            List[bytearray]: returns list with chunks of given data input
         """
-        with PilImage.open(file_path) as img:
-            frames = []
-            try:
-                # there doesn't seem to be a frame limit, I have seen gifts with 34 frames in the "cloud material".
-                # but to be on the safe side, we limit it to 34 frames.
-                while True:
-                    frame = img.copy()
-                    # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
-                    # and adding a black background if necessary.
-                    if frame.size != (pixel_size, pixel_size):
-                        frame = frame.resize(
-                            (pixel_size, pixel_size),
-                            PilImage.Resampling.NEAREST,  # needs to use NEAREST to stay within color palette limits
-                        )
-                    # convert transparent pixels to the background color
-                    new_image = PilImage.new("RGBA", frame.size, background_color)
-                    new_image.paste(frame, (0, 0), frame.convert("RGBA"))
-                    frame = new_image
-
-                    frames.append(frame.copy())
-                    img.seek(img.tell() + 1)
-            except EOFError:
-                pass
-
-            gif_buffer = io.BytesIO()
-            duration_per_frame_in_ms = img.info.get("duration", 200)  # default to 100ms if not set
-            # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
-            frames[0].save(
-                gif_buffer,
-                format="GIF",
-                save_all=True,
-                append_images=frames[1:],
-                loop=1,
-                duration=duration_per_frame_in_ms,
-                disposal=2,
-            )
-            gif_buffer.seek(0)
-            return gif_buffer.getvalue()
+        return [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]

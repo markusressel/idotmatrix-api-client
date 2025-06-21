@@ -6,6 +6,7 @@ from typing import List, Tuple
 from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
+from idotmatrix.modules.clockmodule import ClockStyle
 from idotmatrix.screensize import ScreenSize
 
 
@@ -15,13 +16,21 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
+    await client.clock.show(
+        style=ClockStyle.RGBSwipeOutline,
+        show_date=False,
+    )
+    await client.set_brightness(20)
+
     folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
-    # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
 
     for idx, gif_file in enumerate(gif_file_paths):
         print(f"Uploading GIF: {gif_file.name}")
+        await client.reset()
         await client.gif.upload_gif_file(
             file_path=gif_file,
         )
@@ -30,13 +39,6 @@ async def main():
             await sleep(10)
 
     exit(0)
-
-    # await client.clock.show(
-    #     style=ClockStyle.RGBSwipeOutline,
-    #     show_date=False,
-    # )
-
-    # await client.set_brightness(20)
 
     # # connect
     # await client.connect()
