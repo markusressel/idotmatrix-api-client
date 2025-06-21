@@ -24,10 +24,7 @@
 <h3 align="center">Pixel Display Library</h3>
 
   <p align="center">
-    control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
-    <br/>
-    <br/>
-    <a href="https://github.com/markusressel/python3-idotmatrix-library"><strong>Explore the docs »</strong></a>
+    Control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
     <br/>
     <br/>
     <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Report Bug</a>
