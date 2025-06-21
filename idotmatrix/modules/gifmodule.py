@@ -101,7 +101,7 @@ class GifModule(IDotMatrixModule):
                 append_images=frames[1:],
                 loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,
-                disposal=2,
+                disposal=2,  # Restore to background color after each frame
             )
             gif_buffer.seek(0)
             return gif_buffer.getvalue()
