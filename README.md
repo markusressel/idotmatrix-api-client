@@ -3,8 +3,8 @@
 > author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it remains functional and up-to-date for users who rely on it for
 > controlling iDotMatrix pixel displays.
 
-**The structure of the original project has been significantly altered to improve usability and maintainability.**
-This means it is not possible to switch between the original and this fork without manually adjusting the code.
+> **The structure of the original project has been significantly altered to improve usability and maintainability.**
+> This means it is not possible to switch between the original and this fork without manually adjusting the code.
 
 <br/>
 <p align="center">
