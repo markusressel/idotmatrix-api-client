@@ -30,12 +30,11 @@
   </p>
 </p>
 
-![Downloads](https://img.shields.io/github/downloads/derkalle4/python3-idotmatrix-library/total) ![Contributors](https://img.shields.io/github/contributors/derkalle4/python3-idotmatrix-library?color=dark-green) ![Forks](https://img.shields.io/github/forks/derkalle4/python3-idotmatrix-library?style=social) ![Stargazers](https://img.shields.io/github/stars/derkalle4/python3-idotmatrix-library?style=social) ![Issues](https://img.shields.io/github/issues/derkalle4/python3-idotmatrix-library) ![License](https://img.shields.io/github/license/derkalle4/python3-idotmatrix-library)
+![Contributors](https://img.shields.io/github/contributors/markusressel/python3-idotmatrix-library?color=dark-green) ![License](https://img.shields.io/github/license/markusressel/python3-idotmatrix-library)
 
 ## Table Of Contents
 
 * [About the Project](#about-the-project)
-* [Built With](#built-with)
 * [Getting Started](#getting-started)
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
@@ -50,16 +49,9 @@
 
 This repository aims to reverse engineer
 the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen
-displays
-like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a simple
-library which you can use to connect to your display(s).
-
-## Built With
-
-* [Python 3](https://www.python.org/downloads/)
-* [asyncio](https://docs.python.org/3/library/asyncio.html)
-* [bleak](https://github.com/hbldh/bleak)
-* [pillow](https://python-pillow.org)
+displays like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a
+library which can be used to
+connect and control these displays without the need for the official app.
 
 ## Getting Started
 
