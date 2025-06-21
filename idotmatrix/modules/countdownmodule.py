@@ -23,10 +23,19 @@ class CountdownModule(IDotMatrixModule):
             raise ValueError("Countdown.setMode expects parameter mode to be between 0 and 3")
         # TODO: check for valid range of minutes
         if seconds > 59 or seconds < 0:
-            self.logging.error(
-                "Countdown.setMode parameter seconds is not in range between 0 and 59"
-            )
-            return False
+            raise ValueError("Countdown.setMode expects parameter seconds to be between 0 and 59")
+        if minutes > 59 or minutes < 0:
+            raise ValueError("Countdown.setMode expects parameter minutes to be between 0 and 59")
+
+        data = self._create_payload(
+            mode=mode,
+            minutes=minutes,
+            seconds=seconds,
+        )
+        await self.send_bytes(data=data)
+
+    @staticmethod
+    def _create_payload(mode, minutes, seconds) -> bytearray:
         data = bytearray(
             [
                 7,
@@ -38,4 +47,4 @@ class CountdownModule(IDotMatrixModule):
                 seconds % 256,
             ]
         )
-        await self.send_bytes(data=data)
+        return data

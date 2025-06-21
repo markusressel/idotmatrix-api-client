@@ -32,7 +32,17 @@ class EcoModule(IDotMatrixModule):
             end_minute (int): minute to end
             light (int): the brightness of the screen
         """
-        # TODO: input validation
+        if flag not in (0, 1):
+            raise ValueError("EcoModule.set_mode expects parameter flag to be either 0 or 1")
+        if not (0 <= start_hour < 24) or not (0 <= end_hour < 24):
+            raise ValueError("EcoModule.set_mode expects start_hour and end_hour to be between 0 and 23")
+        if not (0 <= start_minute < 60) or not (0 <= end_minute < 60):
+            raise ValueError("EcoModule.set_mode expects start_minute and end_minute to be between 0 and 59")
+        if not (0 <= light < 256):
+            raise ValueError("EcoModule.set_mode expects light to be between 0 and 255")
+        if start_hour > end_hour or (start_hour == end_hour and start_minute >= end_minute):
+            raise ValueError("EcoModule.set_mode expects start time to be before end time")
+
         data = self._compute_payload(
             flag=flag,
             start_hour=start_hour,
@@ -43,7 +53,8 @@ class EcoModule(IDotMatrixModule):
         )
         await self.send_bytes(data=data)
 
-    def _compute_payload(self, flag, start_hour, start_minute, end_hour, end_minute, light) -> bytearray:
+    @staticmethod
+    def _compute_payload(flag, start_hour, start_minute, end_hour, end_minute, light) -> bytearray:
         data = bytearray(
             [
                 10,
