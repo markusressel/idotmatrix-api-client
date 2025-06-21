@@ -40,7 +40,7 @@ class GifModule(IDotMatrixModule):
 
         data = self._create_payloads(gif_data)
         for chunk in data:
-            await self.send_bytes(data=chunk, response=True)
+            await self.send_bytes(data=chunk, response=True, sleep_after=0)
 
     @staticmethod
     def _load_gig_and_adapt_to_canvas(
@@ -60,8 +60,8 @@ class GifModule(IDotMatrixModule):
         with PilImage.open(file_path) as img:
             frames = []
             try:
-                # there doesn't seem to be a frame limit, I have seen gifts with 34 frames in the "cloud material".
-                # but to be on the safe side, we limit it to 34 frames.
+                # There doesn't seem to be a frame limit in the app, but too many frames cause problems.
+                # To be on the safe side, we limit it to 64 frames.
                 while True:
                     frame = img.copy()
                     # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
@@ -89,7 +89,7 @@ class GifModule(IDotMatrixModule):
                 format="GIF",
                 save_all=True,
                 append_images=frames[1:],
-                loop=1,
+                loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,
                 disposal=2,
             )
