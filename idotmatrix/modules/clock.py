@@ -1,4 +1,5 @@
 import logging
+from asyncio import sleep
 from enum import Enum
 from typing import Tuple
 
@@ -62,6 +63,7 @@ class ClockModule(IDotMatrixModule):
             r=r, g=g, b=b
         )
         await self.send_bytes(data=data)
+        await sleep(0.5)
 
     async def set_time_indicator(self, enabled: bool = True):
         """

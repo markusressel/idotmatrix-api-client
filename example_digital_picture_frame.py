@@ -49,20 +49,13 @@ async def main():
         device_client=client,
         images=all_file_paths
     )
-    await digital_picture_frame.start_slideshow()
+    slideshow_task = await digital_picture_frame.start_slideshow(interval=5)
 
-    # Wait for a while to let the slideshow run
-    try:
-        while True:
-            await asyncio.sleep(1)
-    except asyncio.CancelledError:
-        await digital_picture_frame.stop_slideshow()
-        print("Slideshow stopped.")
+    await asyncio.gather(slideshow_task)
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        asyncio.get_event_loop().stop()
         quit()

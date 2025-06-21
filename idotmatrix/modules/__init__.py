@@ -20,7 +20,7 @@ class IDotMatrixModule:
         self,
         data: bytearray | bytes,
         response: bool = False,
-        sleep_after: float = 0.5
+        sleep_after: float = 0
     ):
         """
         Sends raw data to the IDotMatrix device.

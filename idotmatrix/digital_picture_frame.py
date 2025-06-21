@@ -42,7 +42,8 @@ class DigitalPictureFrame:
             interval (int): Time in seconds between image changes. Defaults to 5 seconds.
         """
         self.logging.info(f"Starting slideshow with interval: {interval} seconds")
-        self._slideshow_task = await self._start_slideshow_task(interval)
+        self._slideshow_task = self._start_slideshow_task(interval)
+        return self._slideshow_task
 
     async def stop_slideshow(self):
         """
@@ -53,7 +54,7 @@ class DigitalPictureFrame:
             self._slideshow_task.cancel()
             self._slideshow_task = None
 
-    async def _start_slideshow_task(self, interval) -> Task:
+    def _start_slideshow_task(self, interval) -> Task:
         """
         Starts the slideshow task that uploads images to the device at specified intervals.
         """
@@ -77,9 +78,9 @@ class DigitalPictureFrame:
                     if isinstance(image, PathLike):
                         image = image.__fspath__()
                     if image.lower().endswith('.gif'):
-                        await self.device_client.gif.upload_gif_file(image)
+                        await self._set_gif(image)
                     else:
-                        await self.device_client.image.upload_image_file(image)
+                        await self._set_image(image)
                 self.logging.info(f"Displaying image '{image}' for {interval} seconds.")
                 await sleep(interval)
 
@@ -88,9 +89,8 @@ class DigitalPictureFrame:
         file_path: PathLike | str
     ):
         self.logging.info(f"Setting image file: {file_path}")
-        await self.device_client.reset()
+        # await self.device_client.reset()
         await self.device_client.image.set_mode()
-        await sleep(10)
         await self.device_client.image.upload_image_file(
             file_path=file_path
         )
