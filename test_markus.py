@@ -1,12 +1,11 @@
 import asyncio
+from asyncio import sleep
 from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.modules.clockmodule import ClockStyle
-from idotmatrix.modules.image import ImageMode
 from idotmatrix.screensize import ScreenSize
 
 
@@ -15,6 +14,22 @@ async def main():
         screen_size=ScreenSize.SIZE_64x64,
         mac_address="69:36:4C:4C:B6:B7"
     )
+
+    folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/work")
+    gif_file_paths = []
+    gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
+
+    for gif_file in gif_file_paths:
+        if "tumblr" not in gif_file.name.lower():
+            continue
+        print(f"Uploading GIF: {gif_file.name}")
+        await client.gif.upload_processed(
+            file_path=gif_file,
+        )
+        await sleep(10)
+
+    exit(0)
 
     # await client.clock.show(
     #     style=ClockStyle.RGBSwipeOutline,

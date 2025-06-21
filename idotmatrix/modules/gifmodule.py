@@ -1,7 +1,8 @@
 import io
 import logging
 import zlib
-from typing import Union, List
+from os import PathLike
+from typing import List
 
 from PIL import Image as PilImage
 
@@ -36,7 +37,7 @@ class GifModule(IDotMatrixModule):
             )
 
     async def upload_processed(
-        self, file_path: str
+        self, file_path: PathLike | str
     ):
         """uploads a file processed to make sure everything is correct before uploading to the device.
 
@@ -45,33 +46,14 @@ class GifModule(IDotMatrixModule):
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
 
-        with PilImage.open(file_path) as img:
-            frames = []
-            try:
-                while True:
-                    frame = img.copy()
-                    if frame.size != (pixel_size, pixel_size):
-                        frame = frame.resize(
-                            (pixel_size, pixel_size), PilImage.NEAREST
-                        )
-                    frames.append(frame.copy())
-                    img.seek(img.tell() + 1)
-            except EOFError:
-                pass
-            gif_buffer = io.BytesIO()
-            frames[0].save(
-                gif_buffer,
-                format="GIF",
-                save_all=True,
-                append_images=frames[1:],
-                loop=1,
-                duration=img.info["duration"],
-                disposal=2,
-            )
-            gif_buffer.seek(0)
-            data = self._create_payloads(gif_buffer.getvalue())
-            for chunk in data:
-                await self.send_bytes(data=chunk, response=True)
+        gif_data = self._load_gig_and_adapt_to_canvas(
+            file_path=file_path,
+            pixel_size=pixel_size,
+        )
+
+        data = self._create_payloads(gif_data)
+        for chunk in data:
+            await self.send_bytes(data=chunk, response=True)
 
     @staticmethod
     def _load(file_path: str) -> bytes:
@@ -100,7 +82,7 @@ class GifModule(IDotMatrixModule):
         return [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]
 
     def _create_payloads(
-        self, gif_data: bytearray, chunk_size: int = 4096
+        self, gif_data: bytearray | bytes, chunk_size: int = 4096
     ) -> List[bytearray]:
         """Creates payloads from a GIF file.
 
@@ -150,3 +132,42 @@ class GifModule(IDotMatrixModule):
             # append chunk to chunk list
             chunks.append(header + chunk)
         return chunks
+
+    @staticmethod
+    def _load_gig_and_adapt_to_canvas(
+        file_path: PathLike,
+        pixel_size: int
+    ) -> bytes:
+        with PilImage.open(file_path) as img:
+            frames = []
+            try:
+                # there doesn't seem to be a frame limit, I have seen gifts with 34 frames in the "cloud material".
+                # but to be on the safe side, we limit it to 34 frames.
+                while len(frames) < 34:
+                    frame = img.copy()
+                    # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
+                    # and adding a black background if necessary.
+                    if frame.size != (pixel_size, pixel_size):
+                        frame = frame.resize(
+                            (pixel_size, pixel_size),
+                            PilImage.Resampling.LANCZOS,
+                        )
+                    if frame.mode != "P":
+                        frame = frame.convert("P")
+                    frames.append(frame.copy())
+                    img.seek(img.tell() + 1)
+            except EOFError:
+                pass
+            gif_buffer = io.BytesIO()
+            duration_per_frame_in_ms = img.info.get("duration", 100)  # default to 100ms if not set
+            frames[0].save(
+                gif_buffer,
+                format="GIF",
+                save_all=True,
+                append_images=frames[0:],
+                loop=1,
+                duration=duration_per_frame_in_ms,
+                disposal=2,
+            )
+            gif_buffer.seek(0)
+            return gif_buffer.getvalue()

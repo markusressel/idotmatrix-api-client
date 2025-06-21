@@ -19,12 +19,22 @@ from idotmatrix.screensize import ScreenSize
 
 
 class IDotMatrixClient:
+    """
+    Client for interacting with the iDotMatrix device.
+    """
 
     def __init__(
         self,
         screen_size: ScreenSize,
         mac_address: Optional[str] = None,
     ):
+        """
+        Initializes the IDotMatrix client with the specified screen size and optional MAC address.
+        Args:
+            screen_size (ScreenSize): The size of the screen, e.g., ScreenSize.SIZE_64x64.
+            mac_address (Optional[str]): The Bluetooth MAC address of the iDotMatrix device. If not provided,
+                                         the client will attempt to discover devices.
+        """
         self._connection_manager = ConnectionManager(
             address=mac_address,
         )
@@ -120,7 +130,7 @@ class IDotMatrixClient:
 
     async def connect(self):
         """
-        Connect to the IDotMatrix server.
+        Connect to the IDotMatrix device.
         """
         if self.mac_address:
             await self._connection_manager.connect_by_address(self.mac_address)
@@ -129,7 +139,7 @@ class IDotMatrixClient:
 
     async def disconnect(self):
         """
-        Disconnect from the IDotMatrix server.
+        Disconnect from the IDotMatrix device.
         """
         await self._connection_manager.disconnect()
 

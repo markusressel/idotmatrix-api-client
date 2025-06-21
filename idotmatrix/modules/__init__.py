@@ -16,7 +16,7 @@ class IDotMatrixModule:
         await self._connection_manager.connect()
 
     async def send_bytes(self, data: bytearray | bytes, response=False):
-        """Sends data to the IDotMatrix device."""
+        """Sends raw data to the IDotMatrix device."""
         await self._connection_manager.send_bytes(data=data, response=response)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response=False):

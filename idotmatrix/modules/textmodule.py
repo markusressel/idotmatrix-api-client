@@ -102,7 +102,7 @@ class TextModule(IDotMatrixModule):
             text_bg_color (Tuple[int, int, int], optional): Background RGB Color. Defaults to (0, 0, 0).
 
         Returns:
-            bytearray: _description_
+            bytearray: A bytearray containing the complete packet to be sent to the iDotMatrix device.
         """
         num_chars = text_bitmaps.count(self.separator)
 
