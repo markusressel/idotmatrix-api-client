@@ -39,7 +39,8 @@ class ImageModule(IDotMatrixModule):
         self,
         mode: ImageMode | int = ImageMode.EnableDIY,
     ):
-        """Enter the DIY draw mode of the iDotMatrix device.
+        """
+        Enter the DIY draw mode of the iDotMatrix device.
 
         Args:
             mode (int): 0 = disable DIY, 1 = enable DIY, 2 = ?, 3 = ?. Defaults to 1.
@@ -54,22 +55,28 @@ class ImageModule(IDotMatrixModule):
     async def upload_image_file(
         self,
         file_path: PathLike | str,
+        background_color: Tuple[int, int, int] = (0, 0, 0),  # default to black background
     ) -> None:
-        """Uploads a file processed and makes sure everything is correct before uploading to the device.
+        """
+        Uploads a file processed and makes sure everything is correct before uploading to the device.
 
         Args:
             file_path (str): path-like object to the image file
+            background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
+             image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
         """
         pixel_data = self._load_image_and_adapt_to_canvas(
             file_path=file_path,
-            pixel_size=self.screen_size.value[0]  # assuming square canvas, so width == height
+            pixel_size=self.screen_size.value[0],  # assuming square canvas, so width == height
+            background_color=background_color,
         )
         await self._send_diy_image_data(pixel_data)
 
     @staticmethod
     def _load_image_and_adapt_to_canvas(
         file_path: PathLike,
-        pixel_size: int
+        pixel_size: int,
+        background_color: Tuple[int, int, int],
     ) -> bytearray:
         """
         Loads an image from a file, resizes it to fit within a square canvas of pixel_size x pixel_size,
@@ -80,8 +87,10 @@ class ImageModule(IDotMatrixModule):
         Returns:
             bytearray: A bytearray containing the raw pixel data of the processed image in RGB format.
         """
+        if background_color is None or len(background_color) != 3:
+            raise ValueError("background_color must be a tuple of three integers (R, G, B)")
+
         with PilImage.open(file_path) as img:
-            background_color = (0, 0, 0)  # black background
             # resize image to pixel_size x pixel_size, but keep aspect ratio, and fill with background_color if the image is smaller
             img.thumbnail((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
             new_img = PilImage.new("RGB", (pixel_size, pixel_size), background_color)

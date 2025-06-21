@@ -85,7 +85,7 @@ class GifModule(IDotMatrixModule):
                     # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
                     # and adding a black background if necessary.
                     if frame.size != (pixel_size, pixel_size):
-                        frame = frame.resize(
+                        frame.thumbnail(
                             size=(pixel_size, pixel_size),
                             resample=PilImage.Resampling.NEAREST,
                             # needs to use NEAREST to stay within color palette limits
@@ -98,7 +98,7 @@ class GifModule(IDotMatrixModule):
                     )
                     new_image.paste(
                         im=frame,
-                        box=(0, 0, pixel_size, pixel_size),
+                        box=((pixel_size - frame.width) // 2, (pixel_size - frame.height) // 2),
                         mask=frame.convert("RGBA")
                     )
                     frame = new_image
@@ -108,8 +108,9 @@ class GifModule(IDotMatrixModule):
             except EOFError:
                 pass
 
-            frames, duration_per_frame_in_ms = self._ensure_reasonable_frame_count(img, frames,
-                                                                                   duration_per_frame_in_ms)
+            frames, duration_per_frame_in_ms = self._ensure_reasonable_frame_count(
+                img, frames, duration_per_frame_in_ms
+            )
 
             # TODO: there are still some cases where
             #  - the GIF is not animating all frames
