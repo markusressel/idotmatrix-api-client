@@ -6,7 +6,7 @@
 > remains functional and up-to-date for users who rely on it for
 > controlling iDotMatrix pixel displays.
 
-> ![CAUTION]
+> [!CAUTION]
 > **Not compatible with the original project!**  
 > While the featureset should be identical (or better), the structure of the original project has been significantly
 > altered to improve usability and maintainability. This means it is not possible to switch between the original and
