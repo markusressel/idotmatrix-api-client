@@ -1,5 +1,6 @@
 import asyncio
 from asyncio import sleep
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -16,6 +17,9 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
+    now = datetime.now()
+    await client.common.set_time(now)
+
     await client.set_brightness(100)
     await client.clock.show(
         style=ClockStyle.RGBSwipeOutline,
@@ -26,11 +30,14 @@ async def main():
     folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
-    gif_file_paths = []
+    gif_file_paths: List[Path] = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
     gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
 
     for idx, gif_file in enumerate(gif_file_paths):
+        if not gif_file.exists():
+            print(f"File {gif_file} does not exist, skipping.")
+            continue
         print(f"Uploading GIF: {gif_file.name}")
         # await client.reset()
         await client.gif.upload_gif_file(
@@ -40,40 +47,21 @@ async def main():
             print(f"Waiting...")
             await sleep(10)
 
-    exit(0)
+    # exit(0)
 
-    # # connect
-    # await client.connect()
-    #
-    # # await common_client.flipScreen(False)
-    # now = datetime.now()
-    # await client.common.set_time(
-    #     year=now.year,
-    #     month=now.month,
-    #     day=now.day,
-    #     hour=now.hour,
-    #     minute=now.minute,
-    #     second=now.second,
-    # )
-    # await client.common.set_brightness(10)
-    #
-    # path = Path("/home/markus/pictures/collage/beide ja")
-    # path = Path("/home/markus/pictures/Satisfactory Photo Mode")
-    #
-    image_file_paths = []
+    image_file_paths: List[Path] = []
     # # image_file_paths += list(path.glob(pattern="*.jpg", case_sensitive=False))
     # # image_file_paths += list(path.glob(pattern="*.png", case_sensitive=False))
     image_file_paths += [
-        # Path("/home/markus/pictures/tulogo.png"),
-        # Path("/home/markus/pictures/viper_logo.jpg"),
         Path("/home/markus/downloads/Geburtsbild Iris.jpg"),
     ]
-    await client.image.set_mode(1)
     for file in image_file_paths:
+        if not file.exists():
+            print(f"File {file} does not exist, skipping.")
+            continue
+        await client.image.set_mode(1)
         await client.image.upload_image_file(
-            # file_path="./images/logo.png",
-            # file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
-            file_path=file.absolute().as_posix(),
+            file_path=file,
         )
 
     # await client.gif.upload_processed(

@@ -131,23 +131,33 @@ class CommonModule(IDotMatrixModule):
         )
         await self.send_bytes(data=data)
 
-    async def set_time(
-        self, year: int, month: int, day: int, hour: int, minute: int, second: int
-    ):
+    async def set_time(self, time: datetime):
         """
         Sets the date and time of the device.
 
         Args:
-            year (int): Year (4 digits).
-            month (int): Month.
-            day (int): Day.
-            hour (int): Hour.
-            minute (int): Minute.
-            second (int): Second.
+            time (datetime): The datetime object representing the date and time to set. Accuracy is to the second.
 
         Returns:
             Optional[bytearray]: Command to be sent to the device or None if error.
         """
+        year = time.year
+        month = time.month
+        day = time.day
+        hour = time.hour
+        minute = time.minute
+        second = time.second
+        if not (0 <= month <= 12):
+            raise ValueError("Common.setTime parameter month is not in range between 1 and 12")
+        if not (0 <= day <= 31):
+            raise ValueError("Common.setTime parameter day is not in range between 1 and 31")
+        if not (0 <= hour <= 23):
+            raise ValueError("Common.setTime parameter hour is not in range between 0 and 23")
+        if not (0 <= minute <= 59):
+            raise ValueError("Common.setTime parameter minute is not in range between 0 and 59")
+        if not (0 <= second <= 59):
+            raise ValueError("Common.setTime parameter second is not in range between 0 and 59")
+
         data = bytearray(
             [
                 11,
