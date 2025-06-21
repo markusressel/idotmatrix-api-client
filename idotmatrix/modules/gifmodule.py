@@ -105,7 +105,7 @@ class GifModule(IDotMatrixModule):
                 gif_buffer,
                 format="GIF",
                 save_all=True,
-                optimize=True,  # optimization can cause issues with some GIFs
+                optimize=True,  # setting this to False fails the transfer for some reason
                 append_images=frames[1:],
                 loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,
