@@ -131,6 +131,6 @@ class DigitalPictureFrame:
             return
         self.logging.info("Switching device to GIF mode")
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
-        await self.device_client.reset()
         await self.device_client.color.show_color(0, 0, 0)
+        await self.device_client.reset()
         self._is_in_diy_mode = False
