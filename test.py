@@ -58,7 +58,7 @@ async def main():
     time.sleep(5)
     # Image
     test = Image()
-    await test.uploadProcessed(
+    await test.upload_image_file(
         file_path="./images/demo_512.png",
         pixel_size=32,
     )

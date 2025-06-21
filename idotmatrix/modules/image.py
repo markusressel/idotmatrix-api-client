@@ -1,21 +1,15 @@
-import io
 import logging
 import struct
+from os import PathLike
 from typing import Union, List
 
 from PIL import Image as PilImage, ExifTags
 
 from ..connectionManager import ConnectionManager
 
-###
-
-# Constants (mirrored from Java, adjust if necessary)
-MTU_SIZE_IF_ENABLED = 509  # Corresponds to bleDevice.isMtuStatus() ? 509
-MTU_SIZE_IF_DISABLED = 18  # Corresponds to : 18
+MTU_SIZE_IF_ENABLED = 509
+MTU_SIZE_IF_DISABLED = 18
 CHUNK_SIZE_4096 = 4096
-
-
-###
 
 
 class Image:
@@ -24,7 +18,7 @@ class Image:
     def __init__(self) -> None:
         self.conn: ConnectionManager = ConnectionManager()
 
-    async def setMode(self, mode: int = 1) -> Union[bool, bytearray]:
+    async def set_mode(self, mode: int = 1) -> Union[bool, bytearray]:
         """Enter the DIY draw mode of the iDotMatrix device.
 
         Args:
@@ -43,19 +37,8 @@ class Image:
             self.logging.error(f"could not enter image mode due to {error}")
             return False
 
-    def _loadPNG(self, file_path: str) -> bytes:
-        """Load a PNG file into a byte buffer.
-
-        Args:
-            file_path (str): path to file
-
-        Returns:
-            bytes: returns the file contents
-        """
-        with open(file_path, "rb") as file:
-            return file.read()
-
-    def _splitIntoChunks(self, data: bytearray, chunk_size: int) -> List[bytearray]:
+    @staticmethod
+    def _split_into_chunks(data: bytearray | bytes, chunk_size: int) -> List[bytearray]:
         """Split the data into chunks of specified size.
 
         Args:
@@ -67,47 +50,18 @@ class Image:
         """
         return [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]
 
-    def _createPayloads(self, rgb_data: bytearray) -> List[bytearray]:
-        chunks = self._splitIntoChunks(rgb_data, 4096)
-        total_length_bytes = struct.pack(">I", len(rgb_data))  # 4 bytes big-endian
-
-        packets = []
-
-        for i, chunk in enumerate(chunks):
-            packet_length = len(chunk) + 9  # total packet length including header
-
-            # Pack as little-endian short (2 bytes)
-            packet_length_le = struct.pack("<H", packet_length)
-
-            # Java swaps bytes: bArr3[0] = short2Bytes[1], bArr3[1] = short2Bytes[0]
-            # So swap bytes here to match Java exactly:
-            packet_length_bytes = bytearray([packet_length_le[1], packet_length_le[0]])
-
-            header = bytearray()
-            header += packet_length_bytes  # [0-1] length in swapped little-endian
-            header += b'\x00\x00'  # [2-3] reserved zero bytes
-            header += b'\x00' if i <= 0 else b'\x02'  # [4] flag: 0 first packet else 2
-            header += total_length_bytes  # [5-8] total length big-endian
-
-            packet = header + chunk
-            packets.append(packet)
-
-        # Debug prints (optional)
-        if packets:
-            print("First packet header+data:", packets[0][:20].hex())
-        print("Total packets created:", len(packets))
-
-        return packets
-
-    def _short_to_bytes_le(self, value):
+    @staticmethod
+    def _short_to_bytes_le(value):
         """Converts a short (2 bytes) to little-endian bytes."""
         return struct.pack('<h', value)
 
-    def _int_to_bytes_le(self, value):
+    @staticmethod
+    def _int_to_bytes_le(value):
         """Converts an int (4 bytes) to little-endian bytes."""
         return struct.pack('<i', value)
 
-    def chunk_data_by_size(self, data, chunk_size):
+    @staticmethod
+    def chunk_data_by_size(data, chunk_size):
         """
         Chunks the input data into smaller pieces of a specified size.
 
@@ -138,7 +92,7 @@ class Image:
         mtu = MTU_SIZE_IF_ENABLED if ble_device_mtu_enabled else MTU_SIZE_IF_DISABLED
         return self.chunk_data_by_size(data_chunk, mtu)
 
-    def create_diy_image_data_packets(self, image_data, ble_device_mtu_enabled=True):
+    def _create_diy_image_data_packets(self, image_data, ble_device_mtu_enabled=True):
         """
         Recreates the sendData3 structure for DIY image data.
         This corresponds to the logic in `sendDIYImageData`.
@@ -189,28 +143,21 @@ class Image:
             large_packet_data = bytes(header) + chunk
             processed_large_packets.append(large_packet_data)
 
-        print(f"====== Total number of large packets (before BLE splitting): {len(processed_large_packets)}")
-
         # 3. Split each "large packet" into smaller BLE packets
         # This corresponds to the loop calling `getSendData` and adding to `sendData3`
         for i, large_packet in enumerate(processed_large_packets):
-            print(f"Processing large packet {i} with length: {len(large_packet)}")
             ble_packets_for_chunk = self.create_ble_packets(large_packet, ble_device_mtu_enabled)
             send_data_3.append(ble_packets_for_chunk)
 
         return send_data_3
 
-    def send_diy_image_data(self, image_bytes: bytes) -> List[bytes]:
+    def compute_send_diy_image_data(self, image_bytes: bytes) -> List[bytes]:
         send_data3 = []
 
         int2byte = image_bytes.__len__().to_bytes(4, byteorder='little')
-        print(f"==========动画文件数据的长度: {len(image_bytes)}")
-
-        send_data_4096 = self._splitIntoChunks(image_bytes, 4096)
-        print(f"===dataList4096长度: {len(send_data_4096)}")
+        send_data_4096 = self._split_into_chunks(image_bytes, 4096)
 
         packet_list = []
-
         for i, chunk in enumerate(send_data_4096):
             length = len(chunk) + 9
             short2bytes = length.to_bytes(2, byteorder='little')
@@ -226,10 +173,7 @@ class Image:
 
             packet_list.append(packet)
 
-        print(f"======每包4K数据的长度分包总数: {len(packet_list)}")
-
         for i, packet in enumerate(packet_list):
-            print(f"发送第 {i} 大包数据: {len(packet)}")
             send_data3.extend(self.get_send_data(packet))
 
         return send_data3
@@ -334,7 +278,7 @@ class Image:
         image_data = pixel * TOTAL_PIXELS  # Full frame of solid color
 
         total_length_bytes = struct.pack(">I", BYTES_PER_IMAGE)  # Big-endian 4 bytes
-        chunks = self._splitIntoChunks(bytearray(image_data), MAX_CHUNK_SIZE)
+        chunks = self._split_into_chunks(bytearray(image_data), MAX_CHUNK_SIZE)
 
         packets = []
 
@@ -373,62 +317,68 @@ class Image:
     #         self.logging.error(f"could not upload the unprocessed image: {error}")
     #         return False
 
-    async def uploadProcessed(
-        self, file_path: str, pixel_size: int = 64
-    ) -> Union[bool, bytearray]:
+    async def upload_image_file(
+        self, file_path: PathLike, pixel_size: int = 64
+    ) -> None:
         """Uploads a file processed and makes sure everything is correct before uploading to the device.
 
         Args:
             file_path (str): path to the image file
             pixel_size (int, optional): amount of pixels (either 16 or 32 makes sense). Defaults to 32.
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise returns bytearray payload
         """
-        try:
-            with PilImage.open(file_path) as img:
-                img = img.resize((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
+        pixel_data = self._load_image_and_adapt_to_canvas(file_path, pixel_size)
+        packets = self._create_diy_image_data_packets(pixel_data)
+        if self.conn:
+            await self.conn.connect()
+            await self.conn.send_packets(data=packets)
 
-                # Read EXIF orientation tag if exists
-                try:
-                    for orientation in ExifTags.TAGS.keys():
-                        if ExifTags.TAGS[orientation] == 'Orientation':
-                            break
-                    exif = img._getexif()
-                    if exif is not None:
-                        orientation_value = exif.get(orientation, None)
-                        if orientation_value == 3:
-                            img = img.rotate(180, expand=True)
-                        elif orientation_value == 6:
-                            img = img.rotate(270, expand=True)  # rotate 270° == rotate right 90°
-                        elif orientation_value == 8:
-                            img = img.rotate(90, expand=True)  # rotate 90° == rotate left 90°
-                except Exception:
-                    pass  # no exif or orientation tag, ignore
-                # Convert to RGB if not already in that mode
-                mode = "RGB"
-                if img.mode != mode:
-                    img = img.convert(mode)
+    @staticmethod
+    def _load_image_and_adapt_to_canvas(
+        file_path: PathLike,
+        pixel_size: int
+    ) -> bytearray:
+        """
+        Loads an image from a file, resizes it to fit within a square canvas of pixel_size x pixel_size,
+        and applies a black background if the image is smaller than the canvas size.
+        Args:
+            file_path (str): Path to the image file.
+            pixel_size (int): Size of the square canvas in pixels.
+        Returns:
+            bytearray: A bytearray containing the raw pixel data of the processed image in RGB format.
+        """
+        with PilImage.open(file_path) as img:
+            background_color = (0, 0, 0)  # black background
+            # resize image to pixel_size x pixel_size, but keep aspect ratio, and fill with background_color if the image is smaller
+            img.thumbnail((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
+            new_img = PilImage.new("RGB", (pixel_size, pixel_size), background_color)
+            new_img.paste(
+                img, ((pixel_size - img.width) // 2, (pixel_size - img.height) // 2)
+            )
+            img = new_img
 
-                # png_buffer = io.BytesIO()
-                # img.save(png_buffer, format="PNG")
-                # png_buffer.seek(0)
-                png_buffer = bytearray(img.tobytes())
-                # png_buffer = bytearray(png_buffer.getvalue())
+            # Read EXIF orientation tag if exists
+            try:
+                for orientation in ExifTags.TAGS.keys():
+                    if ExifTags.TAGS[orientation] == 'Orientation':
+                        break
+                exif = img._getexif()
+                if exif is not None:
+                    orientation_value = exif.get(orientation, None)
+                    if orientation_value == 3:
+                        img = img.rotate(180, expand=True)
+                    elif orientation_value == 6:
+                        img = img.rotate(270, expand=True)  # rotate 270° == rotate right 90°
+                    elif orientation_value == 8:
+                        img = img.rotate(90, expand=True)  # rotate 90° == rotate left 90°
+            except Exception:
+                pass  # no exif or orientation tag, ignore
+            # Convert to RGB if not already in that mode
+            mode = "RGB"
+            if img.mode != mode:
+                img = img.convert(mode)
 
-                # data_png = self._createPayloads(png_buffer)
-
-                # data = data_color
-                # packets = self.send_diy_image_data(data_color)
-
-                data_color = self.create_uniform_color_rgb_byte_array(64, 64, (255, 255, 255))
-                packets = self.create_diy_image_data_packets(png_buffer)
-
-                if self.conn:
-                    await self.conn.connect()
-                    # flatten chunks
-                    await self.conn.send_packets(data=packets)
-                #return data
-        except BaseException as error:
-            raise error
-            return False
+            # png_buffer = io.BytesIO()
+            # img.save(png_buffer, format="PNG")
+            # png_buffer.seek(0)
+            png_buffer = bytearray(img.tobytes())
+            return png_buffer

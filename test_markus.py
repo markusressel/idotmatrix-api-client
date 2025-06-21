@@ -1,6 +1,7 @@
 import asyncio
 from asyncio import sleep
 from datetime import datetime
+from pathlib import Path
 from typing import List, Tuple
 
 from PIL import Image as PILImage
@@ -99,12 +100,27 @@ async def main():
     await sleep(0.2)
     #
     image_client = Image()
-    await image_client.setMode(1)
+    await image_client.set_mode(1)
     await sleep(0.5)
-    await image_client.uploadProcessed(
-        pixel_size=64,
-        file_path="./images/demo_512.png",
-    )
+
+    path = Path("/home/markus/pictures/collage/beide ja")
+    path = Path("/home/markus/pictures/Satisfactory Photo Mode")
+
+    image_file_paths = []
+    # image_file_paths += list(path.glob(pattern="*.jpg", case_sensitive=False))
+    # image_file_paths += list(path.glob(pattern="*.png", case_sensitive=False))
+    image_file_paths += [
+        #Path("/home/markus/pictures/tulogo.png"),
+        Path("/home/markus/pictures/viper_logo.jpg"),
+    ]
+    for file in image_file_paths:
+        await image_client.upload_image_file(
+            pixel_size=64,
+            #file_path="./images/logo.png",
+            #file_path="/home/markus/Downloads/1624051-square-zoomed.jpg",
+            file_path = file.absolute().as_posix(),
+        )
+
 
     # gif_mode = Gif()
     # await gif_mode.uploadProcessed(
@@ -116,7 +132,7 @@ async def main():
     # await common_client.setBrightness(95)
     # await sleep(0.02)
 
-    graffiti_client = Graffiti()
+    # graffiti_client = Graffiti()
 
     # pixel_data = convert_image_to_pixel_array(
     #     pixel_size=screen_size,
