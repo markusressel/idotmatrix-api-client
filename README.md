@@ -95,7 +95,7 @@ from idotmatrix import ConnectionManager
 async def main():
   # connect to first found iDotMatrix Pixel Display
   conn = ConnectionManager()
-  await conn.connect_by_search()
+  await conn.connect_by_discovery()
   # do something with this connection afterwards
 
 

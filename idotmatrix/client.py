@@ -123,7 +123,7 @@ class IDotMatrixClient:
         if self.mac_address:
             await self._connection_manager.connect_by_address(self.mac_address)
         else:
-            await self._connection_manager.connect_by_search()
+            await self._connection_manager.connect_by_discovery()
 
     async def disconnect(self):
         """
