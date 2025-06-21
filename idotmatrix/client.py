@@ -1,20 +1,20 @@
 from typing import Optional
 
 from idotmatrix.connectionManager import ConnectionManager
-from idotmatrix.modules.chronographmodule import ChronographModule
-from idotmatrix.modules.clockmodule import ClockModule
-from idotmatrix.modules.commonmodule import CommonModule
-from idotmatrix.modules.countdownmodule import CountdownModule
-from idotmatrix.modules.ecomodule import EcoModule
-from idotmatrix.modules.effectmodule import EffectModule
-from idotmatrix.modules.fullscreenColorModule import FullscreenColorModule
-from idotmatrix.modules.gifmodule import GifModule
-from idotmatrix.modules.graffitimodule import GraffitiModule
+from idotmatrix.modules.chronograph import ChronographModule
+from idotmatrix.modules.clock import ClockModule
+from idotmatrix.modules.common import CommonModule
+from idotmatrix.modules.countdown import CountdownModule
+from idotmatrix.modules.eco import EcoModule
+from idotmatrix.modules.effect import EffectModule
+from idotmatrix.modules.fullscreen_color import FullscreenColorModule
+from idotmatrix.modules.gif import GifModule
+from idotmatrix.modules.graffiti import GraffitiModule
 from idotmatrix.modules.image import ImageModule
-from idotmatrix.modules.musicSyncModule import MusicSyncModule
-from idotmatrix.modules.scoreboardmodule import ScoreboardModule
-from idotmatrix.modules.systemmodule import SystemModule
-from idotmatrix.modules.textmodule import TextModule
+from idotmatrix.modules.music_sync import MusicSyncModule
+from idotmatrix.modules.scoreboard import ScoreboardModule
+from idotmatrix.modules.system import SystemModule
+from idotmatrix.modules.text import TextModule
 from idotmatrix.screensize import ScreenSize
 
 

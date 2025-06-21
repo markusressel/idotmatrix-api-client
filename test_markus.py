@@ -7,7 +7,7 @@ from typing import List, Tuple
 from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.modules.clockmodule import ClockStyle
+from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.screensize import ScreenSize
 
 
