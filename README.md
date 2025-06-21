@@ -1,8 +1,7 @@
-[!NOTE]  
-This is a fork of the original project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no longer maintained due to the
-author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it remains functional and up-to-date for users who rely on it for
-controlling iDotMatrix pixel
-displays.
+> [!NOTE]  
+> This is a fork of the original project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no longer maintained due to the
+> author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it remains functional and up-to-date for users who rely on it for
+> controlling iDotMatrix pixel displays.
 
 **The structure of the original project has been significantly altered to improve usability and maintainability.**
 This means it is not possible to switch between the original and this fork without manually adjusting the code.
