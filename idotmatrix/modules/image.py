@@ -5,7 +5,7 @@ from enum import Enum
 from os import PathLike
 from typing import List, Tuple
 
-from PIL import Image as PilImage, ExifTags
+from PIL import Image as PilImage, ImageOps
 
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
@@ -98,40 +98,27 @@ class ImageModule(IDotMatrixModule):
             raise ValueError("background_color must be a tuple of three integers (R, G, B)")
 
         with PilImage.open(file_path) as img:
-            # resize image to pixel_size x pixel_size, but keep aspect ratio, and fill with background_color if the image is smaller
+            # resize image to pixel_size x pixel_size, but keep aspect ratio
             img.thumbnail((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
+
+            # rotate image based on EXIF data if available
+            img = ImageOps.exif_transpose(img)
+
+            # fill the background behind the image with background_color, if the image doesn't fill the whole canvas
             new_img = PilImage.new("RGB", (pixel_size, pixel_size), background_color)
             new_img.paste(
                 img, ((pixel_size - img.width) // 2, (pixel_size - img.height) // 2)
             )
             img = new_img
 
-            # Read EXIF orientation tag if exists
-            try:
-                for orientation in ExifTags.TAGS.keys():
-                    if ExifTags.TAGS[orientation] == 'Orientation':
-                        break
-                exif = img._getexif()
-                if exif is not None:
-                    orientation_value = exif.get(orientation, None)
-                    if orientation_value == 3:
-                        img = img.rotate(180, expand=True)
-                    elif orientation_value == 6:
-                        img = img.rotate(270, expand=True)  # rotate 270° == rotate right 90°
-                    elif orientation_value == 8:
-                        img = img.rotate(90, expand=True)  # rotate 90° == rotate left 90°
-            except Exception:
-                pass  # no exif or orientation tag, ignore
-            # Convert to RGB if not already in that mode
-            mode = "RGB"
-            if img.mode != mode:
-                img = img.convert(mode)
-
             if palletize:
                 # Convert to palette-based image
                 img = img.convert('P', palette=PilImage.Palette.ADAPTIVE)
-                # Convert back to RGB to get the pixel data in RGB format
-                img = img.convert("RGB")
+
+            # Convert to RGB if not already in that mode, to get the pixel data in RGB format
+            mode = "RGB"
+            if img.mode != mode:
+                img = img.convert(mode)
 
             png_buffer = bytearray(img.tobytes())
             return png_buffer
