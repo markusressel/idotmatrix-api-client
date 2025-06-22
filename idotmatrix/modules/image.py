@@ -10,6 +10,7 @@ from PIL import Image as PilImage, ImageOps
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.util import image_utils
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
@@ -112,8 +113,7 @@ class ImageModule(IDotMatrixModule):
             img = new_img
 
             if palletize:
-                # Convert to palette-based image
-                img = img.convert('P', palette=PilImage.Palette.ADAPTIVE)
+                img = image_utils.palettize(img)
 
             # Convert to RGB if not already in that mode, to get the pixel data in RGB format
             mode = "RGB"

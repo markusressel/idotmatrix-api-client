@@ -9,6 +9,7 @@ from PIL import Image as PilImage
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.util import image_utils
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -97,8 +98,8 @@ class GifModule(IDotMatrixModule):
                     if frame.size != (canvas_size, canvas_size):
                         frame.thumbnail(
                             size=(canvas_size, canvas_size),
-                            resample=PilImage.Resampling.NEAREST,
                             # needs to use NEAREST to stay within color palette limits
+                            resample=PilImage.Resampling.NEAREST,
                         )
                     # convert transparent pixels to the background color
                     new_image = PilImage.new(
@@ -112,8 +113,7 @@ class GifModule(IDotMatrixModule):
                         mask=frame.convert("RGBA")
                     )
                     if palletize:
-                        # use color palette to improve readability and compatibility
-                        new_image = new_image.convert('P', palette=PilImage.Palette.ADAPTIVE)
+                        img = image_utils.palettize(img)
                     frame = new_image
 
                     frames.append(frame.copy())
