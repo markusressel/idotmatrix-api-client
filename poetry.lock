@@ -15,6 +15,21 @@ files = [
 ]
 
 [[package]]
+name = "asyncmock"
+version = "0.4.2"
+description = "Extension to the standard mock framework to support support async"
+optional = false
+python-versions = ">=3.6"
+groups = ["test"]
+files = [
+    { file = "asyncmock-0.4.2-py3-none-any.whl", hash = "sha256:fd8bc4e7813251a8959d1140924ccba3adbbc7af885dba7047c67f73c0b664b1" },
+    { file = "asyncmock-0.4.2.tar.gz", hash = "sha256:c251889d542e98fe5f7ece2b5b8643b7d62b50a5657d34a4cbce8a1d5170d750" },
+]
+
+[package.dependencies]
+mock = "*"
+
+[[package]]
 name = "bleak"
 version = "0.22.3"
 description = "Bluetooth Low Energy platform Agnostic Klient"
@@ -258,6 +273,23 @@ files = [
     { file = "iniconfig-2.1.0-py3-none-any.whl", hash = "sha256:9deba5723312380e77435581c6bf4935c94cbfab9b1ed33ef8d238ea168eb760" },
     { file = "iniconfig-2.1.0.tar.gz", hash = "sha256:3abbd2e30b36733fee78f9c7f7308f2d0050e88f0087fd25c2645f63c773e1c7" },
 ]
+
+[[package]]
+name = "mock"
+version = "5.2.0"
+description = "Rolling backport of unittest.mock for all Pythons"
+optional = false
+python-versions = ">=3.6"
+groups = ["test"]
+files = [
+    { file = "mock-5.2.0-py3-none-any.whl", hash = "sha256:7ba87f72ca0e915175596069dbbcc7c75af7b5e9b9bc107ad6349ede0819982f" },
+    { file = "mock-5.2.0.tar.gz", hash = "sha256:4e460e818629b4b173f32d08bf30d3af8123afbb8e04bb5707a1fd4799e503f0" },
+]
+
+[package.extras]
+build = ["blurb", "twine", "wheel"]
+docs = ["sphinx"]
+test = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "packaging"
@@ -823,4 +855,4 @@ all = ["winrt-Windows.Foundation.Collections[all] (==2.3.0)", "winrt-Windows.Fou
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.14"
-content-hash = "a0f39ed7e53045a7034b2ef6265d2446dd90d8fb627bc2fc6daa5ef5d4715924"
+content-hash = "536bc878d9fbad4b816dd0610040e6696d552a5cf9a42ec28a37c018961dfe0b"
