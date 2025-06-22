@@ -229,11 +229,13 @@ class DigitalPictureFrame:
             #  but I haven't gotten anything else to work yet :(
             asyncio.get_event_loop().stop()
 
-        def signal_handler():
+        def signal_handler(signum):
+            signame = signal.Signals(signum).name
+            logging.info(f'Signal handler called with signal {signame} ({signum})')
             asyncio.ensure_future(async_signal_handler())
 
-        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, signal_handler)
-        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, signal_handler)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, lambda: signal_handler(signal.SIGINT))
+        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, lambda: signal_handler(signal.SIGTERM))
         self._slideshow_task = self._start_slideshow_task()
         await asyncio.sleep(0)
         return self._slideshow_task

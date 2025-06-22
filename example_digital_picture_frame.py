@@ -47,7 +47,8 @@ async def main():
     )
 
     digital_picture_frame.watch_folders(
-        folders=[gif_folder, image_folder]
+        # folders=[gif_folder, image_folder]
+        folders=[image_folder]
     )
 
     await digital_picture_frame.start_slideshow(interval=5)
