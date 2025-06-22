@@ -113,7 +113,7 @@ class GifModule(IDotMatrixModule):
                         mask=frame.convert("RGBA")
                     )
                     if palletize:
-                        img = image_utils.palettize(img)
+                        new_image = image_utils.palettize(new_image)
                     frame = new_image
 
                     frames.append(frame.copy())
