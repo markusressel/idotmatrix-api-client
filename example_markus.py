@@ -22,23 +22,26 @@ async def main():
 
     # await client.common.set_screen_flipped(False)
 
-    await client.set_brightness(100)
+    # await client.set_brightness(100)
     await client.clock.show(
         style=ClockStyle.RGBSwipeOutline,
         show_date=False,
     )
     await client.reset()
+    # exit(0)
 
     # await sleep(1)
 
-    folder = Path("/home/markus/pictures/Pixel Art GIF/unknown")
+    # folder = Path("/home/markus/pictures/Pixel Art GIF/unknown")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
-    # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths: List[Path] = []
     gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
     # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
+
+    gif_file_paths = gif_file_paths[2:]
 
     for idx, gif_file in enumerate(gif_file_paths):
         if not gif_file.exists():
@@ -57,7 +60,8 @@ async def main():
     # exit(0)
 
     image_file_paths: List[Path] = []
-    example_images_folder = Path("/home/markus/pictures/Abi Buch Collage")
+    # example_images_folder = Path("/home/markus/pictures/Abi Buch Collage")
+    example_images_folder = Path("/home/markus/pictures/DPF")
     image_file_paths += list(example_images_folder.glob(pattern="*.jpg", case_sensitive=False))
     # image_file_paths = list(filter(lambda x: "Foto0127" in x.name, image_file_paths))
 

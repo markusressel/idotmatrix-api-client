@@ -27,15 +27,12 @@ async def main():
 
     # GIFs
     gif_file_paths: List[Path] = []
-
     gif_folder = Path("/home/markus/pictures/Pixel Art GIF/work")
-
     gif_file_paths += list(gif_folder.glob(pattern="*.gif", case_sensitive=False))
-    # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
 
     # Images
     image_file_paths: List[Path] = []
-    image_folder = Path("/home/markus/pictures/Abi Buch Collage")
+    image_folder = Path("/home/markus/pictures/DPF")
     image_file_paths += list(image_folder.glob(pattern="*.jpg", case_sensitive=False))
 
     # Combine all file paths
