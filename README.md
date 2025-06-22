@@ -87,6 +87,8 @@ poetry install
 
 ## Usage
 
+### Device API Client
+
 ```python
 import asyncio
 
@@ -116,6 +118,12 @@ if __name__ == "__main__":
 ```
 
 For more examples please check the [example.py](./example.py).
+
+### Digital Picture Frame
+
+Besides the `IDotMatrixClient`, this repository also contains a `DigitalPictureFrame` class which can be used
+to display images and GIFs in a slideshow fashion. See [digital_picture_frame.py](./idotmatrix/digital_picture_frame.py)
+for more details on how to use it.
 
 ## Roadmap
 

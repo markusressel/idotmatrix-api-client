@@ -21,6 +21,8 @@ async def main():
     now = datetime.now()
     await client.common.set_time(now)
 
+    await client.common.set_screen_flipped(False)
+
     await client.set_brightness(100)
     await client.clock.show(
         style=ClockStyle.RGBSwipeOutline,
@@ -58,7 +60,7 @@ async def main():
     image_file_paths: List[Path] = []
     example_images_folder = Path("/home/markus/pictures/Abi Buch Collage")
     image_file_paths += list(example_images_folder.glob(pattern="*.jpg", case_sensitive=False))
-    image_file_paths = list(filter(lambda x: "Foto0127" in x.name, image_file_paths))
+    # image_file_paths = list(filter(lambda x: "Foto0127" in x.name, image_file_paths))
 
     await client.image.set_mode(ImageMode.EnableDIY)
     for file in image_file_paths:
