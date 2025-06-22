@@ -1,9 +1,27 @@
+import asyncio
 import logging
-from typing import List, Optional
+from collections.abc import Callable
+from typing import List, Optional, Awaitable, Any
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
 
 from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
+
+
+class ConnectionListener:
+    def __init__(
+        self,
+        on_connected: Optional[Callable[[], Awaitable[Any]]],
+        on_disconnected: Optional[Callable[[], Awaitable[Any]]],
+    ):
+        """
+        Initializes the ConnectionListener with optional callbacks for connection events.
+        Args:
+            on_connected (Optional[Callable[None, Awaitable[Any]]]): Async callback function to be called when connected.
+            on_disconnected (Optional[Callable[None, Awaitable[Any]]]): Async callback function to be called when disconnected.
+        """
+        self.on_connected = on_connected
+        self.on_disconnected = on_disconnected
 
 
 class ConnectionManager:
@@ -24,6 +42,8 @@ class ConnectionManager:
 
         if address:
             self.set_address(address)
+
+        self._connection_listeners: List[ConnectionListener] = []
 
     @staticmethod
     async def discover_devices() -> List[str]:
@@ -70,7 +90,11 @@ class ConnectionManager:
             raise ValueError("No address provided for BleakClient.")
         if address is None:
             address = self.address
-        self.client = BleakClient(address)
+
+        self.client = BleakClient(
+            address_or_ble_device=address,
+            disconnected_callback=self._on_disconnected
+        )
         return self.client
 
     async def connect_by_address(self, address: str) -> None:
@@ -113,6 +137,7 @@ class ConnectionManager:
             await self.connect_by_discovery()
         if not await self.is_connected():
             await self.client.connect()
+            self._notify_connection_listeners_connected()
             self.logging.info(f"connected to {self.address}")
         else:
             self.logging.info(f"already connected to {self.address}")
@@ -124,7 +149,6 @@ class ConnectionManager:
         """
         if await self.is_connected():
             await self.client.disconnect()
-            self.logging.info(f"disconnected from {self.address}")
 
     async def is_connected(self) -> bool:
         """
@@ -192,3 +216,32 @@ class ConnectionManager:
         data = await self.client.read_gatt_char(UUID_READ_DATA)
         self.logging.info("data received")
         return data
+
+    def add_connection_listener(self, listener: ConnectionListener):
+        """
+        Adds a connection listener to the ConnectionManager.
+        Args:
+            listener (ConnectionListener): The listener to be added. It should implement the on_connected and on_disconnected methods.
+        """
+        self._connection_listeners.append(listener)
+
+    def _notify_connection_listeners_connected(self):
+        """
+        Notifies all registered connection listeners that the device has been connected.
+        """
+        self.logging.info("notifying connection listeners about connection")
+        for listener in self._connection_listeners:
+            if listener.on_connected:
+                asyncio.ensure_future(listener.on_connected())
+
+    def _on_disconnected(self, client: BleakClient):
+        """
+        Callback function that is called when the client is disconnected.
+        It notifies all registered connection listeners about the disconnection.
+        Args:
+            client (BleakClient): The BleakClient instance that was disconnected.
+        """
+        self.logging.info(f"disconnected from {client.address}")
+        for listener in self._connection_listeners:
+            if listener.on_disconnected:
+                asyncio.ensure_future(listener.on_disconnected())

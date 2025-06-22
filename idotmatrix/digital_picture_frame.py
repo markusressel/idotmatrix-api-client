@@ -10,6 +10,7 @@ from watchdog.observers.inotify import InotifyObserver
 from watchdog.observers.polling import PollingObserver
 
 from idotmatrix.client import IDotMatrixClient
+from idotmatrix.connection_manager import ConnectionListener
 from idotmatrix.modules.image import ImageMode
 from idotmatrix.util.file_watch import EventHandler
 
@@ -66,11 +67,13 @@ class DigitalPictureFrame:
         device_client: IDotMatrixClient,
         images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = None,
     ):
-        self.device_client = device_client
+        self.device_client: IDotMatrixClient = device_client
+        self._setup_connection_listener()
+
         if not images:
             images = []
-        self.images = images
-        self.interval = DEFAULT_INTERVAL_SECONDS
+        self.images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = images
+        self.interval_seconds: int = DEFAULT_INTERVAL_SECONDS
 
         self._filesystem_observers: List[FilesystemObserver] = []
 
@@ -79,13 +82,34 @@ class DigitalPictureFrame:
 
         self._slideshow_task: Task | None = None
 
+        self._is_paused: bool = False
         self._is_in_diy_mode: bool = False
+
+    def _setup_connection_listener(self):
+        """
+        Due to the device not beeing the most stable, and the connection also being lost sometimes,
+        we need to ensure that the device is always in a valid state when the connection is re-established.
+        """
+
+        async def on_device_connected():
+            self.logging.info("Device connected, resetting slideshow and device state.")
+            await self.resume_slideshow()
+
+        async def on_device_disconnected():
+            await self.pause_slideshow()
+
+        connection_listener = ConnectionListener(
+            on_connected=on_device_connected,
+            on_disconnected=on_device_disconnected,
+        )
+
+        self.device_client.add_connection_listener(connection_listener)
 
     def set_interval(self, interval: int):
         """
         Sets the interval between two images/GIFs for the slideshow.
         """
-        self.interval = interval
+        self.interval_seconds = interval
 
     def watch_folders(
         self,
@@ -185,6 +209,22 @@ class DigitalPictureFrame:
         self._slideshow_task = self._start_slideshow_task()
         return self._slideshow_task
 
+    async def pause_slideshow(self):
+        """
+        Pauses the slideshow.
+        """
+        if self.is_slideshow_running():
+            self.logging.info("Pausing slideshow")
+        self._is_paused = True
+
+    async def resume_slideshow(self):
+        """
+        Resumes the slideshow if it was paused.
+        """
+        if not self.is_slideshow_running():
+            self.logging.info("Resuming slideshow")
+            self._is_paused = False
+
     async def stop_slideshow(self):
         """
         Stops the slideshow.
@@ -195,6 +235,15 @@ class DigitalPictureFrame:
             self._slideshow_task = None
 
         await self.device_client.clock.show()
+
+    def is_slideshow_running(self) -> bool:
+        """
+        Checks if the slideshow is currently running.
+
+        Returns:
+            bool: True if the slideshow is running, False otherwise.
+        """
+        return self._slideshow_task is not None and not self._slideshow_task.done() and not self._is_paused
 
     def _start_slideshow_task(self) -> Task:
         """
@@ -211,11 +260,14 @@ class DigitalPictureFrame:
 
         while True:
             try:
+                if self._is_paused:
+                    await sleep(1)
+                    continue
                 await self.next()
             except Exception as ex:
                 self.logging.error(f"Error switching to next image in slideshow: {ex}")
                 continue
-            await sleep(self.interval)
+            await sleep(self.interval_seconds)
 
     async def next(self):
         """
@@ -230,7 +282,7 @@ class DigitalPictureFrame:
                 self.logging.warning("No images in slideshow to display.")
                 self._current_image = None
             return
-        self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
+        self._advance_slideshow_index()
         next_image = self.images[self._current_slideshow_index]
         if next_image != self._current_image:
             try:
@@ -239,7 +291,7 @@ class DigitalPictureFrame:
                 self.logging.error(f"Failed to switch to image: {next_image}. Skipping this image.")
                 return
             if len(self.images) > 1:
-                self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
+                self.logging.info(f"Displaying image '{image_path}' for {self.interval_seconds} seconds.")
             else:
                 self.logging.info(f"Displaying image '{image_path}' (only image in slideshow).")
         else:
@@ -359,3 +411,6 @@ class DigitalPictureFrame:
             observers.append(observer)
 
         return observers
+
+    def _advance_slideshow_index(self):
+        self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)

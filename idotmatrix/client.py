@@ -1,6 +1,6 @@
 from typing import Optional
 
-from idotmatrix.connection_manager import ConnectionManager
+from idotmatrix.connection_manager import ConnectionManager, ConnectionListener
 from idotmatrix.modules.chronograph import ChronographModule
 from idotmatrix.modules.clock import ClockModule
 from idotmatrix.modules.common import CommonModule
@@ -170,3 +170,15 @@ class IDotMatrixClient:
         Reset the IDotMatrix device.
         """
         await self.common.reset()
+
+    def add_connection_listener(
+        self,
+        connection_listener: ConnectionListener,
+    ):
+        """
+        Add listeners for connection events.
+
+        Args:
+            connection_listener (ConnectionListener): The listener to be added.
+        """
+        self._connection_manager.add_connection_listener(connection_listener)
