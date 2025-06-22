@@ -8,9 +8,11 @@ from idotmatrix.screensize import ScreenSize
 
 async def main():
     client = IDotMatrixClient(
-        screen_size=ScreenSize.SIZE_64x64,
+        screen_size=ScreenSize.SIZE_64x64,  # or use ScreenSize.SIZE_32x32 or ScreenSize.SIZE_16x16
+        # mac_address="00:11:22:33:44:55",  # (optional) specify your device's Bluetooth address
     )
-    # connect using autodiscovery
+    # if mac_address is provided, this is optional.
+    # if not, the first discovered device will be connected to.
     await client.connect()
 
     # Chronograph
