@@ -7,6 +7,11 @@ registries:
     password: "${{secrets.PYTHON_INDEX_PYPI_PYTHON_ORG_SIMPLE_PASSWORD}}"
 
 updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      # Check for updates to GitHub Actions every week
+      interval: "weekly"
   - package-ecosystem: pip
     insecure-external-code-execution: allow
     directory: "/"
