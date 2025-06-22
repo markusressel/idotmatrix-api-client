@@ -127,6 +127,12 @@ to display images and GIFs in a slideshow fashion.
 See [example_digital_picture_frame.py](./example_digital_picture_frame.py)
 for more details on how to use it.
 
+The `DigitalPictureFrame` can
+
+* display a static list of images and/or GIFs
+* watch one or more directories for images and GIFs
+* automatically reconnect to the device in case of an error or connection loss
+
 ## Roadmap
 
 If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good.
