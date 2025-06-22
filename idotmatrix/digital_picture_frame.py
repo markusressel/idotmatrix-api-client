@@ -113,6 +113,7 @@ class DigitalPictureFrame:
         """
         Sets the interval between two images/GIFs for the slideshow.
         """
+        self.logging.info(f"Setting slideshow interval to {interval} seconds")
         self.interval_seconds = interval
 
     def watch_folders(
@@ -309,7 +310,7 @@ class DigitalPictureFrame:
                 self.logging.error(f"Failed to switch to image: {next_image}. Skipping this image.")
                 return
             if len(self.images) > 1:
-                self.logging.info(f"Displaying image '{image_path}' for {self.interval_seconds} seconds.")
+                self.logging.info(f"Displaying image '{image_path}'.")
             else:
                 self.logging.info(f"Displaying image '{image_path}' (only image in slideshow).")
         else:
