@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from asyncio import Task
 from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
 
@@ -44,6 +45,8 @@ class ConnectionManager:
             self.set_address(address)
 
         self._auto_reconnect = False
+        self._is_auto_reconnect_active = False
+        self._reconnect_loop_task: Optional[Task] = None
 
         self._connection_listeners: List[ConnectionListener] = []
 
@@ -134,6 +137,8 @@ class ConnectionManager:
         Raises:
             ValueError: If the device address is not set.
         """
+        if self._auto_reconnect:
+            self._is_auto_reconnect_active = True
         if not self.address:
             self.logging.warning("device address is not set, trying to connect by discovery...")
             await self.connect_by_discovery()
@@ -150,6 +155,8 @@ class ConnectionManager:
         Disconnects from the device if connected.
         If the client is not connected, this method does nothing.
         """
+        # Disable auto-reconnect during active disconnection, it will be re-enabled on active connection attempt
+        self._is_auto_reconnect_active = False
         if await self.is_connected():
             await self.client.disconnect()
 
@@ -248,9 +255,11 @@ class ConnectionManager:
             if listener.on_disconnected:
                 asyncio.ensure_future(listener.on_disconnected())
 
-        if self._auto_reconnect:
+        if self._auto_reconnect and self._is_auto_reconnect_active:
             self.logging.info("auto-reconnect is enabled, trying to reconnect...")
-            asyncio.ensure_future(self._reconnect_loop())
+            # Start the reconnect loop if not already running
+            if self._reconnect_loop_task is None or self._reconnect_loop_task.done():
+                self._reconnect_loop_task = asyncio.create_task(self._reconnect_loop())
 
     async def _reconnect_loop(self):
         """
@@ -271,3 +280,4 @@ class ConnectionManager:
             auto_reconnect (bool): True to enable auto-reconnect, False to disable.
         """
         self._auto_reconnect = auto_reconnect
+        self._is_auto_reconnect_active = True

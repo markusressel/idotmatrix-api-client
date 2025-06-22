@@ -241,6 +241,7 @@ class DigitalPictureFrame:
             self._slideshow_task = None
 
         await self.device_client.clock.show()
+        await self.device_client.disconnect()
 
     def is_slideshow_running(self) -> bool:
         """
