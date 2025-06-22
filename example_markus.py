@@ -1,6 +1,5 @@
 import asyncio
 from asyncio import sleep
-from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -18,10 +17,10 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
-    now = datetime.now()
-    await client.common.set_time(now)
+    # now = datetime.now()
+    # await client.common.set_time(now)
 
-    await client.common.set_screen_flipped(False)
+    # await client.common.set_screen_flipped(False)
 
     await client.set_brightness(100)
     await client.clock.show(
@@ -30,30 +29,30 @@ async def main():
     )
     await client.reset()
 
-    await sleep(1)
+    # await sleep(1)
 
-    # folder = Path("/home/markus/pictures/Pixel Art GIF/unknown")
+    folder = Path("/home/markus/pictures/Pixel Art GIF/unknown")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/dont work")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/not repeating")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     # folder = Path("/home/markus/pictures/Pixel Art GIF/work")
-    # gif_file_paths: List[Path] = []
-    # gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
-    # # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
-    #
-    # for idx, gif_file in enumerate(gif_file_paths):
-    #     if not gif_file.exists():
-    #         print(f"File {gif_file} does not exist, skipping.")
-    #         continue
-    #     print(f"Uploading GIF: {gif_file.name}")
-    #     await client.reset()
-    #     await client.gif.upload_gif_file(
-    #         file_path=gif_file,
-    #         # duration_per_frame_in_ms=200,
-    #     )
-    #     if idx < len(gif_file_paths) - 1:
-    #         print(f"Waiting...")
-    #         await sleep(10)
+    gif_file_paths: List[Path] = []
+    gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
+    # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
+
+    for idx, gif_file in enumerate(gif_file_paths):
+        if not gif_file.exists():
+            print(f"File {gif_file} does not exist, skipping.")
+            continue
+        print(f"Uploading GIF: {gif_file.name}")
+        await client.reset()
+        await client.gif.upload_gif_file(
+            file_path=gif_file,
+            # duration_per_frame_in_ms=200,
+        )
+        if idx < len(gif_file_paths) - 1:
+            print(f"Waiting...")
+            await sleep(10)
 
     # exit(0)
 

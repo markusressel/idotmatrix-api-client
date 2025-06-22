@@ -132,6 +132,7 @@ class ImageModule(IDotMatrixModule):
         Args:
             pixel_data (List[Tuple[int, int, int]]): List of tuples representing RGB pixel values.
                 Each tuple should contain three integers (R, G, B) in the range 0-255.
+                The length of this list must match the square of the screen size (pixel_size * pixel_size).
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
         if len(pixel_data) != pixel_size * pixel_size:
