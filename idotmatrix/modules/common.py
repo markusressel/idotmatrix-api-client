@@ -244,3 +244,4 @@ class CommonModule(IDotMatrixModule):
         ]
         for data in reset_packets:
             await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
