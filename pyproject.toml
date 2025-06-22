@@ -29,7 +29,8 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.test]
 optional = true
 [tool.poetry.group.test.dependencies]
-pytest = "^6.0.0"
+pytest = "^8.2.0,<9"
+pytest_asyncio = "^1.0.0"
 pytest-mock = "*"
 
 [tool.poetry]
