@@ -150,6 +150,12 @@ into other issues please check for "#TODO" comments in the source code as well.
     * [ ] bluetooth password protection
     * [ ] understand the returned byte arrays of the device for better error logs
 
+## Helpful Links
+
+* Create Images or GIFs
+  * [pixilart](https://www.pixilart.com/draw)
+    * Create a new drawing and select a preset for the size of your display (e.g. 64x64)
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any
