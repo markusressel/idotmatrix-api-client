@@ -239,7 +239,8 @@ class GifModule(IDotMatrixModule):
                 duration_per_frame_in_ms = 16
 
         # make sure the duration of the full animation doesn't exceed (duration_per_frame_in_ms * 64)
-        # because otherwise the upload takes a very long time
+        # because otherwise the upload takes a very long time. If using the given duration_per_frame_in_ms exceeds the limit,
+        # intermediate frames are skipped to keep the total count of frames below max_total_frame_count.
         original_frame_count = len(frames)
         original_duration = original_frame_count * duration_per_frame_in_ms
         if original_duration > total_duration_limit_ms:
@@ -262,9 +263,9 @@ class GifModule(IDotMatrixModule):
                     result_frames.insert(-1, frames_excluding_first_and_last[i])
             frames = result_frames
 
-        print(f"GIF original frame count: {original_frame_count}")
-        print(f"GIF adjusted frame count: {len(frames)}")
-        print(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
-        print(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
+        # print(f"GIF original frame count: {original_frame_count}")
+        # print(f"GIF adjusted frame count: {len(frames)}")
+        # print(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
+        # print(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
 
         return frames, duration_per_frame_in_ms
