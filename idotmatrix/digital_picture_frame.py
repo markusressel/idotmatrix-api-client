@@ -69,11 +69,6 @@ class DigitalPictureFrame:
         """
         await self.device_client.color.show_color(0, 0, 0)
         await self.device_client.reset()
-        await self.device_client.text.show_text("Starting Slideshow...")
-        await sleep(6)
-        await self.device_client.color.show_color(0, 0, 0)
-        await sleep(1)
-        await self.device_client.reset()
         while True:
             for image in self.images:
                 if isinstance(image, PictureFrameImage):

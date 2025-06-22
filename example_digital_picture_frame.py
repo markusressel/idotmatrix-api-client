@@ -38,7 +38,9 @@ async def main():
     image_folder = Path("/home/markus/pictures/Abi Buch Collage")
     image_file_paths += list(image_folder.glob(pattern="*.jpg", case_sensitive=False))
 
+    # Combine all file paths
     all_file_paths = gif_file_paths + image_file_paths
+    # shuffle them around
     shuffle(all_file_paths)
 
     digital_picture_frame = DigitalPictureFrame(
