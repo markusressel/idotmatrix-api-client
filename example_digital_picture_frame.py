@@ -50,13 +50,18 @@ async def main():
         folders=[gif_folder, image_folder]
     )
 
-    slideshow_task = await digital_picture_frame.start_slideshow(interval=5)
+    await digital_picture_frame.start_slideshow(interval=5)
 
-    await asyncio.gather(slideshow_task)
+    logging.info("Digital Picture Frame started. Press Ctrl+C to exit.")
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        tasks = asyncio.gather(main())
+        loop.run_until_complete(tasks)
+        loop.run_forever()
     except KeyboardInterrupt:
         quit()

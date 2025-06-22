@@ -253,15 +253,28 @@ class DigitalPictureFrame:
         """
         Starts the slideshow task that uploads images to the device at specified intervals.
         """
-        return asyncio.create_task(self._slideshow_loop())
+        return asyncio.create_task(self._slideshow_task_main_loop())
 
-    async def _slideshow_loop(self):
+    async def _slideshow_task_main_loop(self):
         """
         Internal method to handle the slideshow loop.
         """
-        await self.device_client.connect()
-        await self._show_black_screen()
+        while True:
+            try:
+                # initialize by connecting to the device and showing a black screen
+                await self.device_client.connect()
+                await self._show_black_screen()
 
+                # start the slideshow loop
+                await self._slideshow_task_inner_loop()
+            except asyncio.CancelledError:
+                self.logging.info("Slideshow loop cancelled.")
+            except Exception as ex:
+                self.logging.error(f"Unexpected error in slideshow loop: {ex}")
+                # wait a bit before retrying to avoid rapid reconnection attempts
+                await sleep(10)
+
+    async def _slideshow_task_inner_loop(self):
         while True:
             try:
                 if self._is_paused:
