@@ -218,8 +218,19 @@ class DigitalPictureFrame:
         if interval is not None:
             self.set_interval(interval)
 
+        async def async_signal_handler():
+            """
+            Handles the signal to stop the slideshow gracefully.
+            """
+            await self.stop_slideshow()
+            # TODO: doing it like this is probably a bad idea,
+            #  since it will also kill anything else that is currently running,
+            #  or even fail to stop the loop,
+            #  but I haven't gotten anything else to work yet :(
+            asyncio.get_event_loop().stop()
+
         def signal_handler():
-            asyncio.ensure_future(self.stop_slideshow())
+            asyncio.ensure_future(async_signal_handler())
 
         asyncio.get_event_loop().add_signal_handler(signal.SIGINT, signal_handler)
         asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, signal_handler)
