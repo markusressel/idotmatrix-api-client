@@ -72,10 +72,10 @@ class DigitalPictureFrame:
         self.images = images
         self.interval = DEFAULT_INTERVAL_SECONDS
 
-        self._filesystem_observers: List[BaseObserver] = []
+        self._filesystem_observers: List[FilesystemObserver] = []
 
         self._current_slideshow_index: int = 0
-        self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = None
+        self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = ""
 
         self._slideshow_task: Task | None = None
 
@@ -226,7 +226,9 @@ class DigitalPictureFrame:
         independently.
         """
         if not self.images:
-            self.logging.warning("No images in slideshow to display.")
+            if self._current_image is not None:
+                self.logging.warning("No images in slideshow to display.")
+                self._current_image = None
             return
         self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
         next_image = self.images[self._current_slideshow_index]
