@@ -53,6 +53,10 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
 
+        # TODO: recreate this logic by analyzing the APK, similar to what is done in the ImageModule,
+        # because the although the current implementation seems to _mostly_ work,
+        # some GIFs stop animating during the upload, and often times the second upload fails completely.
+        # So there is probably some edge case that is not handled correctly.
         data = self._create_payloads(gif_data)
         for chunk in data:
             await self.send_bytes(data=chunk, response=True, chunk_size=514)
