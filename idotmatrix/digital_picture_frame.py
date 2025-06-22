@@ -19,6 +19,9 @@ class PictureFrameImage:
         self.file_path = file_path
 
 
+DEFAULT_INTERVAL_SECONDS = 30
+
+
 class DigitalPictureFrame:
     """
     A class to manage a digital picture frame that can display images and GIFs in a slideshow format.
@@ -32,6 +35,9 @@ class DigitalPictureFrame:
     ):
         self.device_client = device_client
         self.images = images
+        self.interval = DEFAULT_INTERVAL_SECONDS
+
+        self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = None
 
         self._slideshow_task: Task | None = None
 
@@ -45,6 +51,7 @@ class DigitalPictureFrame:
             interval (int): Time in seconds between image changes. Defaults to 5 seconds.
         """
         self.logging.info(f"Starting slideshow with interval: {interval} seconds")
+        self.interval = interval
         self._slideshow_task = self._start_slideshow_task(interval)
         return self._slideshow_task
 
@@ -73,23 +80,35 @@ class DigitalPictureFrame:
         await self.device_client.reset()
         while True:
             for image in self.images:
-                if isinstance(image, PictureFrameImage):
-                    await self._set_image(image.file_path)
-                elif isinstance(image, PictureFrameGif):
-                    await self._set_gif(
-                        file_path=image.file_path,
-                        duration_per_frame_in_ms=image.duration_per_frame_in_ms
-                    )
-                elif isinstance(image, (PathLike, str)):
-                    # If it's a string or PathLike, treat it as a file path
-                    if isinstance(image, PathLike):
-                        image = image.__fspath__()
-                    if image.lower().endswith('.gif'):
-                        await self._set_gif(image)
-                    else:
-                        await self._set_image(image)
-                self.logging.info(f"Displaying image '{image}' for {interval} seconds.")
-                await sleep(interval)
+                if image == self._current_image:
+                    self.logging.info(f"Skipping image '{image}' as it is already beeing displayed currently.")
+                    continue
+                await self._switch_to_next(image)
+
+    async def _switch_to_next(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
+        if isinstance(image, PictureFrameImage):
+            await self._set_image(image.file_path)
+        elif isinstance(image, PictureFrameGif):
+            await self._set_gif(
+                file_path=image.file_path,
+                duration_per_frame_in_ms=image.duration_per_frame_in_ms
+            )
+        elif isinstance(image, (PathLike, str)):
+            # If it's a string or PathLike, treat it as a file path
+            if isinstance(image, PathLike):
+                image = image.__fspath__()
+            if image.lower().endswith('.gif'):
+                await self._set_gif(image)
+            else:
+                await self._set_image(image)
+        else:
+            raise ValueError(
+                f"Unsupported image type: {type(image)}. Must be PictureFrameImage, PictureFrameGif, or a file path."
+            )
+
+        self._current_image = image
+        self.logging.info(f"Displaying image '{image}' for {self.interval} seconds.")
+        await sleep(self.interval)
 
     async def _set_image(
         self,
