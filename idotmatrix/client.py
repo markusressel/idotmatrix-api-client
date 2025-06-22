@@ -182,3 +182,11 @@ class IDotMatrixClient:
             connection_listener (ConnectionListener): The listener to be added.
         """
         self._connection_manager.add_connection_listener(connection_listener)
+
+    def set_auto_reconnect(self, auto_reconnect: bool):
+        """
+        Set whether the client should automatically reconnect to the device if the connection is lost.
+        Args:
+            auto_reconnect (bool): True to enable auto-reconnect, False to disable.
+        """
+        self._connection_manager.set_auto_reconnect(auto_reconnect=auto_reconnect)

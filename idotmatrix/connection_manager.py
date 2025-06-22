@@ -43,6 +43,8 @@ class ConnectionManager:
         if address:
             self.set_address(address)
 
+        self._auto_reconnect = False
+
         self._connection_listeners: List[ConnectionListener] = []
 
     @staticmethod
@@ -245,3 +247,27 @@ class ConnectionManager:
         for listener in self._connection_listeners:
             if listener.on_disconnected:
                 asyncio.ensure_future(listener.on_disconnected())
+
+        if self._auto_reconnect:
+            self.logging.info("auto-reconnect is enabled, trying to reconnect...")
+            asyncio.ensure_future(self._reconnect_loop())
+
+    async def _reconnect_loop(self):
+        """
+        A loop that attempts to reconnect to the device if the connection is lost.
+        It will keep trying to reconnect until it succeeds or the auto-reconnect is disabled.
+        """
+        while self._auto_reconnect and not await self.is_connected():
+            try:
+                await asyncio.sleep(5)  # Wait before trying to reconnect
+                await self.connect()
+            except Exception as e:
+                self.logging.error(f"Reconnection attempt failed: {e}")
+
+    def set_auto_reconnect(self, auto_reconnect: bool) -> None:
+        """
+        Sets whether the client should automatically reconnect to the device if the connection is lost.
+        Args:
+            auto_reconnect (bool): True to enable auto-reconnect, False to disable.
+        """
+        self._auto_reconnect = auto_reconnect

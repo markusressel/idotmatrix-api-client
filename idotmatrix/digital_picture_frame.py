@@ -68,6 +68,7 @@ class DigitalPictureFrame:
         images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = None,
     ):
         self.device_client: IDotMatrixClient = device_client
+        self.device_client.set_auto_reconnect(True)
         self._setup_connection_listener()
 
         if not images:
@@ -96,6 +97,8 @@ class DigitalPictureFrame:
             await self.resume_slideshow()
 
         async def on_device_disconnected():
+            self._current_image = None
+            self._is_in_diy_mode = False
             await self.pause_slideshow()
 
         connection_listener = ConnectionListener(
