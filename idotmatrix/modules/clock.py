@@ -63,7 +63,7 @@ class ClockModule(IDotMatrixModule):
             r=r, g=g, b=b
         )
         await self.send_bytes(data=data)
-        await sleep(1)
+        await sleep(0.1)
 
     async def set_time_indicator(self, enabled: bool = True):
         """
