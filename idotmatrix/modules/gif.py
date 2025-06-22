@@ -105,6 +105,8 @@ class GifModule(IDotMatrixModule):
                         box=((pixel_size - frame.width) // 2, (pixel_size - frame.height) // 2),
                         mask=frame.convert("RGBA")
                     )
+                    # use color palette to improve readability and compatibility
+                    new_image = new_image.convert('P', palette=PilImage.Palette.ADAPTIVE)
                     frame = new_image
 
                     frames.append(frame.copy())
