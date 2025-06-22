@@ -31,7 +31,9 @@ optional = true
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0,<9"
 pytest_asyncio = "^1.0.0"
+asyncmock = "*"
 pytest-mock = "*"
+mock = "*"
 
 [tool.poetry]
 packages = [

@@ -1,6 +1,5 @@
 from pathlib import Path
-
-import pytest
+from unittest import IsolatedAsyncioTestCase
 
 
 def _find_test_folder() -> Path:
@@ -20,6 +19,5 @@ def _find_test_folder() -> Path:
     raise AssertionError("test folder not found")
 
 
-@pytest.mark.usefixtures('tmp_path')
-class TestBase:
+class TestBase(IsolatedAsyncioTestCase):
     _test_folder = _find_test_folder()
