@@ -128,6 +128,24 @@ class DigitalPictureFrame:
 
         self.logging.info(f"Watching folder: {folder}")
 
+    def add_folder(self, folder: PathLike | str):
+        """
+        Adds all images and GIFs in the given folder to the slideshow.
+        """
+        if not isinstance(folder, (PathLike, str)):
+            raise ValueError("Folder must be of type PathLike or str.")
+
+        folder_path = Path(folder)
+        if not folder_path.is_dir():
+            raise ValueError(f"The provided path '{folder}' is not a directory.")
+
+        self.logging.info(f"Adding images from folder: {folder_path}")
+        for file in folder_path.glob("*"):
+            if file.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+                self.add_image(PictureFrameImage(file))
+            elif file.suffix.lower() == ".gif":
+                self.add_image(PictureFrameGif(file))
+
     def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
         """
         Adds an image or GIF to the slideshow.
@@ -339,6 +357,3 @@ class DigitalPictureFrame:
             observers.append(observer)
 
         return observers
-
-    def add_folder(self, folder: PathLike | str):
-        pass

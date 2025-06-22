@@ -16,32 +16,32 @@ class EventHandler(FileSystemEventHandler):
         on_deleted: Callable[[Path], None] = None,
     ):
         super().__init__()
-        self.on_created_callback = on_created if on_created else lambda _: None
-        self.on_modified_callback = on_modified if on_modified else lambda _: None
-        self.on_moved_callback = on_moved if on_moved else lambda _, __: None
-        self.on_deleted_callback = on_deleted if on_deleted else lambda _: None
+        self._on_created_callback = on_created if on_created else lambda _: None
+        self._on_modified_callback = on_modified if on_modified else lambda _: None
+        self._on_moved_callback = on_moved if on_moved else lambda _, __: None
+        self._on_deleted_callback = on_deleted if on_deleted else lambda _: None
 
     def on_any_event(self, event: FileSystemEvent):
         # TODO: Implement filtering logic if needed
         # if not self._event_matches_filter(event):
         #    return
 
-        _actions: Dict[str, Callable[FileSystemEvent]] = {
+        _actions: Dict[str, Callable[[FileSystemEvent], None]] = {
             EVENT_TYPE_CREATED: self.created,
             EVENT_TYPE_MODIFIED: self.modified,
             EVENT_TYPE_MOVED: self.moved,
             EVENT_TYPE_DELETED: self.deleted,
         }
-        _actions[event.event_type](event)
+        _actions.get(event.event_type, lambda x: None)(event)
 
-    def created(self, event):
-        self.on_created_callback(Path(event.src_path))
+    def created(self, event: FileSystemEvent):
+        self._on_created_callback(Path(event.src_path))
 
-    def modified(self, event):
-        self.on_modified_callback(Path(event.src_path))
+    def modified(self, event: FileSystemEvent):
+        self._on_modified_callback(Path(event.src_path))
 
-    def moved(self, event):
-        self.on_moved_callback(Path(event.src_path), Path(event.dest_path))
+    def moved(self, event: FileSystemEvent):
+        self._on_moved_callback(Path(event.src_path), Path(event.dest_path))
 
-    def deleted(self, event):
-        self.on_deleted_callback(Path(event.src_path))
+    def deleted(self, event: FileSystemEvent):
+        self._on_deleted_callback(Path(event.src_path))

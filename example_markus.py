@@ -49,7 +49,7 @@ async def main():
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths: List[Path] = []
-    gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
+    # gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
     # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
 
     gif_file_paths = gif_file_paths[2:]
