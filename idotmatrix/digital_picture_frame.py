@@ -86,21 +86,20 @@ class DigitalPictureFrame:
         await self.device_client.color.show_color(0, 0, 0)
         await self.device_client.reset()
 
-        if len(self.images) == 1:
-            self.logging.info("Only one image provided, it will only be sent once.")
-            await self._switch_to_next(self.images[0])
-            return
-
         while True:
             for image in self.images:
                 if image != self._current_image:
-                    await self._switch_to_next(image)
+                    image_path = await self._switch_to_next(image)
+                    if len(self.images) > 1:
+                        self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
+                    else:
+                        self.logging.info(f"Displaying image '{image_path}' (only image in slideshow).")
                 else:
                     if len(self.images) > 1:
                         self.logging.info(f"Skipping image '{image}' as it is already being displayed currently.")
                 await sleep(self.interval)
 
-    async def _switch_to_next(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
+    async def _switch_to_next(self, image: PictureFrameImage | PictureFrameGif | PathLike | str) -> str:
         if isinstance(image, PictureFrameImage):
             image_path = image.file_path
             await self._set_image(image_path)
@@ -126,7 +125,7 @@ class DigitalPictureFrame:
             )
 
         self._current_image = image
-        self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
+        return image_path
 
     async def _set_image(
         self,
