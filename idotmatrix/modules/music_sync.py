@@ -1,5 +1,4 @@
 import logging
-from typing import Union
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -13,9 +12,6 @@ class MusicSyncModule(IDotMatrixModule):
 
         Args:
             type (int): type of the Microphone. Unknown what values can be used.
-
-        Returns:
-            Union[bool, bytearray]: False if there's an error, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [

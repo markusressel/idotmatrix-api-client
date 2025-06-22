@@ -1,7 +1,7 @@
 import logging
 from asyncio import sleep
 from datetime import datetime
-from typing import Optional, Union, List
+from typing import Optional
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -30,6 +30,7 @@ class CommonModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
 
     async def turn_off(self):
         """
@@ -48,6 +49,7 @@ class CommonModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
 
     async def turn_on(self):
         """
@@ -67,15 +69,31 @@ class CommonModule(IDotMatrixModule):
         )
         await self.send_bytes(data=data)
 
+    async def set_screen_state(self, is_on: bool):
+        """
+        Sets the screen state to on or off.
+
+        Args:
+            is_on (bool): True = on, False = off.
+        """
+
+        data = bytearray(
+            [
+                5,
+                0,
+                7,
+                1,
+                1 if is_on else 0,
+            ]
+        )
+        await self.send_bytes(data=data)
+
     async def set_screen_flipped(self, flip: bool = True):
         """
         Rotates the screen 180 degrees.
 
         Args:
             flip (bool): False = normal, True = rotated. Defaults to True.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [
@@ -87,6 +105,7 @@ class CommonModule(IDotMatrixModule):
             ]
         )
         await self.send_bytes(data=data)
+        await sleep(0.3)  # wait for the device to process the command
 
     async def set_brightness(self, brightness_percent: int):
         """
@@ -94,9 +113,6 @@ class CommonModule(IDotMatrixModule):
 
         Args:
             brightness_percent (int): Set the brightness in percent.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         if brightness_percent not in range(5, 101):
             raise ValueError("Common.setBrightness parameter brightness_percent is not in range between 5 and 100")
@@ -118,9 +134,6 @@ class CommonModule(IDotMatrixModule):
 
         Args:
             speed (int): Set the speed.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [
@@ -184,9 +197,6 @@ class CommonModule(IDotMatrixModule):
 
         Args:
             mode (int): Set the joint mode.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         data = bytearray(
             [
@@ -205,9 +215,6 @@ class CommonModule(IDotMatrixModule):
 
         Args:
             password (int): Password.
-
-        Returns:
-            Union[bool, bytearray]: False if input validation fails, otherwise byte array of the command which needs to be sent to the device.
         """
         pwd_high = (password // 10000) % 256
         pwd_mid = (password // 100) % 100 % 256
@@ -234,9 +241,6 @@ class CommonModule(IDotMatrixModule):
         Note:
             Credits to 8none1 for finding this method:
             https://github.com/8none1/idotmatrix/commit/1a08e1e9b82d78427ab1c896c24c2a7fb45bc2f0
-
-        Returns:
-            Union[bool, List[bytearray]]: False if command fails, otherwise list of byte arrays of the commands which needs to be sent to the device.
         """
         reset_packets = [
             bytes(bytearray.fromhex("04 00 03 80")),
