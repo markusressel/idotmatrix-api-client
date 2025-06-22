@@ -1,13 +1,11 @@
 import asyncio
 import logging
-from datetime import datetime
 from pathlib import Path
 from random import shuffle
 from typing import List
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.digital_picture_frame import DigitalPictureFrame
-from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.screensize import ScreenSize
 
 # set basic logging
@@ -27,15 +25,6 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
-    now = datetime.now()
-    await client.common.set_time(now)
-
-    await client.set_brightness(100)
-    await client.clock.show(
-        style=ClockStyle.RGBSwipeOutline,
-        show_date=False,
-    )
-
     # GIFs
     gif_file_paths: List[Path] = []
     gif_folder = Path("/home/markus/pictures/Pixel Art GIF/work")
@@ -53,8 +42,14 @@ async def main():
 
     digital_picture_frame = DigitalPictureFrame(
         device_client=client,
-        images=all_file_paths
+        # either input a static list of images or use a folder to watch (see below)
+        # images=all_file_paths
     )
+
+    digital_picture_frame.watch_folders(
+        folders=[gif_folder, image_folder]
+    )
+
     slideshow_task = await digital_picture_frame.start_slideshow(interval=5)
 
     await asyncio.gather(slideshow_task)

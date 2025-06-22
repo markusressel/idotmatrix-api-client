@@ -1,11 +1,19 @@
 import asyncio
 import logging
 from asyncio import sleep, Task
+from enum import Enum
 from os import PathLike
+from pathlib import Path
 from typing import List
+
+from watchdog.observers.inotify import InotifyObserver
+from watchdog.observers.polling import PollingObserver
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.modules.image import ImageMode
+from idotmatrix.util.file_watch import EventHandler
+
+FilesystemObserver = InotifyObserver | PollingObserver
 
 
 class PictureFrameGif:
@@ -42,6 +50,11 @@ class PictureFrameImage:
 DEFAULT_INTERVAL_SECONDS = 30
 
 
+class FileObserverType(Enum):
+    INOTIFY = "inotify"
+    POLLING = "polling"
+
+
 class DigitalPictureFrame:
     """
     A class to manage a digital picture frame that can display images and GIFs in a slideshow format.
@@ -51,11 +64,15 @@ class DigitalPictureFrame:
     def __init__(
         self,
         device_client: IDotMatrixClient,
-        images: List[PictureFrameImage | PictureFrameGif | PathLike | str],
+        images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = None,
     ):
         self.device_client = device_client
+        if not images:
+            images = []
         self.images = images
         self.interval = DEFAULT_INTERVAL_SECONDS
+
+        self._filesystem_observers: List[BaseObserver] = []
 
         self._current_slideshow_index: int = 0
         self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = None
@@ -69,6 +86,47 @@ class DigitalPictureFrame:
         Sets the interval between two images/GIFs for the slideshow.
         """
         self.interval = interval
+
+    def watch_folders(
+        self,
+        folders: List[PathLike | str],
+        observer_type: FileObserverType = FileObserverType.INOTIFY
+    ):
+        """
+        Adds the given folders to the watchlist and displays any image or GIF in them in the slideshow.
+
+        Args:
+            folders (List[PathLike | str]): The folders to watch.
+            observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
+        """
+        if not isinstance(folders, list):
+            raise ValueError("Folders must be a list of PathLike or str.")
+
+        for folder in folders:
+            self.add_folder(folder)
+            self.watch_folder(folder, observer_type)
+
+    def watch_folder(
+        self,
+        folder: PathLike | str,
+        observer_type: FileObserverType = FileObserverType.INOTIFY
+    ):
+        """
+        Adds the given folder to the watchlist and displays any image or GIF in them in the slideshow.
+
+        Args:
+            folder (PathLike | str): The folder to watch.
+            observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
+        """
+        if not isinstance(folder, (PathLike, str)):
+            raise ValueError("Folder must be of type PathLike or str.")
+
+        self._add_folder_watch(
+            folder=Path(folder),
+            observer_type=observer_type,
+        )
+
+        self.logging.info(f"Watching folder: {folder}")
 
     def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
         """
@@ -134,7 +192,11 @@ class DigitalPictureFrame:
         await self.device_client.reset()
 
         while True:
-            await self.next()
+            try:
+                await self.next()
+            except Exception as ex:
+                self.logging.error(f"Error switching to next image in slideshow: {ex}")
+                continue
             await sleep(self.interval)
 
     async def next(self):
@@ -145,10 +207,17 @@ class DigitalPictureFrame:
         that if a slideshow has been started, it will also automatically advance to the next image
         independently.
         """
+        if not self.images:
+            self.logging.warning("No images in slideshow to display.")
+            return
         self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
         next_image = self.images[self._current_slideshow_index]
         if next_image != self._current_image:
-            image_path = await self._switch_to_next(next_image)
+            try:
+                image_path = await self._switch_to(next_image)
+            except:
+                self.logging.error(f"Failed to switch to image: {next_image}. Skipping this image.")
+                return
             if len(self.images) > 1:
                 self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
             else:
@@ -157,7 +226,7 @@ class DigitalPictureFrame:
             if len(self.images) > 1:
                 self.logging.info(f"Skipping image '{next_image}' as it is already being displayed currently.")
 
-    async def _switch_to_next(self, image: PictureFrameImage | PictureFrameGif | PathLike | str) -> str:
+    async def _switch_to(self, image: PictureFrameImage | PictureFrameGif | PathLike | str) -> str:
         if isinstance(image, PictureFrameImage):
             image_path = image.file_path
             await self._set_image(image_path)
@@ -224,3 +293,52 @@ class DigitalPictureFrame:
         await self.device_client.color.show_color(color="black")
         await self.device_client.reset()
         self._is_in_diy_mode = False
+
+    def _add_folder_watch(self, folder: Path, observer_type: FileObserverType = FileObserverType.INOTIFY):
+        """
+        Adds a folder to the watchlist and sets up file observers to monitor changes in the folder.
+        Args:
+            folder (Path): The folder to watch.
+            observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
+        """
+        observers = self._setup_file_observers(
+            observer_type=observer_type,
+            source_directories=[folder]
+        )
+        self._filesystem_observers.extend(observers)
+
+        self.logging.info(f"Added folder to watchlist: {folder}")
+
+    def _setup_file_observers(
+        self,
+        observer_type: FileObserverType,
+        source_directories: List[Path]
+    ) -> List[FilesystemObserver]:
+        observers = []
+
+        for directory in source_directories:
+            if observer_type == FileObserverType.INOTIFY:
+                observer = InotifyObserver()
+            elif observer_type == FileObserverType.POLLING:
+                observer = PollingObserver()
+            else:
+                raise ValueError(f"Unexpected file observer type {observer_type}")
+
+            def on_file_moved(old, new):
+                self.remove_image(old)
+                self.add_image(new)
+
+            event_handler = EventHandler(
+                on_created=lambda x: self.add_image(x),
+                on_deleted=lambda x: self.remove_image(x),
+                on_moved=on_file_moved
+            )
+
+            observer.schedule(event_handler, str(directory), recursive=True)
+            observer.start()
+            observers.append(observer)
+
+        return observers
+
+    def add_folder(self, folder: PathLike | str):
+        pass
