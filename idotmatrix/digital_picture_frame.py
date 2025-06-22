@@ -258,8 +258,7 @@ class DigitalPictureFrame:
         """
         Internal method to handle the slideshow loop.
         """
-        await self.device_client.color.show_color(color="black")
-        await self.device_client.reset()
+        await self._show_black_screen()
 
         while True:
             try:
@@ -284,6 +283,7 @@ class DigitalPictureFrame:
             if self._current_image is not None:
                 self.logging.warning("No images in slideshow to display.")
                 self._current_image = None
+                await self._show_black_screen()
             return
         self._advance_slideshow_index()
         next_image = self.images[self._current_slideshow_index]
@@ -365,8 +365,7 @@ class DigitalPictureFrame:
             return
         self.logging.info("Switching device to GIF mode")
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
-        await self.device_client.color.show_color(color="black")
-        await self.device_client.reset()
+        await self._show_black_screen()
         self._is_in_diy_mode = False
 
     def _add_folder_watch(self, folder: Path, observer_type: FileObserverType = FileObserverType.INOTIFY):
@@ -417,3 +416,7 @@ class DigitalPictureFrame:
 
     def _advance_slideshow_index(self):
         self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
+
+    async def _show_black_screen(self):
+        await self.device_client.color.show_color(color="black")
+        await self.device_client.reset()
