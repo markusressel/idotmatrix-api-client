@@ -138,6 +138,13 @@ class DigitalPictureFrame:
             await sleep(self.interval)
 
     async def next(self):
+        """
+        Switches to the next image in the slideshow.
+
+        This can be used to manually advance to the next image in the slideshow, but keep in mind
+        that if a slideshow has been started, it will also automatically advance to the next image
+        independently.
+        """
         self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
         next_image = self.images[self._current_slideshow_index]
         if next_image != self._current_image:
