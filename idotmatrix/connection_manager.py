@@ -157,6 +157,9 @@ class ConnectionManager:
         """
         # Disable auto-reconnect during active disconnection, it will be re-enabled on active connection attempt
         self._is_auto_reconnect_active = False
+        if self._reconnect_loop_task:
+            self._reconnect_loop_task.cancel()
+            self._reconnect_loop_task = None
         if await self.is_connected():
             await self.client.disconnect()
 
@@ -266,10 +269,13 @@ class ConnectionManager:
         A loop that attempts to reconnect to the device if the connection is lost.
         It will keep trying to reconnect until it succeeds or the auto-reconnect is disabled.
         """
-        while self._auto_reconnect and not await self.is_connected():
+        while self._auto_reconnect and self._is_auto_reconnect_active and not await self.is_connected():
             try:
                 await asyncio.sleep(5)  # Wait before trying to reconnect
                 await self.connect()
+            except asyncio.CancelledError:
+                self.logging.info("Reconnection loop cancelled.")
+                break
             except Exception as e:
                 self.logging.error(f"Reconnection attempt failed: {e}")
 

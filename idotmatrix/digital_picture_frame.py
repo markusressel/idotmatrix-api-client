@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import signal
 from asyncio import sleep, Task
 from enum import Enum
 from os import PathLike
@@ -20,6 +21,7 @@ FilesystemObserver = InotifyObserver | PollingObserver
 IMAGE_FILE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 ANIMATION_FILE_EXTENSIONS = {".gif"}
 SUPPORTED_FILE_EXTENSIONS = IMAGE_FILE_EXTENSIONS.union(ANIMATION_FILE_EXTENSIONS)
+
 
 class PictureFrameGif:
     def __init__(self, file_path: PathLike | str):
@@ -215,6 +217,12 @@ class DigitalPictureFrame:
         self.logging.info(f"Starting slideshow with interval: {interval} seconds")
         if interval is not None:
             self.set_interval(interval)
+
+        def signal_handler():
+            asyncio.ensure_future(self.stop_slideshow())
+
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, signal_handler)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, signal_handler)
         self._slideshow_task = self._start_slideshow_task()
         await asyncio.sleep(0)
         return self._slideshow_task
@@ -247,6 +255,9 @@ class DigitalPictureFrame:
         await self.device_client.clock.show()
         await self.device_client.disconnect()
 
+        asyncio.get_event_loop().remove_signal_handler(signal.SIGINT)
+        asyncio.get_event_loop().remove_signal_handler(signal.SIGTERM)
+
     def is_slideshow_running(self) -> bool:
         """
         Checks if the slideshow is currently running.
@@ -276,6 +287,7 @@ class DigitalPictureFrame:
                 await self._slideshow_task_inner_loop()
             except asyncio.CancelledError:
                 self.logging.info("Slideshow loop cancelled.")
+                break
             except Exception as ex:
                 self.logging.error(f"Unexpected error in slideshow loop: {ex}")
                 # wait a bit before retrying to avoid rapid reconnection attempts

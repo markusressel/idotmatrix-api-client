@@ -56,14 +56,13 @@ async def main():
 
 
 if __name__ == "__main__":
-    tasks = []
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        tasks = asyncio.gather(main())
-        loop.run_until_complete(tasks)
+        asyncio.gather(main())
         loop.run_forever()
     except KeyboardInterrupt:
-        tasks.cancel()
+        logging.info("KeyboardInterrupt received, stopping...")
+        quit()
+    except Exception as e:
         quit()
