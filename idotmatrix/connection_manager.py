@@ -82,12 +82,14 @@ class ConnectionManager:
         self.set_address(address)
         await self.connect()
 
-    async def connect_by_discovery(self) -> str | None:
+    async def connect_by_discovery(self) -> str:
         """
         Connects to the first discovered iDotMatrix device.
         If no devices are found, an error message is logged.
         Returns:
-            str | None: The address of the connected device, or None if no devices were found.
+            str: The address of the connected device
+        Raises:
+            AssertionError: If no iDotMatrix devices are found during discovery.
         """
         devices = await self.discover_devices()
         if devices:
@@ -96,9 +98,8 @@ class ConnectionManager:
             self.set_address(device)
             await self.connect()
             return device
-        else:
-            self.logging.error("no target devices found.")
-            return None
+        raise AssertionError(
+            "No iDotMatrix devices found. Please ensure the device is powered on, in range, and not connected to another device.")
 
     async def connect(self) -> None:
         """
@@ -108,8 +109,8 @@ class ConnectionManager:
             ValueError: If the device address is not set.
         """
         if not self.address:
-            raise ValueError(
-                "Device address is not set. Use set_address() or connect_by_address() or connect_by_discovery() first.")
+            self.logging.warning("device address is not set, trying to connect by discovery...")
+            await self.connect_by_discovery()
         if not await self.is_connected():
             await self.client.connect()
             self.logging.info(f"connected to {self.address}")

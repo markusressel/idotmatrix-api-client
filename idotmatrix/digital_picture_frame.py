@@ -130,7 +130,7 @@ class DigitalPictureFrame:
         """
         Internal method to handle the slideshow loop.
         """
-        await self.device_client.color.show_color(0, 0, 0)
+        await self.device_client.color.show_color(color="black")
         await self.device_client.reset()
 
         while True:
@@ -221,6 +221,6 @@ class DigitalPictureFrame:
             return
         self.logging.info("Switching device to GIF mode")
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
-        await self.device_client.color.show_color(0, 0, 0)
+        await self.device_client.color.show_color(color="black")
         await self.device_client.reset()
         self._is_in_diy_mode = False
