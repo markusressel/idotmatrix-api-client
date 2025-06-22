@@ -1,17 +1,19 @@
 import logging
+from enum import Enum
 
 from idotmatrix.modules import IDotMatrixModule
 
-"""
-The effect modes are:
-0 graduated horizontal rainbow
-1 random coloured pixels on black
-2 random white pixels on changing background
-3 vertical rainbow
-4 diagonal right rainbow
-5 diagonal left rainbow, on black background
-6 random coloured pixels
-"""
+
+class EffectStyle(Enum):
+    """Enum for the different effect styles."""
+
+    GRADIENT_HORIZONTAL_RAINBOW = 0
+    RANDOM_COLORED_PIXELS_ON_BLACK = 1
+    RANDOM_WHITE_PIXELS_ON_CHANGING_BACKGROUND = 2
+    VERTICAL_RAINBOW = 3
+    DIAGONAL_RIGHT_RAINBOW = 4
+    DIAGONAL_LEFT_RAINBOW_ON_BLACK = 5
+    RANDOM_COLORED_PIXELS = 6
 
 
 class EffectModule(IDotMatrixModule):
@@ -19,9 +21,9 @@ class EffectModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def set_mode(
+    async def show(
         self,
-        style: int,
+        style: EffectStyle | int,
         rgb_values: list[tuple[int, int, int]],
     ):
         """
@@ -31,6 +33,9 @@ class EffectModule(IDotMatrixModule):
             style (int): Style of the effect 0-6.
             rgb_values (list[tuple[int, int, int]]): list of red, green, blue tuples 2-7.
         """
+        if isinstance(style, EffectStyle):
+            style = style.value
+
         if style not in range(0, 7):
             raise ValueError("effect.setMode expects parameter style to be between 0 and 6")
 
@@ -40,12 +45,14 @@ class EffectModule(IDotMatrixModule):
         for rgb in rgb_values:
             for r, g, b in [rgb]:
                 if r not in range(0, 256) or g not in range(0, 256) or b not in range(0, 256):
-                    raise ValueError("effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
+                    raise ValueError(
+                        "effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
 
         data = self._compute_payload(style=style, rgb_values=rgb_values)
         await self.send_bytes(data=data)
 
-    def _compute_payload(self, style, rgb_values) -> bytearray:
+    @staticmethod
+    def _compute_payload(style, rgb_values) -> bytearray:
         """
         Computes the payload for the effect mode command.
 

@@ -25,7 +25,7 @@ async def main():
     # Effect
     for i in range(0, 7):
         for j in range(2, 8):
-            await client.effect.set_mode(i, colours[:j])
+            await client.effect.show(i, colours[:j])
             time.sleep(5)
 
 

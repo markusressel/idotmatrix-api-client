@@ -8,7 +8,39 @@ class CountdownModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def set_mode(
+    async def disable(self):
+        """
+        Disables the countdown.
+        """
+        await self._set_mode(mode=0, minutes=0, seconds=0)
+
+    async def start(self, minutes: int, seconds: int = 0):
+        """
+        Starts the countdown with the given minutes and seconds.
+
+        Args:
+            minutes (int): minutes to count down from
+            seconds (int): seconds to count down from
+        """
+        await self._set_mode(mode=1, minutes=minutes, seconds=seconds)
+
+    async def pause(self):
+        """
+        Pauses the countdown.
+        """
+        await self._set_mode(mode=2, minutes=0, seconds=0)
+
+    async def restart(self, minutes: int, seconds: int):
+        """
+        Restarts the countdown with the given minutes and seconds.
+
+        Args:
+            minutes (int): minutes to count down from
+            seconds (int): seconds to count down from
+        """
+        await self._set_mode(mode=3, minutes=minutes, seconds=seconds)
+
+    async def _set_mode(
         self, mode: int, minutes: int, seconds: int
     ):
         """
@@ -35,7 +67,7 @@ class CountdownModule(IDotMatrixModule):
         await self.send_bytes(data=data)
 
     @staticmethod
-    def _create_payload(mode, minutes, seconds) -> bytearray:
+    def _create_payload(mode: int, minutes: int, seconds: int) -> bytearray:
         data = bytearray(
             [
                 7,

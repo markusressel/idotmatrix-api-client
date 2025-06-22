@@ -2,6 +2,7 @@ import asyncio
 import time
 
 from idotmatrix.client import IDotMatrixClient
+from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.screensize import ScreenSize
 
 
@@ -9,6 +10,8 @@ async def main():
     client = IDotMatrixClient(
         screen_size=ScreenSize.SIZE_64x64,
     )
+    # connect using autodiscovery
+    await client.connect()
 
     # Chronograph
     await client.chronograph.reset()
@@ -17,7 +20,7 @@ async def main():
     time.sleep(5)
 
     # Clock
-    await client.clock.show(1)
+    await client.clock.show(ClockStyle.RGBSwipeOutline)
     time.sleep(5)
 
     # Common
@@ -26,7 +29,7 @@ async def main():
     await client.common.set_screen_flipped(False)
 
     # Countdown
-    await client.countdown.set_mode(1, 0, 5)
+    await client.countdown.start(minutes=10)
     time.sleep(5)
 
     # FullscreenColor
@@ -47,11 +50,12 @@ async def main():
     await client.image.set_mode()
     await client.image.upload_image_file(
         file_path="./images/demo_512.png",
+        palletize=True,
     )
     time.sleep(5)
 
     # Scoreboard
-    await client.scoreboard.set_mode(10, 5)
+    await client.scoreboard.show(10, 5)
     time.sleep(5)
 
     # Text
@@ -62,7 +66,7 @@ async def main():
     time.sleep(5)
 
     # Effect
-    await client.effect.set_mode(
+    await client.effect.show(
         style=1,
         rgb_values=[(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)]
     )

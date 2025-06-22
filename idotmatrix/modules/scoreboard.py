@@ -9,7 +9,7 @@ class ScoreboardModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def set_mode(self, count1: int, count2: int):
+    async def show(self, count1: int, count2: int):
         """
         Set the scoreboard of the device.
 
