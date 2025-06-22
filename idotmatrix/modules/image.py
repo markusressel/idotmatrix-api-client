@@ -70,7 +70,7 @@ class ImageModule(IDotMatrixModule):
         """
         pixel_data = self._load_image_and_adapt_to_canvas(
             file_path=file_path,
-            pixel_size=self.screen_size.value[0],  # assuming square canvas, so width == height
+            canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
             palletize=palletize,
             background_color=background_color,
         )
@@ -79,7 +79,7 @@ class ImageModule(IDotMatrixModule):
     @staticmethod
     def _load_image_and_adapt_to_canvas(
         file_path: PathLike,
-        pixel_size: int,
+        canvas_size: int,
         palletize: bool,
         background_color: Tuple[int, int, int],
     ) -> bytearray:
@@ -88,7 +88,7 @@ class ImageModule(IDotMatrixModule):
         and applies a black background if the image is smaller than the canvas size.
         Args:
             file_path (str): Path to the image file.
-            pixel_size (int): Size of the square canvas in pixels.
+            canvas_size (int): Size of the square canvas in pixels.
             palletize (bool): If True, the image will be converted to a palette-based image.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
         Returns:
@@ -99,15 +99,15 @@ class ImageModule(IDotMatrixModule):
 
         with PilImage.open(file_path) as img:
             # resize image to pixel_size x pixel_size, but keep aspect ratio
-            img.thumbnail((pixel_size, pixel_size), PilImage.Resampling.LANCZOS)
+            img.thumbnail((canvas_size, canvas_size), PilImage.Resampling.LANCZOS)
 
             # rotate image based on EXIF data if available
             img = ImageOps.exif_transpose(img)
 
             # fill the background behind the image with background_color, if the image doesn't fill the whole canvas
-            new_img = PilImage.new("RGB", (pixel_size, pixel_size), background_color)
+            new_img = PilImage.new("RGB", (canvas_size, canvas_size), background_color)
             new_img.paste(
-                img, ((pixel_size - img.width) // 2, (pixel_size - img.height) // 2)
+                img, ((canvas_size - img.width) // 2, (canvas_size - img.height) // 2)
             )
             img = new_img
 

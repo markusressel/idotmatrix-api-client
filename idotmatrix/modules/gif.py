@@ -51,7 +51,7 @@ class GifModule(IDotMatrixModule):
 
         gif_data = self._load_gif_and_adapt_to_canvas(
             file_path=file_path,
-            pixel_size=pixel_size,
+            canvas_size=pixel_size,
             palletize=palletize,
             background_color=background_color,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
@@ -68,7 +68,7 @@ class GifModule(IDotMatrixModule):
     def _load_gif_and_adapt_to_canvas(
         self,
         file_path: PathLike | str,
-        pixel_size: int,
+        canvas_size: int,
         palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
@@ -78,7 +78,7 @@ class GifModule(IDotMatrixModule):
 
         Args:
             file_path (PathLike): Path to the GIF file.
-            pixel_size (int): Size of the pixel in the device's canvas.
+            canvas_size (int): Size of the pixel in the device's canvas.
             palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
@@ -94,21 +94,21 @@ class GifModule(IDotMatrixModule):
                     frame = img.copy()
                     # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
                     # and adding a black background if necessary.
-                    if frame.size != (pixel_size, pixel_size):
+                    if frame.size != (canvas_size, canvas_size):
                         frame.thumbnail(
-                            size=(pixel_size, pixel_size),
+                            size=(canvas_size, canvas_size),
                             resample=PilImage.Resampling.NEAREST,
                             # needs to use NEAREST to stay within color palette limits
                         )
                     # convert transparent pixels to the background color
                     new_image = PilImage.new(
                         mode="RGBA",
-                        size=(pixel_size, pixel_size),
+                        size=(canvas_size, canvas_size),
                         color=background_color
                     )
                     new_image.paste(
                         im=frame,
-                        box=((pixel_size - frame.width) // 2, (pixel_size - frame.height) // 2),
+                        box=((canvas_size - frame.width) // 2, (canvas_size - frame.height) // 2),
                         mask=frame.convert("RGBA")
                     )
                     if palletize:
