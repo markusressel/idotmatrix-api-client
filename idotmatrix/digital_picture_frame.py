@@ -93,10 +93,11 @@ class DigitalPictureFrame:
         """
 
         async def on_device_connected():
-            self.logging.info("Device connected, resetting slideshow and device state.")
+            self.logging.debug("Device connected, resetting state and resuming slideshow.")
             await self.resume_slideshow()
 
         async def on_device_disconnected():
+            self.logging.debug("Device disconnected, resetting state and pausing slideshow.")
             self._current_image = None
             self._is_in_diy_mode = False
             await self.pause_slideshow()
