@@ -122,7 +122,8 @@ For more examples please check the [example.py](./example.py).
 ### Digital Picture Frame
 
 Besides the `IDotMatrixClient`, this repository also contains a `DigitalPictureFrame` class which can be used
-to display images and GIFs in a slideshow fashion. See [digital_picture_frame.py](./idotmatrix/digital_picture_frame.py)
+to display images and GIFs in a slideshow fashion.
+See [example_digital_picture_frame.py](./example_digital_picture_frame.py)
 for more details on how to use it.
 
 ## Roadmap
