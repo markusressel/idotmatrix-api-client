@@ -231,7 +231,6 @@ class ConnectionManager:
         """
         Notifies all registered connection listeners that the device has been connected.
         """
-        self.logging.info("notifying connection listeners about connection")
         for listener in self._connection_listeners:
             if listener.on_connected:
                 asyncio.ensure_future(listener.on_connected())
