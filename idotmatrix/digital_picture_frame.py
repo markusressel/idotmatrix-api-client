@@ -355,14 +355,14 @@ class DigitalPictureFrame:
     async def _switch_device_to_image_mode(self):
         if self._is_in_diy_mode:
             return
-        self.logging.info("Switching device to image mode")
+        self.logging.debug("Switching device to image mode")
         await self.device_client.image.set_mode(ImageMode.EnableDIY)
         self._is_in_diy_mode = True
 
     async def _switch_device_to_gif_mode(self):
         if not self._is_in_diy_mode:
             return
-        self.logging.info("Switching device to GIF mode")
+        self.logging.debug("Switching device to GIF mode")
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
         await self._show_black_screen()
 
