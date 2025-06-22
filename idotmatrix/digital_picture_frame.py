@@ -210,6 +210,7 @@ class DigitalPictureFrame:
         if interval is not None:
             self.set_interval(interval)
         self._slideshow_task = self._start_slideshow_task()
+        await asyncio.sleep(0)
         return self._slideshow_task
 
     async def pause_slideshow(self):
@@ -258,6 +259,7 @@ class DigitalPictureFrame:
         """
         Internal method to handle the slideshow loop.
         """
+        await self.device_client.connect()
         await self._show_black_screen()
 
         while True:

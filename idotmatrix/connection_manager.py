@@ -138,6 +138,7 @@ class ConnectionManager:
             self.logging.warning("device address is not set, trying to connect by discovery...")
             await self.connect_by_discovery()
         if not await self.is_connected():
+            self.logging.info(f"connecting to {self.address}...")
             await self.client.connect()
             self._notify_connection_listeners_connected()
             self.logging.info(f"connected to {self.address}")
