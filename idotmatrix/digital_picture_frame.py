@@ -57,6 +57,8 @@ class DigitalPictureFrame:
             self._slideshow_task.cancel()
             self._slideshow_task = None
 
+        await self.device_client.clock.show()
+
     def _start_slideshow_task(self, interval) -> Task:
         """
         Starts the slideshow task that uploads images to the device at specified intervals.
