@@ -55,6 +55,7 @@ class ImageModule(IDotMatrixModule):
     async def upload_image_file(
         self,
         file_path: PathLike | str,
+        palletize: bool = False,
         background_color: Tuple[int, int, int] = (0, 0, 0),  # default to black background
     ) -> None:
         """
@@ -62,12 +63,15 @@ class ImageModule(IDotMatrixModule):
 
         Args:
             file_path (str): path-like object to the image file
+            palletize (bool): If True, the image will be converted to a palette-based image. Usually bad for images with
+                high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to False.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
-             image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
+                image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
         """
         pixel_data = self._load_image_and_adapt_to_canvas(
             file_path=file_path,
             pixel_size=self.screen_size.value[0],  # assuming square canvas, so width == height
+            palletize=palletize,
             background_color=background_color,
         )
         await self._send_diy_image_data(pixel_data)
@@ -76,6 +80,7 @@ class ImageModule(IDotMatrixModule):
     def _load_image_and_adapt_to_canvas(
         file_path: PathLike,
         pixel_size: int,
+        palletize: bool,
         background_color: Tuple[int, int, int],
     ) -> bytearray:
         """
@@ -84,6 +89,8 @@ class ImageModule(IDotMatrixModule):
         Args:
             file_path (str): Path to the image file.
             pixel_size (int): Size of the square canvas in pixels.
+            palletize (bool): If True, the image will be converted to a palette-based image.
+            background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
         Returns:
             bytearray: A bytearray containing the raw pixel data of the processed image in RGB format.
         """
@@ -120,24 +127,26 @@ class ImageModule(IDotMatrixModule):
             if img.mode != mode:
                 img = img.convert(mode)
 
-            # png_buffer = io.BytesIO()
-            # img.save(png_buffer, format="PNG")
-            # png_buffer.seek(0)
+            if palletize:
+                # Convert to palette-based image
+                img = img.convert('P', palette=PilImage.Palette.ADAPTIVE)
+                # Convert back to RGB to get the pixel data in RGB format
+                img = img.convert("RGB")
+
             png_buffer = bytearray(img.tobytes())
             return png_buffer
 
     async def upload_image_pixeldata(
-        self, pixel_data: List[Tuple[int, int, int]], pixel_size: int = 64
+        self,
+        pixel_data: List[Tuple[int, int, int]],
     ) -> None:
         """
         Uploads pixel data to the iDotMatrix device.
         Args:
             pixel_data (List[Tuple[int, int, int]]): List of tuples representing RGB pixel values.
                 Each tuple should contain three integers (R, G, B) in the range 0-255.
-            pixel_size (int): Size of the square canvas in pixels. Must be one of [16, 32, 64]. Defaults to 64.
         """
-        if pixel_size not in [16, 32, 64]:
-            raise ValueError("pixel_size must be one of [16, 32, 64]")
+        pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
         if len(pixel_data) != pixel_size * pixel_size:
             raise ValueError(
                 f"pixel_data must contain exactly {pixel_size * pixel_size} pixels (quared pixel_size), got: {len(pixel_data)}"

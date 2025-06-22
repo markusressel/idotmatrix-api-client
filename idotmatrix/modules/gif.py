@@ -33,6 +33,7 @@ class GifModule(IDotMatrixModule):
     async def upload_gif_file(
         self,
         file_path: PathLike | str,
+        palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
     ):
@@ -41,6 +42,8 @@ class GifModule(IDotMatrixModule):
 
         Args:
             file_path (str): path to the image file
+            palletize (bool): Whether to convert the image to a color palette. Usually bad for images with
+                high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to True.
             background_color (Tuple[int, int, int]): RGB color to fill transparent pixels. Defaults to black (0, 0, 0).
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         """
@@ -49,6 +52,7 @@ class GifModule(IDotMatrixModule):
         gif_data = self._load_gif_and_adapt_to_canvas(
             file_path=file_path,
             pixel_size=pixel_size,
+            palletize=palletize,
             background_color=background_color,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
@@ -65,6 +69,7 @@ class GifModule(IDotMatrixModule):
         self,
         file_path: PathLike | str,
         pixel_size: int,
+        palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
     ) -> bytes:
@@ -74,6 +79,7 @@ class GifModule(IDotMatrixModule):
         Args:
             file_path (PathLike): Path to the GIF file.
             pixel_size (int): Size of the pixel in the device's canvas.
+            palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         Returns:
@@ -105,8 +111,9 @@ class GifModule(IDotMatrixModule):
                         box=((pixel_size - frame.width) // 2, (pixel_size - frame.height) // 2),
                         mask=frame.convert("RGBA")
                     )
-                    # use color palette to improve readability and compatibility
-                    new_image = new_image.convert('P', palette=PilImage.Palette.ADAPTIVE)
+                    if palletize:
+                        # use color palette to improve readability and compatibility
+                        new_image = new_image.convert('P', palette=PilImage.Palette.ADAPTIVE)
                     frame = new_image
 
                     frames.append(frame.copy())
