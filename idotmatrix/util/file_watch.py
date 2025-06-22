@@ -2,20 +2,23 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Dict
 
+from dulwich.ignore import Pattern
 from watchdog.events import FileSystemEventHandler, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, \
     EVENT_TYPE_DELETED, FileSystemEvent
 
 
-class EventHandler(FileSystemEventHandler):
+class ImageFileEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
+        file_filter: Pattern,
         on_created: Callable[[Path], None] = None,
         on_modified: Callable[[Path], None] = None,
         on_moved: Callable[[Path, Path], None] = None,
         on_deleted: Callable[[Path], None] = None,
     ):
         super().__init__()
+        self._file_filter = file_filter
         self._on_created_callback = on_created if on_created else lambda _: None
         self._on_modified_callback = on_modified if on_modified else lambda _: None
         self._on_moved_callback = on_moved if on_moved else lambda _, __: None
@@ -23,8 +26,8 @@ class EventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent):
         # TODO: Implement filtering logic if needed
-        # if not self._event_matches_filter(event):
-        #    return
+        if not self._event_matches_filter(event):
+            return
 
         _actions: Dict[str, Callable[[FileSystemEvent], None]] = {
             EVENT_TYPE_CREATED: self.created,
@@ -45,3 +48,8 @@ class EventHandler(FileSystemEventHandler):
 
     def deleted(self, event: FileSystemEvent):
         self._on_deleted_callback(Path(event.src_path))
+
+    def _event_matches_filter(self, event: FileSystemEvent) -> bool:
+        if event.is_directory:
+            return False
+        return self._file_filter.match(event.dest_path)

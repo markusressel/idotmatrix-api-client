@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from asyncio import sleep, Task
 from enum import Enum
 from os import PathLike
@@ -12,10 +13,13 @@ from watchdog.observers.polling import PollingObserver
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.connection_manager import ConnectionListener
 from idotmatrix.modules.image import ImageMode
-from idotmatrix.util.file_watch import EventHandler
+from idotmatrix.util.file_watch import ImageFileEventHandler
 
 FilesystemObserver = InotifyObserver | PollingObserver
 
+IMAGE_FILE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
+ANIMATION_FILE_EXTENSIONS = {".gif"}
+SUPPORTED_FILE_EXTENSIONS = IMAGE_FILE_EXTENSIONS.union(ANIMATION_FILE_EXTENSIONS)
 
 class PictureFrameGif:
     def __init__(self, file_path: PathLike | str):
@@ -170,9 +174,9 @@ class DigitalPictureFrame:
 
         self.logging.info(f"Adding images from folder: {folder_path}")
         for file in folder_path.glob("*"):
-            if file.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+            if file.suffix.lower() in IMAGE_FILE_EXTENSIONS:
                 self.add_image(PictureFrameImage(file))
-            elif file.suffix.lower() == ".gif":
+            elif file.suffix.lower() in ANIMATION_FILE_EXTENSIONS:
                 self.add_image(PictureFrameGif(file))
 
     def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
@@ -391,9 +395,12 @@ class DigitalPictureFrame:
             folder (Path): The folder to watch.
             observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
         """
+        self.file_regex = re.compile(rf"^.*({'|'.join(SUPPORTED_FILE_EXTENSIONS)})$", re.IGNORECASE)
+
         observers = self._setup_file_observers(
             observer_type=observer_type,
-            source_directories=[folder]
+            source_directories=[folder],
+            file_filter=self.file_regex,
         )
         self._filesystem_observers.extend(observers)
 
@@ -402,7 +409,8 @@ class DigitalPictureFrame:
     def _setup_file_observers(
         self,
         observer_type: FileObserverType,
-        source_directories: List[Path]
+        source_directories: List[Path],
+        file_filter: re.Pattern | None = None,
     ) -> List[FilesystemObserver]:
         observers = []
 
@@ -418,7 +426,8 @@ class DigitalPictureFrame:
                 self.remove_image(old)
                 self.add_image(new)
 
-            event_handler = EventHandler(
+            event_handler = ImageFileEventHandler(
+                file_filter=file_filter,
                 on_created=lambda x: self.add_image(x),
                 on_deleted=lambda x: self.remove_image(x),
                 on_moved=on_file_moved

@@ -56,6 +56,7 @@ async def main():
 
 
 if __name__ == "__main__":
+    tasks = []
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -64,4 +65,5 @@ if __name__ == "__main__":
         loop.run_until_complete(tasks)
         loop.run_forever()
     except KeyboardInterrupt:
+        tasks.cancel()
         quit()
