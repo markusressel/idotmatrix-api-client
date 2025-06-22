@@ -1,16 +1,31 @@
 import asyncio
+import logging
 from typing import List, Tuple
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.screensize import ScreenSize
 
+# set basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s",
+    datefmt="%d.%m.%Y %H:%M:%S",
+    handlers=[logging.StreamHandler()],
+)
+# set log level of bleak
+logging.getLogger("bleak").setLevel(logging.WARNING)
 
-def create_rainbow_colors_with_smooth_transition() -> List[Tuple[int, int, int]]:
+
+def create_rainbow_colors_with_smooth_transition(
+    steps: int = 500,
+) -> List[Tuple[int, int, int]]:
     """
-    Create a list of RGB tuples representing rainbow colors with a smooth transition effect.
+    Generates a list of RGB tuples representing a smooth rainbow color transition.
+    The colors transition from red to green to blue and back to red, creating a smooth gradient effect.
+    :param steps: Number of steps for the smooth transition. Default is 100.
+    :return: A list of RGB tuples representing the rainbow colors.
     """
-    colors = []
-    steps = 100  # Number of steps for smooth transition
+    result = []
     for i in range(steps):
         # Calculate the transition between red, green, and blue
         if i < steps / 3:
@@ -29,8 +44,8 @@ def create_rainbow_colors_with_smooth_transition() -> List[Tuple[int, int, int]]
             g = 0
             b = int(255 * (1 - ((i - 2 * steps / 3) / (steps / 3))))
 
-        colors.append((r, g, b))
-    return colors
+        result.append((r, g, b))
+    return result
 
 
 async def main():

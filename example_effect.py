@@ -1,8 +1,19 @@
 import asyncio
+import logging
 import time
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.screensize import ScreenSize
+
+# set basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s",
+    datefmt="%d.%m.%Y %H:%M:%S",
+    handlers=[logging.StreamHandler()],
+)
+# set log level of bleak
+logging.getLogger("bleak").setLevel(logging.WARNING)
 
 
 async def main():

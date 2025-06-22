@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from asyncio import sleep
 from pathlib import Path
 from typing import List, Tuple
@@ -9,6 +10,16 @@ from idotmatrix.client import IDotMatrixClient
 from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.image import ImageMode
 from idotmatrix.screensize import ScreenSize
+
+# set basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s",
+    datefmt="%d.%m.%Y %H:%M:%S",
+    handlers=[logging.StreamHandler()],
+)
+# set log level of bleak
+logging.getLogger("bleak").setLevel(logging.WARNING)
 
 
 async def main():
