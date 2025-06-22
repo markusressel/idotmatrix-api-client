@@ -107,7 +107,7 @@ class DigitalPictureFrame:
         file_path: PathLike | str,
         duration_per_frame_in_ms: int = None
     ):
-        self.logging.info(f"Setting GIF file: {file_path} with ({duration_per_frame_in_ms} ms per frame)")
+        self.logging.info(f"Setting GIF file: {file_path} ({duration_per_frame_in_ms} ms per frame)")
         await self._switch_device_to_gif_mode()
         await self.device_client.gif.upload_gif_file(
             file_path=file_path,
