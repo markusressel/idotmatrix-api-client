@@ -79,7 +79,7 @@ class ImageModule(IDotMatrixModule):
 
     @staticmethod
     def _load_image_and_adapt_to_canvas(
-        file_path: PathLike,
+        file_path: PathLike | str,
         canvas_size: int,
         palletize: bool,
         background_color: Tuple[int, int, int],

@@ -21,3 +21,4 @@ def _find_test_folder() -> Path:
 
 class TestBase(IsolatedAsyncioTestCase):
     _test_folder = _find_test_folder()
+    _test_data_folder = _test_folder / "data"

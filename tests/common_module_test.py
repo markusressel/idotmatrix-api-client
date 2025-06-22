@@ -9,12 +9,12 @@ class TestCommonModule(TestBase):
     async def test_turn_on(self):
         # GIVEN
         connection_manager = AsyncMock()
-        common_module = CommonModule(
+        under_test = CommonModule(
             connection_manager=connection_manager,
         )
 
         # WHEN
-        await common_module.turn_on()
+        await under_test.turn_on()
 
         # THEN
         # should be called:
