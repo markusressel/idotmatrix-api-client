@@ -13,10 +13,30 @@ class PictureFrameGif:
         self.file_path = file_path
         self.duration_per_frame_in_ms = None
 
+    def __eq__(self, other):
+        if isinstance(other, PictureFrameGif):
+            return self.file_path == other.file_path
+        if isinstance(other, (PathLike, str)):
+            return self.file_path == other
+        return False
+
+    def __str__(self):
+        return f"PictureFrameGif(file_path={self.file_path}, duration_per_frame_in_ms={self.duration_per_frame_in_ms})"
+
 
 class PictureFrameImage:
     def __init__(self, file_path: PathLike | str):
         self.file_path = file_path
+
+    def __eq__(self, other):
+        if isinstance(other, PictureFrameImage):
+            return self.file_path == other.file_path
+        if isinstance(other, (PathLike, str)):
+            return self.file_path == other
+        return False
+
+    def __str__(self):
+        return f"PictureFrameImage(file_path={self.file_path})"
 
 
 DEFAULT_INTERVAL_SECONDS = 30
@@ -37,6 +57,7 @@ class DigitalPictureFrame:
         self.images = images
         self.interval = DEFAULT_INTERVAL_SECONDS
 
+        self._current_slideshow_index: int = 0
         self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = None
 
         self._slideshow_task: Task | None = None
@@ -48,6 +69,32 @@ class DigitalPictureFrame:
         Sets the interval between two images/GIFs for the slideshow.
         """
         self.interval = interval
+
+    def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
+        """
+        Adds an image or GIF to the slideshow.
+
+        Args:
+            image (PictureFrameImage | PictureFrameGif | PathLike | str): The image or GIF to add.
+        """
+        if not isinstance(image, (PictureFrameImage, PictureFrameGif, PathLike, str)):
+            raise ValueError("Image must be of type PictureFrameImage, PictureFrameGif, PathLike, or str.")
+
+        self.images.append(image)
+        self.logging.info(f"Added image: {image}")
+
+    def remove_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
+        """
+        Removes an image or GIF from the slideshow.
+
+        Args:
+            image (PictureFrameImage | PictureFrameGif | PathLike | str): The image or GIF to remove.
+        """
+        if image in self.images:
+            self.images.remove(image)
+            self.logging.info(f"Removed image: {image}")
+        else:
+            self.logging.warning(f"Image not found in slideshow: {image}")
 
     async def start_slideshow(self, interval: int = None) -> Task:
         """
@@ -87,17 +134,21 @@ class DigitalPictureFrame:
         await self.device_client.reset()
 
         while True:
-            for image in self.images:
-                if image != self._current_image:
-                    image_path = await self._switch_to_next(image)
-                    if len(self.images) > 1:
-                        self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
-                    else:
-                        self.logging.info(f"Displaying image '{image_path}' (only image in slideshow).")
-                else:
-                    if len(self.images) > 1:
-                        self.logging.info(f"Skipping image '{image}' as it is already being displayed currently.")
-                await sleep(self.interval)
+            await self.next()
+            await sleep(self.interval)
+
+    async def next(self):
+        self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
+        next_image = self.images[self._current_slideshow_index]
+        if next_image != self._current_image:
+            image_path = await self._switch_to_next(next_image)
+            if len(self.images) > 1:
+                self.logging.info(f"Displaying image '{image_path}' for {self.interval} seconds.")
+            else:
+                self.logging.info(f"Displaying image '{image_path}' (only image in slideshow).")
+        else:
+            if len(self.images) > 1:
+                self.logging.info(f"Skipping image '{next_image}' as it is already being displayed currently.")
 
     async def _switch_to_next(self, image: PictureFrameImage | PictureFrameGif | PathLike | str) -> str:
         if isinstance(image, PictureFrameImage):
@@ -132,7 +183,6 @@ class DigitalPictureFrame:
         file_path: PathLike | str
     ):
         self.logging.info(f"Setting image file: {file_path}")
-        # await self.device_client.reset()
         await self._switch_device_to_image_mode()
         await self.device_client.image.upload_image_file(
             file_path=file_path
