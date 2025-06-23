@@ -15,9 +15,9 @@ class EcoModule(IDotMatrixModule):
     async def set_mode(
         self,
         enabled: bool = True,
-        start_hour: int = 18, start_minute: int = 0,
+        start_hour: int = 22, start_minute: int = 0,
         end_hour: int = 6, end_minute: int = 0,
-        eco_brightness: int = 30,
+        eco_brightness: int = 10,
     ):
         """
         Sets the eco-mode settings of the device.
