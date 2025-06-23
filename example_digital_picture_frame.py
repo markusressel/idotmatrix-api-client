@@ -1,8 +1,6 @@
 import asyncio
 import logging
 from pathlib import Path
-from random import shuffle
-from typing import List
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.digital_picture_frame import DigitalPictureFrame
@@ -25,20 +23,8 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
-    # GIFs
-    gif_file_paths: List[Path] = []
-    gif_folder = Path("/home/markus/pictures/Pixel Art GIF/work")
-    gif_file_paths += list(gif_folder.glob(pattern="*.gif", case_sensitive=False))
-
-    # Images
-    image_file_paths: List[Path] = []
+    gif_folder = Path("/home/markus/pictures/Pixel Art GIF")
     image_folder = Path("/home/markus/pictures/DPF")
-    image_file_paths += list(image_folder.glob(pattern="*.jpg", case_sensitive=False))
-
-    # Combine all file paths
-    all_file_paths = gif_file_paths + image_file_paths
-    # shuffle them around
-    shuffle(all_file_paths)
 
     digital_picture_frame = DigitalPictureFrame(
         device_client=client,
