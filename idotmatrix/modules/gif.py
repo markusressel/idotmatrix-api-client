@@ -64,7 +64,7 @@ class GifModule(IDotMatrixModule):
         # So there is probably some edge case that is not handled correctly.
         data = self._create_payloads(gif_data)
         for chunk in data:
-            await self.send_bytes(data=chunk, response=True, chunk_size=514)
+            await self._send_bytes(data=chunk, response=True, chunk_size=514)
 
     def _load_gif_and_adapt_to_canvas(
         self,

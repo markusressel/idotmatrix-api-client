@@ -67,7 +67,7 @@ class FullscreenColorModule(IDotMatrixModule):
         data = self._create_payload(
             r=r, g=g, b=b
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.02)  # wait for the device to process the command
 
     @staticmethod

@@ -40,7 +40,7 @@ class GraffitiModule(IDotMatrixModule):
             x, y
         )
 
-        await self.send_bytes(data=data, sleep_after=0.02)
+        await self._send_bytes(data=data, sleep_after=0.02)
 
     @staticmethod
     def _create_payload(

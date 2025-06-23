@@ -49,7 +49,7 @@ class EffectModule(IDotMatrixModule):
                         "effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
 
         data = self._compute_payload(style=style, rgb_values=rgb_values)
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     @staticmethod
     def _compute_payload(style, rgb_values) -> bytearray:

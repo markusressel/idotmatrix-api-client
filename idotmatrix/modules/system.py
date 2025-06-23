@@ -35,7 +35,7 @@ class SystemModule(IDotMatrixModule):
                 11,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     @staticmethod
     def _encrypt_aes(data: bytes, key: bytes) -> bytes:
@@ -80,4 +80,4 @@ class SystemModule(IDotMatrixModule):
         )
         key = Fernet.generate_key()
         data = self._encrypt_aes(bytes(command), key)
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)

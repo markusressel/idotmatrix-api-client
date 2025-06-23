@@ -29,7 +29,7 @@ class CommonModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def turn_off(self):
@@ -48,7 +48,7 @@ class CommonModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def turn_on(self):
@@ -67,7 +67,7 @@ class CommonModule(IDotMatrixModule):
                 1,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def set_screen_state(self, is_on: bool):
         """
@@ -86,7 +86,7 @@ class CommonModule(IDotMatrixModule):
                 1 if is_on else 0,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def set_screen_flipped(self, flip: bool = True):
         """
@@ -104,7 +104,7 @@ class CommonModule(IDotMatrixModule):
                 1 if flip else 0,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def set_brightness(self, brightness_percent: int):
@@ -125,7 +125,7 @@ class CommonModule(IDotMatrixModule):
                 brightness_percent,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def set_speed(self, speed: int):
@@ -144,7 +144,7 @@ class CommonModule(IDotMatrixModule):
                 speed,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def set_time(self, time: datetime):
         """
@@ -188,7 +188,7 @@ class CommonModule(IDotMatrixModule):
                 second,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def set_joint(self, mode: int):
@@ -207,7 +207,7 @@ class CommonModule(IDotMatrixModule):
                 mode,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def set_password(self, password: int):
         """
@@ -231,7 +231,7 @@ class CommonModule(IDotMatrixModule):
                 pwd_low,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def reset(self):
         """
@@ -247,5 +247,5 @@ class CommonModule(IDotMatrixModule):
             bytes(bytearray.fromhex("05 00 04 80 50")),
         ]
         for data in reset_packets:
-            await self.send_bytes(data=data)
+            await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command

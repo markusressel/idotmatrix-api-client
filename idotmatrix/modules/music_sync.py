@@ -22,7 +22,7 @@ class MusicSyncModule(IDotMatrixModule):
                 type % 256,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def send_image_rythm(self, value1: int):
         """
@@ -42,7 +42,7 @@ class MusicSyncModule(IDotMatrixModule):
                 1,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def send_rhythm(
         self, mode: int, byteArray: bytearray
@@ -58,7 +58,7 @@ class MusicSyncModule(IDotMatrixModule):
         """
         # Assuming `mode` is intended to be used in future or within `byteArray` preparation.
         data = byteArray
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     async def stop_rythm(self):
         """
@@ -77,4 +77,4 @@ class MusicSyncModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)

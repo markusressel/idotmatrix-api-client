@@ -96,7 +96,7 @@ class TextModule(IDotMatrixModule):
                 font_path=font_path,
             ),
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     def _build_string_packet(
         self,

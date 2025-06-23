@@ -50,7 +50,7 @@ class ImageModule(IDotMatrixModule):
             mode = mode.value
 
         data = bytearray([5, 0, 4, 1, mode % 256])
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
         await sleep(0.3)  # wait for the device to process the command
 
     async def upload_image_file(
@@ -153,7 +153,7 @@ class ImageModule(IDotMatrixModule):
         self, pixel_data: bytearray,
     ) -> None:
         packets = self._create_diy_image_data_packets(pixel_data)
-        await self.send_packets(packets)
+        await self._send_packets(packets)
 
     @staticmethod
     def _short_to_bytes_le(value: int) -> bytes:

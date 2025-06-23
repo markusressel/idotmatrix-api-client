@@ -51,7 +51,7 @@ class EcoModule(IDotMatrixModule):
             end_minute=end_minute,
             light=light,
         )
-        await self.send_bytes(data=data)
+        await self._send_bytes(data=data)
 
     @staticmethod
     def _compute_payload(flag, start_hour, start_minute, end_hour, end_minute, light) -> bytearray:

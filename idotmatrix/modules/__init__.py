@@ -12,11 +12,11 @@ class IDotMatrixModule:
     ):
         self._connection_manager: ConnectionManager = connection_manager
 
-    async def connect(self):
+    async def _connect(self):
         """Connects to the IDotMatrix device."""
         await self._connection_manager.connect()
 
-    async def send_bytes(
+    async def _send_bytes(
         self,
         data: bytearray | bytes,
         response: bool = False,
@@ -36,7 +36,7 @@ class IDotMatrixModule:
             # sometimes the device needs a moment to process the command before it is able to receive the next one
             await sleep(sleep_after)
 
-    async def send_packets(
+    async def _send_packets(
         self,
         packets: List[List[bytearray | bytes]],
         response: bool = False,
