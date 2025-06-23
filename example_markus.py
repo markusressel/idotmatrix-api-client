@@ -181,8 +181,8 @@ async def draw_shuffled(client: IDotMatrixClient, pixel_data: List[List[Tuple[in
         green = color[1]
         blue = color[2]
         await client.graffiti.set_pixel(
-            r=red, g=green, b=blue,
-            x=x, y=y
+            color=(red, green, blue),
+            xy=(x, y)
         )
 
 

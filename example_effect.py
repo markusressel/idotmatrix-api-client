@@ -24,13 +24,13 @@ async def main():
 
     # default colours used in the app.
     colours = [
-        (255, 0, 0),
-        (255, 162, 0),
-        (255, 255, 0),
-        (0, 255, 0),
-        (0, 0, 255),
-        (255, 0, 255),
-        (255, 255, 255)
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "darkblue",
+        "magenta",
+        "white"
     ]
 
     # Effect

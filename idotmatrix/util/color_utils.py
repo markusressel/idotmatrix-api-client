@@ -30,6 +30,8 @@ def parse_color_rgb(color: Tuple[int, int, int] | int | str) -> Tuple[int, int, 
             try:
                 from matplotlib import colors
                 color = colors.to_rgb(color)
+                # convert to integer values
+                color = tuple(int(c * 255) for c in color)
             except:
                 raise ValueError(
                     "Invalid color string. Use hex format (#RRGGBB), '0xRRGGBB', or a named color."
