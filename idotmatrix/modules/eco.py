@@ -21,7 +21,7 @@ class EcoModule(IDotMatrixModule):
     ):
         """
         Sets the eco-mode settings of the device.
-        eco-mode loweres the brightness of the display to the given amount
+        eco-mode lowers the brightness of the display to the given amount
         between the given start and end time.
 
         Args:
