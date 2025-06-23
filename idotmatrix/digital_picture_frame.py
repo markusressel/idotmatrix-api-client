@@ -310,7 +310,9 @@ class DigitalPictureFrame:
             self._slideshow_task.cancel()
             self._slideshow_task = None
 
-        await self.device_client.clock.show()
+        # we don't have a way to know what the device was showing before the slideshow started,
+        # so we simply show the clock
+        await self.device_client.clock.show(show_date=False)
         await self.device_client.disconnect()
 
         asyncio.get_event_loop().remove_signal_handler(signal.SIGINT)
