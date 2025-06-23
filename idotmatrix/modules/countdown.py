@@ -8,7 +8,7 @@ class CountdownModule(IDotMatrixModule):
 
     logging = logging.getLogger(__name__)
 
-    async def disable(self):
+    async def stop(self):
         """
         Disables the countdown.
         """
@@ -30,15 +30,11 @@ class CountdownModule(IDotMatrixModule):
         """
         await self._set_mode(mode=2, minutes=0, seconds=0)
 
-    async def restart(self, minutes: int, seconds: int):
+    async def restart(self):
         """
         Restarts the countdown with the given minutes and seconds.
-
-        Args:
-            minutes (int): minutes to count down from
-            seconds (int): seconds to count down from
         """
-        await self._set_mode(mode=3, minutes=minutes, seconds=seconds)
+        await self._set_mode(mode=3, minutes=0, seconds=0)
 
     async def _set_mode(
         self, mode: int, minutes: int, seconds: int
