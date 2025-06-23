@@ -20,7 +20,6 @@ async def main():
     client = IDotMatrixClient(
         screen_size=ScreenSize.SIZE_64x64,
     )
-    await client.connect()
 
     # default colours used in the app.
     colours = [

@@ -46,17 +46,11 @@ class EffectModule(IDotMatrixModule):
 
         colors = color_utils.parse_color_rgb_list(colors)
 
-        for rgb in colors:
-            for r, g, b in [rgb]:
-                if r not in range(0, 256) or g not in range(0, 256) or b not in range(0, 256):
-                    raise ValueError(
-                        "effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
-
         data = self._compute_payload(style=style, rgb_values=colors)
         await self._send_bytes(data=data)
 
     @staticmethod
-    def _compute_payload(style, rgb_values) -> bytearray:
+    def _compute_payload(style: int, rgb_values: List[Tuple[int, int, int]]) -> bytearray:
         """
         Computes the payload for the effect mode command.
 
