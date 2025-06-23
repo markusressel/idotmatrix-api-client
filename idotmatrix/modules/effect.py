@@ -1,5 +1,6 @@
 import logging
 from enum import Enum
+from typing import List, Tuple
 
 from idotmatrix.modules import IDotMatrixModule
 
@@ -24,7 +25,7 @@ class EffectModule(IDotMatrixModule):
     async def show(
         self,
         style: EffectStyle | int,
-        rgb_values: list[tuple[int, int, int]],
+        rgb_values: List[Tuple[int, int, int]],
     ):
         """
         Set the effect mode of the device.
