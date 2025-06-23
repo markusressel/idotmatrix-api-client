@@ -47,8 +47,12 @@ async def main():
         shuffle_images=True,
     )
 
+    digital_picture_frame.watch_folder(
+        folder=gif_folder,
+    )
+
     digital_picture_frame.watch_folders(
-        folders=[gif_folder, image_folder],
+        folders=[image_folder],
         recursive=True,
     )
 
