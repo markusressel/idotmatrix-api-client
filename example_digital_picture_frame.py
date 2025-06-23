@@ -44,11 +44,12 @@ async def main():
         device_client=client,
         # either input a static list of images or use a folder to watch (see below)
         # images=all_file_paths
+        shuffle_images=True,
     )
 
     digital_picture_frame.watch_folders(
-        # folders=[gif_folder, image_folder]
-        folders=[image_folder]
+        folders=[gif_folder, image_folder],
+        recursive=True,
     )
 
     await digital_picture_frame.start_slideshow(interval=5)

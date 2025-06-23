@@ -6,6 +6,7 @@ from asyncio import sleep, Task
 from enum import Enum
 from os import PathLike
 from pathlib import Path
+from random import shuffle
 from typing import List
 
 from watchdog.observers.inotify import InotifyObserver
@@ -72,7 +73,17 @@ class DigitalPictureFrame:
         self,
         device_client: IDotMatrixClient,
         images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = None,
+        interval_seconds: int = DEFAULT_INTERVAL_SECONDS,
+        shuffle_images: bool = False,
     ):
+        """
+        Initializes the DigitalPictureFrame with a device client and optional images.
+        Args:
+            device_client (IDotMatrixClient): The client to communicate with the digital picture frame device.
+            images (List[PictureFrameImage | PictureFrameGif | PathLike | str]): A list of images or GIFs to display.
+            interval_seconds (int): The time in seconds between image changes in the slideshow. Defaults to 30 seconds.
+            shuffle_images (bool): Whether to shuffle the images in the slideshow. Defaults to False.
+        """
         self.device_client: IDotMatrixClient = device_client
         self.device_client.set_auto_reconnect(True)
         self._setup_connection_listener()
@@ -80,12 +91,13 @@ class DigitalPictureFrame:
         if not images:
             images = []
         self.images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = images
-        self.interval_seconds: int = DEFAULT_INTERVAL_SECONDS
+        self.interval_seconds: int = interval_seconds
+        self._shuffle_images = shuffle_images
 
         self._filesystem_observers: List[FilesystemObserver] = []
 
-        self._current_slideshow_index: int = 0
-        self._current_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = ""
+        self._current_slideshow_index: int = -1  # Start with -1 to ensure the first call to next() works correctly
+        self._last_set_image: PictureFrameImage | PictureFrameGif | PathLike | str | None = ""
 
         self._slideshow_task: Task | None = None
 
@@ -104,7 +116,7 @@ class DigitalPictureFrame:
 
         async def on_device_disconnected():
             self.logging.debug("Device disconnected, resetting state and pausing slideshow.")
-            self._current_image = None
+            self._last_set_image = None
             self._is_in_diy_mode = False
             await self.pause_slideshow()
 
@@ -125,6 +137,7 @@ class DigitalPictureFrame:
     def watch_folders(
         self,
         folders: List[PathLike | str],
+        recursive: bool = False,
         observer_type: FileObserverType = FileObserverType.INOTIFY
     ):
         """
@@ -132,18 +145,20 @@ class DigitalPictureFrame:
 
         Args:
             folders (List[PathLike | str]): The folders to watch.
+            recursive (bool): Whether to watch subdirectories recursively. Defaults to False.
             observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
         """
         if not isinstance(folders, list):
             raise ValueError("Folders must be a list of PathLike or str.")
 
         for folder in folders:
-            self.add_folder(folder)
-            self.watch_folder(folder, observer_type)
+            self.add_folder(folder, recursive)
+            self.watch_folder(folder, recursive, observer_type)
 
     def watch_folder(
         self,
         folder: PathLike | str,
+        recursive: bool = False,
         observer_type: FileObserverType = FileObserverType.INOTIFY
     ):
         """
@@ -151,6 +166,7 @@ class DigitalPictureFrame:
 
         Args:
             folder (PathLike | str): The folder to watch.
+            recursive (bool): Whether to watch subdirectories recursively. Defaults to False.
             observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
         """
         if not isinstance(folder, (PathLike, str)):
@@ -158,14 +174,22 @@ class DigitalPictureFrame:
 
         self._add_folder_watch(
             folder=Path(folder),
+            recursive=recursive,
             observer_type=observer_type,
         )
 
         self.logging.info(f"Watching folder: {folder}")
 
-    def add_folder(self, folder: PathLike | str):
+    def add_folder(
+        self,
+        folder: PathLike | str,
+        recursive: bool = False
+    ):
         """
         Adds all images and GIFs in the given folder to the slideshow.
+        Args:
+            folder (PathLike | str): The folder to add images from.
+            recursive (bool): Whether to add images from subdirectories recursively. Defaults to False.
         """
         if not isinstance(folder, (PathLike, str)):
             raise ValueError("Folder must be of type PathLike or str.")
@@ -174,12 +198,14 @@ class DigitalPictureFrame:
         if not folder_path.is_dir():
             raise ValueError(f"The provided path '{folder}' is not a directory.")
 
-        self.logging.info(f"Adding images from folder: {folder_path}")
-        for file in folder_path.glob("*"):
-            if file.suffix.lower() in IMAGE_FILE_EXTENSIONS:
-                self.add_image(PictureFrameImage(file))
-            elif file.suffix.lower() in ANIMATION_FILE_EXTENSIONS:
-                self.add_image(PictureFrameGif(file))
+        self.logging.info(f"Adding images from folder: {folder_path} (recursive={recursive})")
+        path_glob = "*" if not recursive else "**/*"
+        for file in folder_path.rglob(path_glob):
+            if file.is_file():
+                if file.suffix.lower() in IMAGE_FILE_EXTENSIONS:
+                    self.add_image(PictureFrameImage(file))
+                elif file.suffix.lower() in ANIMATION_FILE_EXTENSIONS:
+                    self.add_image(PictureFrameGif(file))
 
     def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
         """
@@ -206,6 +232,25 @@ class DigitalPictureFrame:
             self.logging.info(f"Removed image: {image}")
         else:
             self.logging.warning(f"Image not found in slideshow: {image}")
+
+    def shuffle_images(self):
+        """
+        Shuffles the images in the slideshow.
+        """
+        if not self.images:
+            return
+
+        self.logging.info("Shuffling images in slideshow")
+        shuffle(self.images)
+
+        if self._last_set_image is not None:
+            current_image = self._get_current_image()
+            if current_image == self._last_set_image:
+                # if, after shuffling, the current image is still the same as the last set image,
+                # simply advance the slideshow index by one, to get a different image.
+                # if the list of images is empty, this will simply do nothing.
+                # if there is only one image, this will also do nothing,
+                self._advance_slideshow_index()
 
     async def start_slideshow(self, interval: int = None) -> Task:
         """
@@ -327,13 +372,15 @@ class DigitalPictureFrame:
         independently.
         """
         if not self.images:
-            if self._current_image is not None:
+            if self._last_set_image is not None:
                 self.logging.warning("No images in slideshow to display.")
                 await self._show_black_screen()
             return
         self._advance_slideshow_index()
+        if self._shuffle_images and self._current_slideshow_index == 0:
+            self.shuffle_images()
         next_image = self.images[self._current_slideshow_index]
-        if next_image != self._current_image:
+        if next_image != self._last_set_image:
             try:
                 image_path = await self._switch_to(next_image)
             except:
@@ -372,7 +419,7 @@ class DigitalPictureFrame:
                 f"Unsupported image type: {type(image)}. Must be PictureFrameImage, PictureFrameGif, or a file path."
             )
 
-        self._current_image = image
+        self._last_set_image = image
         return image_path
 
     async def _set_image(
@@ -413,18 +460,25 @@ class DigitalPictureFrame:
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
         await self._show_black_screen()
 
-    def _add_folder_watch(self, folder: Path, observer_type: FileObserverType = FileObserverType.INOTIFY):
+    def _add_folder_watch(
+        self,
+        folder: Path,
+        recursive: bool = False,
+        observer_type: FileObserverType = FileObserverType.INOTIFY,
+    ):
         """
         Adds a folder to the watchlist and sets up file observers to monitor changes in the folder.
         Args:
             folder (Path): The folder to watch.
+            recursive (bool): Whether to watch subdirectories recursively. Defaults to False.
             observer_type (FileObserverType): The type of file observer to use. Defaults to FileObserverType.INOTIFY.
         """
         self.file_regex = re.compile(rf"^.*({'|'.join(SUPPORTED_FILE_EXTENSIONS)})$", re.IGNORECASE)
 
+        source_directories = Path(folder).glob("**/*") if recursive else [Path(folder)]
         observers = self._setup_file_observers(
             observer_type=observer_type,
-            source_directories=[folder],
+            source_directories=source_directories,
             file_filter=self.file_regex,
         )
         self._filesystem_observers.extend(observers)
@@ -468,7 +522,10 @@ class DigitalPictureFrame:
         self._current_slideshow_index = (self._current_slideshow_index + 1) % len(self.images)
 
     async def _show_black_screen(self):
-        self._current_image = None
+        self._last_set_image = None
         self._is_in_diy_mode = False
         await self.device_client.color.show_color(color="black")
         await self.device_client.reset()
+
+    def _get_current_image(self) -> PictureFrameImage | PictureFrameGif | PathLike | str | None:
+        return self.images[self._current_slideshow_index % len(self.images)] if self.images else None
