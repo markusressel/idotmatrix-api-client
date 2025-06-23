@@ -16,7 +16,7 @@ class TestEffectModule(TestBase):
         # WHEN
         await under_test.show(
             style=EffectStyle.VERTICAL_RAINBOW,
-            rgb_values=[
+            colors=[
                 (255, 0, 0),
                 (0, 255, 0),
                 (0, 0, 255)

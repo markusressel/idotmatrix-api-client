@@ -6,6 +6,7 @@ from typing import Tuple, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.util import color_utils
 
 
 class TextMode(Enum):
@@ -47,8 +48,8 @@ class TextModule(IDotMatrixModule):
         text_mode: TextMode | int = TextMode.MARQUEE,
         speed: int = 95,
         text_color_mode: TextColorMode | int = TextColorMode.WHITE,
-        text_color: Tuple[int, int, int] = None,
-        text_bg_color: Optional[Tuple[int, int, int]] = None,
+        text_color: Tuple[int, int, int] or int or str = None,
+        text_bg_color: Optional[Tuple[int, int, int] or int or str] = None,
     ):
         """
         Displays text on the iDotMatrix device with specified settings.
@@ -78,10 +79,14 @@ class TextModule(IDotMatrixModule):
             if text_color_mode == TextColorMode.RGB.value:
                 raise ValueError("text_color must be provided when text_color_mode is RGB")
             text_color = (255, 255, 255)
+        else:
+            text_color = color_utils.parse_color_rgb(text_color)
 
         text_bg_mode = 0 if text_bg_color is None else 1
         if text_bg_color is None:
             text_bg_color = (0, 0, 0)
+        else:
+            text_bg_color = color_utils.parse_color_rgb(text_bg_color)
 
         data = self._build_string_packet(
             text_mode=text_mode,

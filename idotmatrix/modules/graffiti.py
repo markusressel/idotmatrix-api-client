@@ -1,6 +1,7 @@
 import logging
 
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.util import color_utils
 
 
 class GraffitiModule(IDotMatrixModule):
@@ -10,34 +11,20 @@ class GraffitiModule(IDotMatrixModule):
 
     async def set_pixel(
         self,
-        r: int, g: int, b: int,
-        x: int, y: int,
+        color: tuple[int, int, int] or int or str,
+        xy: tuple[int, int],
     ):
         """
         Set the scoreboard of the device.
 
         Args:
-            r (int): color red value
-            g (int): color green value
-            b (int): color blue value
-            x (int): pixel x position
-            y (int): pixel y position
+            color (tuple or str): Color in RGB format as a tuple of three integers (r, g, b) or a string in hex format (#RRGGBB or 0xRRGGBB).
+            xy (tuple): Coordinates on the screen as a tuple of two integers (x, y).
         """
-        if r not in range(0, 256):
-            raise ValueError("Graffiti.setPixel expects parameter r to be between 0 and 255")
-        if g not in range(0, 256):
-            raise ValueError("Graffiti.setPixel expects parameter g to be between 0 and 255")
-        if b not in range(0, 256):
-            raise ValueError("Graffiti.setPixel expects parameter b to be between 0 and 255")
-
-        if x not in range(0, 256):
-            raise ValueError("Graffiti.setPixel expects parameter x to be between 0 and 255")
-        if y not in range(0, 256):
-            raise ValueError("Graffiti.setPixel expects parameter y to be between 0 and 255")
-
+        color = color_utils.parse_color_rgb(color)
         data = self._create_payload(
-            r, g, b,
-            x, y
+            r=color[0], g=color[1], b=color[2],
+            x=xy[0], y=xy[1]
         )
 
         await self._send_bytes(data=data, sleep_after=0.02)

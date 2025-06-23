@@ -56,7 +56,10 @@ async def main():
     time.sleep(5)
 
     # Graffiti
-    await client.graffiti.set_pixel(r=255, g=255, b=255, x=10, y=10)
+    await client.graffiti.set_pixel(
+        color=(255, 255, 255),
+        xy=(10, 10),
+    )
     time.sleep(5)
 
     # Image
@@ -81,7 +84,7 @@ async def main():
     # Effect
     await client.effect.show(
         style=1,
-        rgb_values=[(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)]
+        colors=[(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255)]
     )
     time.sleep(5)
 

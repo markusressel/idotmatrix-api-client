@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Tuple
 
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.util import color_utils
 
 
 class ClockStyle(Enum):
@@ -31,7 +32,7 @@ class ClockModule(IDotMatrixModule):
         style: ClockStyle | int = ClockStyle.RGBSwipeOutline,
         show_date: bool = True,
         hour24: bool = True,
-        color: Tuple[int, int, int] | None = None,
+        color: Tuple[int, int, int] or int or str or None = None,
     ):
         """Set the clock mode of the device.
 
@@ -48,12 +49,12 @@ class ClockModule(IDotMatrixModule):
             raise ValueError("style must be one of the ClockStyle enum values or an integer between 0 and 7")
 
         r, g, b = (255, 255, 255)
-        if isinstance(color, tuple) and len(color) == 3:
+        if color is not None:
+            color = color_utils.parse_color_rgb(color)
             if not all(isinstance(c, int) for c in color):
                 raise ValueError("color must be a tuple of three integers (r, g, b)")
             if not all(0 <= c < 256 for c in color):
                 raise ValueError("color values must be between 0 and 255")
-
             r, g, b = color
 
         data = self._create_payload(

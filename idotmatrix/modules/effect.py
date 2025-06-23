@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Tuple
 
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.util import color_utils
 
 
 class EffectStyle(Enum):
@@ -25,14 +26,14 @@ class EffectModule(IDotMatrixModule):
     async def show(
         self,
         style: EffectStyle | int,
-        rgb_values: List[Tuple[int, int, int]],
+        colors: List[Tuple[int, int, int] or int or str],
     ):
         """
         Set the effect mode of the device.
 
         Args:
             style (int): Style of the effect 0-6.
-            rgb_values (list[tuple[int, int, int]]): list of red, green, blue tuples 2-7.
+            colors (list[tuple[int, int, int]]): list of red, green, blue tuples 2-7.
         """
         if isinstance(style, EffectStyle):
             style = style.value
@@ -40,16 +41,18 @@ class EffectModule(IDotMatrixModule):
         if style not in range(0, 7):
             raise ValueError("effect.setMode expects parameter style to be between 0 and 6")
 
-        if len(rgb_values) not in range(2, 8):
+        if len(colors) not in range(2, 8):
             raise ValueError("effect.setMode expects parameter rgb_values to be a list of tuples to be between 2 and 7")
 
-        for rgb in rgb_values:
+        colors = color_utils.parse_color_rgb_list(colors)
+
+        for rgb in colors:
             for r, g, b in [rgb]:
                 if r not in range(0, 256) or g not in range(0, 256) or b not in range(0, 256):
                     raise ValueError(
                         "effect.setMode expects parameter rgb_values to be a list of tuples of red, green, blue values between 0 and 255")
 
-        data = self._compute_payload(style=style, rgb_values=rgb_values)
+        data = self._compute_payload(style=style, rgb_values=colors)
         await self._send_bytes(data=data)
 
     @staticmethod

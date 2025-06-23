@@ -10,7 +10,7 @@ from PIL import Image as PilImage, ImageOps
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
-from idotmatrix.util import image_utils
+from idotmatrix.util import image_utils, color_utils
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
@@ -57,7 +57,7 @@ class ImageModule(IDotMatrixModule):
         self,
         file_path: PathLike | str,
         palletize: bool = False,
-        background_color: Tuple[int, int, int] = (0, 0, 0),  # default to black background
+        background_color: Tuple[int, int, int] or int or str = (0, 0, 0),  # default to black background
     ) -> None:
         """
         Uploads a file processed and makes sure everything is correct before uploading to the device.
@@ -69,6 +69,7 @@ class ImageModule(IDotMatrixModule):
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
                 image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
         """
+        background_color = color_utils.parse_color_rgb(background_color)
         pixel_data = self._load_image_and_adapt_to_canvas(
             file_path=file_path,
             canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
@@ -125,24 +126,27 @@ class ImageModule(IDotMatrixModule):
 
     async def upload_image_pixeldata(
         self,
-        pixel_data: List[Tuple[int, int, int]],
+        pixel_colors: List[Tuple[int, int, int] or int or str],
     ) -> None:
         """
         Uploads pixel data to the iDotMatrix device.
         Args:
-            pixel_data (List[Tuple[int, int, int]]): List of tuples representing RGB pixel values.
+            pixel_colors (List[Tuple[int, int, int]]): List of tuples representing RGB pixel values.
                 Each tuple should contain three integers (R, G, B) in the range 0-255.
                 The length of this list must match the square of the screen size (pixel_size * pixel_size).
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
-        if len(pixel_data) != pixel_size * pixel_size:
+        if len(pixel_colors) != pixel_size * pixel_size:
             raise ValueError(
-                f"pixel_data must contain exactly {pixel_size * pixel_size} pixels (quared pixel_size), got: {len(pixel_data)}"
+                f"pixel_data must contain exactly {pixel_size * pixel_size} pixels (quared pixel_size), got: {len(pixel_colors)}"
             )
+
+        # parse the pixel_colors to ensure they are in RGB format
+        pixel_colors = color_utils.parse_color_rgb_list(pixel_colors)
 
         # Convert pixel_data to a bytearray in RGB format
         pixel_data = bytearray()
-        for r, g, b in pixel_data:
+        for r, g, b in pixel_colors:
             if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
                 raise ValueError(f"Invalid RGB value: ({r}, {g}, {b}). Values must be between 0 and 255.")
             pixel_data.extend([r, g, b])

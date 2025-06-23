@@ -9,7 +9,7 @@ from PIL import Image as PilImage
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
-from idotmatrix.util import image_utils
+from idotmatrix.util import image_utils, color_utils
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -35,7 +35,7 @@ class GifModule(IDotMatrixModule):
         self,
         file_path: PathLike | str,
         palletize: bool = True,
-        background_color: Tuple[int, int, int] = (0, 0, 0),
+        background_color: Tuple[int, int, int] or int or str = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
     ):
         """
@@ -49,6 +49,7 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         """
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
+        background_color = color_utils.parse_color_rgb(background_color)
 
         gif_data = self._load_gif_and_adapt_to_canvas(
             file_path=file_path,
