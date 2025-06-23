@@ -15,7 +15,7 @@ class EcoModule(IDotMatrixModule):
     async def set_mode(
         self,
         enabled: bool = True,
-        start_hour: int = 0, start_minute: int = 0,
+        start_hour: int = 18, start_minute: int = 0,
         end_hour: int = 6, end_minute: int = 0,
         eco_brightness: int = 30,
     ):
@@ -38,8 +38,6 @@ class EcoModule(IDotMatrixModule):
             raise ValueError("start_minute and end_minute must be between 0 and 59")
         if not (0 <= eco_brightness < 256):
             raise ValueError("eco_brightness must be between 0 and 255")
-        if start_hour > end_hour or (start_hour == end_hour and start_minute >= end_minute):
-            raise ValueError("start time must be before end time")
 
         data = self._compute_payload(
             enabled=1 if enabled else 0,
