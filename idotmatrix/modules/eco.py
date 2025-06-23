@@ -5,8 +5,8 @@ from idotmatrix.modules import IDotMatrixModule
 
 class EcoModule(IDotMatrixModule):
     """
-    This class contains code for the eco mode of the iDotMatrix device.
-    With this class you can enable or disable the screen and change the brightness automatically depending on the time.
+    This class contains code for the eco-mode of the iDotMatrix device.
+    With this class you can change the brightness automatically depending on the time.
     Based on the BleProtocolN.java file of the iDotMatrix Android App.
     """
 
@@ -14,59 +14,61 @@ class EcoModule(IDotMatrixModule):
 
     async def set_mode(
         self,
-        flag: int,
-        start_hour: int,
-        start_minute: int,
-        end_hour: int,
-        end_minute: int,
-        light: int,
+        enabled: bool = True,
+        start_hour: int = 0, start_minute: int = 0,
+        end_hour: int = 6, end_minute: int = 0,
+        eco_brightness: int = 30,
     ):
         """
-        Sets the eco mode of the device (e.g. turning on or off the device, set the color, ....)
+        Sets the eco-mode settings of the device.
+        eco-mode loweres the brightness of the display to the given amount
+        between the given start and end time.
 
         Args:
-            flag (int): currently unknown, seems to be either 1 or 0
-            start_hour (int): hour to start
-            start_minute (int): minute to start
-            end_hour (int): hour to end
-            end_minute (int): minute to end
-            light (int): the brightness of the screen
+            enabled (int): whether to enable the eco-mode feature or not
+            start_hour (int): hour to start eco-mode
+            start_minute (int): minute to start eco-mode
+            end_hour (int): hour to end eco-mode
+            end_minute (int): minute to end eco-mode
+            eco_brightness (int): the brightness of the screen when in eco-mode. Set to 0 to disable eco-mode.
         """
-        if flag not in (0, 1):
-            raise ValueError("EcoModule.set_mode expects parameter flag to be either 0 or 1")
         if not (0 <= start_hour < 24) or not (0 <= end_hour < 24):
-            raise ValueError("EcoModule.set_mode expects start_hour and end_hour to be between 0 and 23")
+            raise ValueError("start_hour and end_hour must be between 0 and 23")
         if not (0 <= start_minute < 60) or not (0 <= end_minute < 60):
-            raise ValueError("EcoModule.set_mode expects start_minute and end_minute to be between 0 and 59")
-        if not (0 <= light < 256):
-            raise ValueError("EcoModule.set_mode expects light to be between 0 and 255")
+            raise ValueError("start_minute and end_minute must be between 0 and 59")
+        if not (0 <= eco_brightness < 256):
+            raise ValueError("eco_brightness must be between 0 and 255")
         if start_hour > end_hour or (start_hour == end_hour and start_minute >= end_minute):
-            raise ValueError("EcoModule.set_mode expects start time to be before end time")
+            raise ValueError("start time must be before end time")
 
         data = self._compute_payload(
-            flag=flag,
+            enabled=1 if enabled else 0,
             start_hour=start_hour,
             start_minute=start_minute,
             end_hour=end_hour,
             end_minute=end_minute,
-            light=light,
+            eco_brightness=eco_brightness,
         )
         await self._send_bytes(data=data)
 
     @staticmethod
-    def _compute_payload(flag, start_hour, start_minute, end_hour, end_minute, light) -> bytearray:
+    def _compute_payload(
+        enabled: int,
+        start_hour: int, start_minute: int,
+        end_hour: int, end_minute: int,
+        eco_brightness: int) -> bytearray:
         data = bytearray(
             [
                 10,
                 0,
                 2,
                 128,
-                int(flag) % 256,
+                int(enabled) % 256,
                 int(start_hour) % 256,
                 int(start_minute) % 256,
                 int(end_hour) % 256,
                 int(end_minute) % 256,
-                int(light) % 256,
+                int(eco_brightness) % 256,
             ]
         )
         return data
