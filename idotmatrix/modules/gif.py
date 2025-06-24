@@ -1,3 +1,4 @@
+import binascii
 import io
 import logging
 import zlib
@@ -16,6 +17,9 @@ DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in millisecond
 ANIMATION_TOTAL_DURATION_LIMIT_MS = 2000
 DEFAULT_ANIMATION_TOTAL_DURATION_MS = ANIMATION_TOTAL_DURATION_LIMIT_MS
 
+# --- Constants based on the Java code ---
+CHUNK_SIZE_4096 = 4096
+HEADER_SIZE_GIF = 16  # As per sendImageData logic in GifAgreement.java
 
 class GifModule(IDotMatrixModule):
     """
@@ -196,6 +200,188 @@ class GifModule(IDotMatrixModule):
             # append chunk to chunk list
             chunks.append(header + chunk)
         return chunks
+
+    def _int_to_bytes_le(self, value: int, length: int = 4) -> bytearray:
+        """Converts an integer to a little-endian bytearray of specified length."""
+        return bytearray(value.to_bytes(length, byteorder='little'))
+
+    def _short_to_bytes_le(self, value: int) -> bytearray:
+        """Converts a short (2 bytes) to a little-endian bytearray."""
+        return bytearray(value.to_bytes(2, byteorder='little'))
+
+    def _chunk_data_by_size(self, data: bytes, chunk_size: int) -> list[bytearray]:
+        """
+        Chunks data into smaller pieces of a specified size.
+        Corresponds to getSendData4096.
+        """
+        if not data:
+            return []
+
+        chunks = []
+        num_chunks = (len(data) + chunk_size - 1) // chunk_size  # Ceiling division
+
+        for i in range(num_chunks):
+            start = i * chunk_size
+            end = min((i + 1) * chunk_size, len(data))
+            chunks.append(bytearray(data[start:end]))
+        return chunks
+
+    def create_gif_data_packets(
+        self,
+        gif_data: bytes,
+        gif_type: int,
+        time_sign: int,  # Assuming this is the raw time signature before DeviceMaterialTimeConvert.ConvertTime
+        ble_device_mtu_enabled: bool = True
+    ) -> list[list[bytearray]]:
+        """
+        Creates packets for sending GIF data, mirroring the Java GifAgreement logic.
+
+        Args:
+            gif_data: The raw byte array of the GIF data.
+            gif_type: The type parameter (e.g., 12 or other values from sendImageData).
+            time_sign: The time signature (e.g., from AppData.getInstance().getTimeSign()).
+                       This will be processed similar to DeviceMaterialTimeConvert.ConvertTime.
+            ble_device_mtu_enabled: Boolean indicating if MTU is enabled on the BLE device.
+
+        Returns:
+            A list of lists of byte arrays. The outer list represents "4K chunks with headers",
+            and the inner lists contain the actual BLE packets for each of those chunks.
+        """
+        send_data_3 = []
+
+        if not gif_data:
+            print("DEBUG: GIF data is null or empty. Cannot create packets.")
+            return send_data_3
+
+        print(f"DEBUG: ====Creating GIF packets=== gifData.size:{len(gif_data)}")
+
+        try:
+            # Calculate CRC32 for the entire GIF data
+            # Ensure this CRC32 matches the Java CrcUtils.CRC32.CRC32 implementation
+            crc32_val = self.calculate_crc32_java_equivalent(gif_data)
+            crc32_bytes = self._int_to_bytes_le(crc32_val)  # Little-endian int (4 bytes)
+
+            # Get the total length of the GIF data as bytes
+            total_length_bytes = self._int_to_bytes_le(len(gif_data))  # Little-endian int (4 bytes)
+
+            print(f"DEBUG: ==========GIF data total length：{len(gif_data)}, CRC32: {crc32_val:08X}")
+
+            # 1. Chunk the gif_data into 4096-byte chunks
+            chunks_4096 = self._chunk_data_by_size(gif_data, CHUNK_SIZE_4096)
+            print(f"DEBUG: ===dataList4096 (GIF) length: {len(chunks_4096)}")
+
+            processed_large_packets_with_headers = []
+            for i, current_chunk in enumerate(chunks_4096):
+                packet_data_length = len(current_chunk) + HEADER_SIZE_GIF
+                # Java: byte[] short2Bytes = ByteUtils.short2Bytes((short) length);
+                # bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];
+                # This indicates that ByteUtils.short2Bytes might be big-endian,
+                # OR it's little-endian and they are swapping.
+                # Assuming ByteUtils.short2Bytes(value) returns [LSB, MSB] (little-endian)
+                # and then bArr2[0]=MSB, bArr2[1]=LSB is effectively writing it as big-endian.
+                # However, the Python code uses _short_to_bytes_le for the DIY image data,
+                # implying the packet length itself *should* be little-endian in the header.
+                # Let's stick to little-endian for packet_length_bytes based on your Python _create_diy_image_data_packets
+                # and assume the Java snippet `bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];`
+                # was specific to how that `ByteUtils.short2Bytes` worked or a specific requirement.
+                # If the device expects big-endian length, change this.
+                # The Java code `bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];` effectively writes a short in Big Endian.
+                # So we will use big-endian for packet_data_length_bytes.
+                packet_data_length_bytes_be = bytearray(packet_data_length.to_bytes(2, byteorder='big'))
+
+                header = bytearray(HEADER_SIZE_GIF)
+
+                header[0] = packet_data_length_bytes_be[0]  # Packet Length (Big Endian short)
+                header[1] = packet_data_length_bytes_be[1]
+                header[2] = 1  # Command or type (fixed value from sendImageData)
+                header[3] = 0  # Sub-command or subtype (fixed value)
+
+                if i > 0:
+                    header[4] = 2  # Continuation packet
+                else:
+                    header[4] = 0  # First packet
+
+                # Total GIF data length (Little Endian int)
+                header[5:9] = total_length_bytes[0:4]
+
+                # CRC32 of GIF data (Little Endian int)
+                header[9:13] = crc32_bytes[0:4]
+
+                # Time signature or fixed bytes based on 'gif_type'
+                if gif_type == 12:  # Assuming 12 is a special type
+                    header[13] = 0
+                    header[14] = 0
+                else:
+                    # Java: DeviceMaterialTimeConvert.ConvertTime(AppData.getInstance().getTimeSign())
+                    # Assuming ConvertTime returns a short value.
+                    # And then ByteUtils.short2Bytes is used, and bytes swapped (effectively Big Endian short)
+                    # Python equivalent:
+                    converted_time_short = (time_sign // 1000) % 65536  # Placeholder for ConvertTime, ensure it's a short value
+                    time_sign_bytes_be = bytearray(converted_time_short.to_bytes(2, byteorder='big'))
+                    header[13] = time_sign_bytes_be[0]
+                    header[14] = time_sign_bytes_be[1]
+
+                header[15] = gif_type & 0xFF  # Ensure it's a byte
+
+                large_packet_with_header = bytes(header) + current_chunk
+                processed_large_packets_with_headers.append(large_packet_with_header)
+
+            print(f"DEBUG: ======(GIF) Total large packets (4K chunks with headers): {len(processed_large_packets_with_headers)}")
+
+            # 3. Split each "large packet with header" into smaller BLE packets
+            for i, large_packet in enumerate(processed_large_packets_with_headers):
+                print(f"DEBUG: Processing large GIF packet {i} data length: {len(large_packet)}")
+                ble_packets_for_chunk = self._create_ble_packets(large_packet, ble_device_mtu_enabled)
+                if ble_packets_for_chunk:
+                    send_data_3.append(ble_packets_for_chunk)
+
+        except Exception as e:
+            print(f"ERROR: Error creating GIF packets: {e}")
+            import traceback
+            traceback.print_exc()
+            send_data_3 = []  # Clear on error
+
+        return send_data_3
+
+    def _create_ble_packets(self, data_packet: bytes, ble_device_mtu_enabled: bool = True) -> list[bytearray]:
+        """
+        Splits a single data packet into smaller packets suitable for BLE transmission.
+        Corresponds to getSendData.
+        MTU values (509, 18) are from GifAgreement.java.
+        """
+        if not data_packet:
+            return []
+
+        ble_packets = []
+        mtu_packet_size = 509 if ble_device_mtu_enabled else 18
+
+        num_ble_packets = (len(data_packet) + mtu_packet_size - 1) // mtu_packet_size
+
+        for i in range(num_ble_packets):
+            start = i * mtu_packet_size
+            end = min((i + 1) * mtu_packet_size, len(data_packet))
+            ble_packets.append(bytearray(data_packet[start:end]))
+        return ble_packets
+
+    # --- Placeholder for a CRC32 function ---
+    # The Java code uses CrcUtils.CRC32.CRC32. Python's built-in binascii.crc32
+    # might behave differently (e.g., signed vs. unsigned, initial value, polynomial).
+    # For a direct equivalent, you might need a specific library or to implement
+    # the exact CRC32 variant used in your Java code.
+    # For this example, we'll use binascii.crc32 and note the potential difference.
+    def calculate_crc32_java_equivalent(self, data: bytes) -> int:
+        """
+        Calculates CRC32. Note: binascii.crc32 might differ from Java's specific CRC32.
+        The Java CrcUtils.CRC32.CRC32(bArr, 0, bArr.length) implies a standard CRC32.
+        binascii.crc32 returns a signed 32-bit integer on some Python versions/platforms,
+        Java usually deals with it as unsigned when converting to bytes.
+        """
+        # Initialize with 0xFFFFFFFF, XOR output with 0xFFFFFFFF
+        # This is a common CRC32/MPEG-2 variant.
+        # Python's binascii.crc32(data) is equivalent to binascii.crc32(data, 0)
+        # The result should be masked to get an unsigned 32-bit value.
+        crc = binascii.crc32(data) & 0xFFFFFFFF
+        return crc
 
     @staticmethod
     def _split_into_chunks(data: bytearray, chunk_size: int) -> List[bytearray]:
