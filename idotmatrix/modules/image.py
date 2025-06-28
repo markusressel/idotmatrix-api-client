@@ -211,7 +211,7 @@ class ImageModule(IDotMatrixModule):
         This corresponds to the logic in `sendDIYImageData`.
 
         Args:
-            image_data: The raw byte array of the image data.
+            image_data: The raw byte array of the RGB image data.
             ble_device_mtu_enabled: Boolean indicating if MTU is enabled on the BLE device.
 
         Returns:
