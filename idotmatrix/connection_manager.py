@@ -6,7 +6,7 @@ from typing import List, Optional, Awaitable, Any
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
 
-from .const import UUID_READ_DATA, UUID_WRITE_DATA, BLUETOOTH_DEVICE_NAME
+from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 
 
 class ConnectionListener:
@@ -147,6 +147,14 @@ class ConnectionManager:
             await self.client.connect()
             self._notify_connection_listeners_connected()
             self.logging.info(f"connected to {self.address}")
+
+            # print service and characteristic information for debugging
+            for service in self.client.services:
+                self.logging.debug(f"Service: {service.uuid} ({service.handle})")
+                for characteristic in service.characteristics:
+                    self.logging.debug(f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
+                    self.logging.debug(f"    Properties: {characteristic.properties}")
+                    self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
         else:
             self.logging.info(f"already connected to {self.address}")
 
@@ -194,10 +202,10 @@ class ConnectionManager:
         if chunk_size is not None:
             ble_packet_size = chunk_size
         else:
-            ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
+            ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
         for packet in range(0, len(data), ble_packet_size):
             self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
-            await self.client.write_gatt_char(UUID_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
+            await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response: bool = False):
         """
@@ -215,13 +223,13 @@ class ConnectionManager:
         if not await self.is_connected():
             await self.connect()
         self.logging.debug(f"sending {len(packets)} packet(s) to device")
-        ble_packet_size = self.client.services.get_characteristic(UUID_WRITE_DATA).max_write_without_response_size
+        ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
         self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
                 self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(packets)}.{len(packet)}")
-                await self.client.write_gatt_char(UUID_WRITE_DATA, ble_paket, response=response)
+                await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, ble_paket, response=response)
 
     async def read(self) -> bytes:
         if not self.client.is_connected:
