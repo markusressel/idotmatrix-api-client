@@ -222,10 +222,7 @@ class GifModule(IDotMatrixModule):
         send_data_3 = []
 
         if not gif_data:
-            print("DEBUG: GIF data is null or empty. Cannot create packets.")
-            return send_data_3
-
-        print(f"DEBUG: ====Creating GIF packets=== gifData.size:{len(gif_data)}")
+            raise ValueError("gif_data cannot be empty or None.")
 
         # Calculate CRC32 for the entire GIF data
         # Ensure this CRC32 matches the Java CrcUtils.CRC32.CRC32 implementation
@@ -235,29 +232,12 @@ class GifModule(IDotMatrixModule):
         # Get the total length of the GIF data as bytes
         total_length_bytes = self._int_to_bytes_le(len(gif_data))  # Little-endian int (4 bytes)
 
-        print(f"DEBUG: ==========GIF data total length：{len(gif_data)}, CRC32: {crc32_val:08X}")
-
         # 1. Chunk the gif_data into 4096-byte chunks
         chunks_4096 = self._chunk_data_by_size(gif_data, CHUNK_SIZE_4096)
-        print(f"DEBUG: ===dataList4096 (GIF) length: {len(chunks_4096)}")
 
         processed_large_packets_with_headers = []
         for i, current_chunk in enumerate(chunks_4096):
             packet_data_length = len(current_chunk) + HEADER_SIZE_GIF
-            # Java: byte[] short2Bytes = ByteUtils.short2Bytes((short) length);
-            # bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];
-            # This indicates that ByteUtils.short2Bytes might be big-endian,
-            # OR it's little-endian and they are swapping.
-            # Assuming ByteUtils.short2Bytes(value) returns [LSB, MSB] (little-endian)
-            # and then bArr2[0]=MSB, bArr2[1]=LSB is effectively writing it as big-endian.
-            # However, the Python code uses _short_to_bytes_le for the DIY image data,
-            # implying the packet length itself *should* be little-endian in the header.
-            # Let's stick to little-endian for packet_length_bytes based on your Python _create_diy_image_data_packets
-            # and assume the Java snippet `bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];`
-            # was specific to how that `ByteUtils.short2Bytes` worked or a specific requirement.
-            # If the device expects big-endian length, change this.
-            # The Java code `bArr2[0] = short2Bytes[1]; bArr2[1] = short2Bytes[0];` effectively writes a short in Big Endian.
-            # So we will use big-endian for packet_data_length_bytes.
             packet_data_length_bytes_be = bytearray(self._int_to_bytes_le(packet_data_length))
 
             header = bytearray(HEADER_SIZE_GIF)
