@@ -238,15 +238,18 @@ class ConnectionManager:
             packets: A list of packets, where each packet is a list of bytearrays or bytes.
             response: If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
         """
+        if len(packets) == 0:
+            self.logging.warning("no packets to send, skipping")
+            return
         if not self.is_connected():
             await self.connect()
-        self.logging.debug(f"sending {len(packets)} packet(s) to device")
-        ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
-        self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
+        self.logging.debug(f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device")
+        # ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
+        # self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
-                self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
+                self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
                 await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, ble_paket, response=response)
 
     async def read(self) -> bytes:
