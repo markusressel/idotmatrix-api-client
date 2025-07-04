@@ -47,11 +47,15 @@ class ConnectionManager:
         if address:
             self.set_address(address)
 
+        self._connected = False
+
         self._auto_reconnect = False
         self._is_auto_reconnect_active = False
         self._reconnect_loop_task: Optional[Task] = None
 
         self._connection_listeners: List[ConnectionListener] = []
+
+        self._setup_signal_handlers()
 
     @staticmethod
     async def discover_devices() -> List[str]:
@@ -99,6 +103,11 @@ class ConnectionManager:
         if address is None:
             address = self.address
 
+        if self.client:
+            self.client._backend.address = address
+            self.logging.info(f"reusing existing client for {address}")
+            return self.client
+
         self.client = BleakClient(
             address_or_ble_device=address,
             disconnected_callback=self._on_disconnected
@@ -140,17 +149,17 @@ class ConnectionManager:
         Raises:
             ValueError: If the device address is not set.
         """
-        if self._auto_reconnect:
-            self._is_auto_reconnect_active = True
-        if not self.address:
-            self.logging.warning("device address is not set, trying to connect by discovery...")
-            await self.connect_by_discovery()
-
         async with connection_manager_lock:
+            if self._auto_reconnect:
+                self._is_auto_reconnect_active = True
+            if not self.address:
+                self.logging.warning("device address is not set, trying to connect by discovery...")
+                await self.connect_by_discovery()
+
             if not await self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
                 await self.client.connect()
-                self._notify_connection_listeners_connected()
+                self._connected = True
                 self.logging.info(f"connected to {self.address}")
 
                 # print service and characteristic information for debugging
@@ -162,6 +171,8 @@ class ConnectionManager:
                         self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
             else:
                 self.logging.info(f"already connected to {self.address}")
+
+        self._notify_connection_listeners_connected()
 
     async def disconnect(self) -> None:
         """
@@ -176,6 +187,7 @@ class ConnectionManager:
                 self._reconnect_loop_task = None
             if await self.is_connected():
                 await self.client.disconnect()
+            self._connected = False
 
     async def is_connected(self) -> bool:
         """
@@ -185,7 +197,7 @@ class ConnectionManager:
         """
         if not self.client:
             return False
-        return self.client.is_connected
+        return self.client.is_connected or self._connected
 
     async def send_bytes(
         self,
@@ -267,6 +279,10 @@ class ConnectionManager:
         Args:
             client (BleakClient): The BleakClient instance that was disconnected.
         """
+        if not self.is_connected():
+            return
+
+        self._connected = False
         self.logging.info(f"disconnected from {client.address}")
         for listener in self._connection_listeners:
             if listener.on_disconnected:
@@ -301,3 +317,23 @@ class ConnectionManager:
         """
         self._auto_reconnect = auto_reconnect
         self._is_auto_reconnect_active = True
+
+    def _setup_signal_handlers(self):
+        """
+        Sets up signal handlers for graceful shutdown.
+        This is useful to ensure that the connection is properly closed when the application is terminated.
+        """
+        import signal
+        async def async_signal_handler():
+            """
+            Handles the signal to stop the slideshow gracefully.
+            """
+            await self.disconnect()
+
+        def signal_handler(signum):
+            signame = signal.Signals(signum).name
+            logging.info(f'Signal handler called with signal {signame} ({signum})')
+            asyncio.ensure_future(async_signal_handler())
+
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, lambda: signal_handler(signal.SIGINT))
+        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, lambda: signal_handler(signal.SIGTERM))
