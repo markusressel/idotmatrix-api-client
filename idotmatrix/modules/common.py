@@ -1,5 +1,4 @@
 import logging
-from asyncio import sleep
 from datetime import datetime
 from typing import Optional
 
@@ -29,8 +28,7 @@ class CommonModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def turn_off(self):
         """
@@ -48,8 +46,7 @@ class CommonModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def turn_on(self):
         """
@@ -104,8 +101,7 @@ class CommonModule(IDotMatrixModule):
                 1 if flip else 0,
             ]
         )
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def set_brightness(self, brightness_percent: int):
         """
@@ -125,8 +121,7 @@ class CommonModule(IDotMatrixModule):
                 brightness_percent,
             ]
         )
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def set_speed(self, speed: int):
         """
@@ -188,8 +183,7 @@ class CommonModule(IDotMatrixModule):
                 second,
             ]
         )
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def set_joint(self, mode: int):
         """
@@ -247,5 +241,4 @@ class CommonModule(IDotMatrixModule):
             bytes(bytearray.fromhex("05 00 04 80 50")),
         ]
         for data in reset_packets:
-            await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+            await self._send_bytes(data=data, response=True)

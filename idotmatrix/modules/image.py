@@ -1,6 +1,5 @@
 import logging
 import struct
-from asyncio import sleep
 from enum import Enum
 from os import PathLike
 from typing import List, Tuple
@@ -50,8 +49,7 @@ class ImageModule(IDotMatrixModule):
             mode = mode.value
 
         data = bytearray([5, 0, 4, 1, mode % 256])
-        await self._send_bytes(data=data)
-        await sleep(0.3)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     async def upload_image_file(
         self,

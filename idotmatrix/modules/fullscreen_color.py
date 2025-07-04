@@ -1,5 +1,4 @@
 import logging
-from asyncio import sleep
 from typing import Tuple
 
 from idotmatrix.modules import IDotMatrixModule
@@ -46,8 +45,7 @@ class FullscreenColorModule(IDotMatrixModule):
         data = self._create_payload(
             r=r, g=g, b=b
         )
-        await self._send_bytes(data=data)
-        await sleep(0.02)  # wait for the device to process the command
+        await self._send_bytes(data=data, response=True)
 
     @staticmethod
     def _create_payload(r, g, b) -> bytearray:
