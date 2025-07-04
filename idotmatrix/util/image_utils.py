@@ -41,8 +41,6 @@ class ResizeMode(Enum):
     FIT = "fit"  # Resize to fit within the canvas while maintaining aspect ratio
     FILL = "fill"  # Resize to fill the canvas, may crop the image, but maintains aspect ratio
     STRETCH = "stretch"  # Stretch the image to fit the canvas, may distort the image
-    CROP = "crop"  # Crop the image to fit the canvas without resizing
-
 
 def resize_image(
     image: PILImage.Image,
@@ -87,19 +85,6 @@ def resize_image(
     elif resize_mode == ResizeMode.STRETCH:
         # if the dimensions of the frame are not equal to the pixel size, stretch it to fit the canvas
         # and add a black background if necessary.
-        image = image.resize(
-            size=(canvas_size, canvas_size),
-            resample=resample_mode,
-        )
-    elif resize_mode == ResizeMode.CROP:
-        # if the dimensions of the frame are not equal to the pixel size, crop it to fit the canvas
-        # and add a black background if necessary.
-        # calculate the crop box to center the image
-        left = (image.width - canvas_size) // 2
-        upper = (image.height - canvas_size) // 2
-        right = left + canvas_size
-        lower = upper + canvas_size
-        image = image.crop((left, upper, right, lower))
         image = image.resize(
             size=(canvas_size, canvas_size),
             resample=resample_mode,

@@ -410,9 +410,9 @@ class GifModule(IDotMatrixModule):
                     result_frames.insert(-1, frames_excluding_first_and_last[i])
             frames = result_frames
 
-        # print(f"GIF original frame count: {original_frame_count}")
-        # print(f"GIF adjusted frame count: {len(frames)}")
-        # print(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
-        # print(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
+        logging.debug(f"GIF original frame count: {original_frame_count}")
+        logging.debug(f"GIF adjusted frame count: {len(frames)}")
+        logging.debug(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
+        logging.debug(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
 
         return frames, duration_per_frame_in_ms

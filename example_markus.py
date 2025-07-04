@@ -8,12 +8,12 @@ from PIL import Image as PILImage
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.modules.clock import ClockStyle
-from idotmatrix.modules.image import ImageMode
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.util.image_utils import ResizeMode
 
 # set basic logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s :: %(levelname)s :: %(name)s :: %(message)s",
     datefmt="%d.%m.%Y %H:%M:%S",
     handlers=[logging.StreamHandler()],
@@ -49,10 +49,8 @@ async def main():
     # folder = Path("/home/markus/pictures/Pixel Art GIF/no animation")
     folder = Path("/home/markus/pictures/Pixel Art GIF/work")
     gif_file_paths: List[Path] = []
-    # gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
+    gif_file_paths += list(folder.glob(pattern="*.gif", case_sensitive=False))
     # gif_file_paths = list(filter(lambda x: "beautiful" in x.name, gif_file_paths))
-
-    gif_file_paths = gif_file_paths[2:]
 
     for idx, gif_file in enumerate(gif_file_paths):
         if not gif_file.exists():
@@ -62,7 +60,8 @@ async def main():
         await client.reset()
         await client.gif.upload_gif_file(
             file_path=gif_file,
-            # duration_per_frame_in_ms=200,
+            resize_mode=ResizeMode.FIT,
+            duration_per_frame_in_ms=200,
         )
         if idx < len(gif_file_paths) - 1:
             print(f"Waiting...")
@@ -70,22 +69,22 @@ async def main():
 
     # exit(0)
 
-    image_file_paths: List[Path] = []
-    # example_images_folder = Path("/home/markus/pictures/Abi Buch Collage")
-    example_images_folder = Path("/home/markus/pictures/DPF")
-    image_file_paths += list(example_images_folder.glob(pattern="*.jpg", case_sensitive=False))
-    # image_file_paths = list(filter(lambda x: "Foto0127" in x.name, image_file_paths))
-
-    await client.image.set_mode(ImageMode.EnableDIY)
-    for file in image_file_paths:
-        if not file.exists():
-            print(f"File {file} does not exist, skipping.")
-            continue
-        await client.image.upload_image_file(
-            file_path=file,
-            palletize=False,
-        )
-        await sleep(5)
+    # image_file_paths: List[Path] = []
+    # # example_images_folder = Path("/home/markus/pictures/Abi Buch Collage")
+    # example_images_folder = Path("/home/markus/pictures/DPF")
+    # image_file_paths += list(example_images_folder.glob(pattern="*.jpg", case_sensitive=False))
+    # # image_file_paths = list(filter(lambda x: "Foto0127" in x.name, image_file_paths))
+    #
+    # await client.image.set_mode(ImageMode.EnableDIY)
+    # for file in image_file_paths:
+    #     if not file.exists():
+    #         print(f"File {file} does not exist, skipping.")
+    #         continue
+    #     await client.image.upload_image_file(
+    #         file_path=file,
+    #         palletize=False,
+    #     )
+    #     await sleep(5)
 
     # await client.gif.upload_processed(
     #     # file_path="./images/demo_512.png",
