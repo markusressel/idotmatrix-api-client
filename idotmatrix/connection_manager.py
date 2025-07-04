@@ -246,7 +246,7 @@ class ConnectionManager:
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
-                self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(packets)}.{len(packet)}")
+                self.logging.debug(f"sending chunk {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
                 await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, ble_paket, response=response)
 
     async def read(self) -> bytes:
