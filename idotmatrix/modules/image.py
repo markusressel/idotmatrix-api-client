@@ -114,8 +114,6 @@ class ImageModule(IDotMatrixModule):
                 resample_mode=resample_mode
             )
 
-            img.thumbnail((canvas_size, canvas_size), PilImage.Resampling.LANCZOS)
-
             # rotate image based on EXIF data if available
             img = ImageOps.exif_transpose(img)
 
