@@ -57,7 +57,6 @@ async def main():
 
     _setup_signal_handlers(client)
 
-    gif_folder = Path("/home/markus/pictures/Pixel Art GIF")
     image_folder = Path("/home/markus/pictures/DPF")
 
     digital_picture_frame = DigitalPictureFrame(
@@ -65,10 +64,6 @@ async def main():
         # either input a static list of images or use a folder to watch (see below)
         # images=all_file_paths
         shuffle_images=True,
-    )
-
-    digital_picture_frame.watch_folder(
-        folder=gif_folder,
     )
 
     digital_picture_frame.watch_folders(

@@ -259,7 +259,8 @@ class DigitalPictureFrame:
         Args:
             interval (int): Time in seconds between image changes. Defaults to 5 seconds.
         """
-        self.logging.info(f"Starting slideshow with interval: {interval} seconds")
+        image_count = len(self.images)
+        self.logging.info(f"Starting slideshow containing {image_count} items with interval: {interval} seconds")
         if interval is not None:
             self.set_interval(interval)
 
@@ -340,7 +341,6 @@ class DigitalPictureFrame:
         while True:
             try:
                 # initialize by connecting to the device and showing a black screen
-                await self.device_client.connect()
                 await self._show_black_screen()
 
                 # start the slideshow loop

@@ -105,7 +105,7 @@ class ConnectionManager:
 
         if self.client:
             self.client._backend.address = address
-            self.logging.info(f"reusing existing client for {address}")
+            self.logging.debug(f"reusing existing client for {address}")
             return self.client
 
         self.client = BleakClient(
