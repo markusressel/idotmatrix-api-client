@@ -156,7 +156,7 @@ class ConnectionManager:
                 self.logging.warning("device address is not set, trying to connect by discovery...")
                 await self.connect_by_discovery()
 
-            if not await self.is_connected():
+            if not self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
                 await self.client.connect()
                 self._connected = True
@@ -185,11 +185,11 @@ class ConnectionManager:
             if self._reconnect_loop_task:
                 self._reconnect_loop_task.cancel()
                 self._reconnect_loop_task = None
-            if await self.is_connected():
+            if self.is_connected():
                 await self.client.disconnect()
             self._connected = False
 
-    async def is_connected(self) -> bool:
+    def is_connected(self) -> bool:
         """
         Checks if the client is connected to the device.
         Returns:
@@ -213,7 +213,7 @@ class ConnectionManager:
             response (bool): If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
             chunk_size (Optional[int]): The size of the chunks to split the data into. If None, the maximum write size of the characteristic will be used. Use with care.
         """
-        if not await self.is_connected():
+        if not self.is_connected():
             await self.connect()
 
         self.logging.debug("sending raw data to device")
@@ -238,7 +238,7 @@ class ConnectionManager:
             packets: A list of packets, where each packet is a list of bytearrays or bytes.
             response: If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
         """
-        if not await self.is_connected():
+        if not self.is_connected():
             await self.connect()
         self.logging.debug(f"sending {len(packets)} packet(s) to device")
         ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
