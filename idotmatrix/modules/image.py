@@ -104,6 +104,9 @@ class ImageModule(IDotMatrixModule):
             raise ValueError("background_color must be a tuple of three integers (R, G, B)")
 
         with PilImage.open(file_path) as img:
+            # rotate image based on EXIF data if available
+            img = ImageOps.exif_transpose(img)
+
             # LANCZOS leads to a more pleasing result for images with high detail,
             # NEAREST is better for pixel-art images, as it preserves the pixel structure.
             resample_mode = PilImage.Resampling.NEAREST if palletize else PilImage.Resampling.LANCZOS
@@ -114,9 +117,7 @@ class ImageModule(IDotMatrixModule):
                 resample_mode=resample_mode
             )
 
-            # rotate image based on EXIF data if available
-            img = ImageOps.exif_transpose(img)
-
+            # ensure the image is always exactly canvas_size x canvas_size pixels and
             # fill the background behind the image with background_color, if the image doesn't fill the whole canvas
             new_img = PilImage.new("RGB", (canvas_size, canvas_size), background_color)
             new_img.paste(
