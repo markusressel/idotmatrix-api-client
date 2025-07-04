@@ -160,7 +160,7 @@ class ImageModule(IDotMatrixModule):
         self, pixel_data: bytearray,
     ) -> None:
         packets = self._create_diy_image_data_packets(pixel_data)
-        await self._send_packets(packets)
+        await self._send_packets(packets, response=True)
 
     @staticmethod
     def _short_to_bytes_le(value: int) -> bytes:

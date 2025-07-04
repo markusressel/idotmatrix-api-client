@@ -53,6 +53,8 @@ class ConnectionManager:
         self._is_auto_reconnect_active = False
         self._reconnect_loop_task: Optional[Task] = None
 
+        self._ble_packet_size = None
+
         self._connection_listeners: List[ConnectionListener] = []
 
         self._setup_signal_handlers()
@@ -203,7 +205,6 @@ class ConnectionManager:
         self,
         data: bytearray | bytes,
         response=False,
-        chunk_size: Optional[int] = None
     ):
         """
         Sends raw data to the device.
@@ -211,19 +212,18 @@ class ConnectionManager:
         Args:
             data (bytearray | bytes): The data to send to the device.
             response (bool): If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
-            chunk_size (Optional[int]): The size of the chunks to split the data into. If None, the maximum write size of the characteristic will be used. Use with care.
         """
         if not self.is_connected():
             await self.connect()
 
         self.logging.debug("sending raw data to device")
-        if chunk_size is not None:
-            ble_packet_size = chunk_size
-        else:
-            ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
+        ble_packet_size = await self.get_max_bytes_per_chunk(response)
         for packet in range(0, len(data), ble_packet_size):
             self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
-            await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, data[packet:packet + ble_packet_size], response=response)
+            await self.client.write_gatt_char(
+                char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
+                data=data[packet:packet + ble_packet_size],
+                response=response)
 
     async def send_packets(self, packets: List[List[bytearray | bytes]], response: bool = False):
         """
@@ -249,9 +249,26 @@ class ConnectionManager:
             for ble_packet in packet:
                 total_byte_count += len(ble_packet)
 
-        self.logging.debug(f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes")
-        # ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
-        # self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
+        self.logging.debug(
+            f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes"
+        )
+
+        ble_packet_size = await self.get_max_bytes_per_chunk(response)
+        self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
+
+        # restructure packets to fit the BLE packet size
+        restructured_packets = []
+        for packet in packets:
+            restructured_packet = []
+            # first combine all packets into one bytearray
+            combined_packet = bytearray()
+            for ble_packet in packet:
+                combined_packet.extend(ble_packet)
+            # then split the combined packet into chunks of size ble_packet_size
+            for i in range(0, len(combined_packet), ble_packet_size):
+                restructured_packet.append(combined_packet[i:i + ble_packet_size])
+            restructured_packets.append(restructured_packet)
+        packets = restructured_packets
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
@@ -261,6 +278,29 @@ class ConnectionManager:
                     data=ble_paket,
                     response=response if j == len(packet) - 1 else False
                 )
+
+    async def get_max_bytes_per_chunk(self, response: bool) -> int:
+        if response:
+            # Maximum write size with response is limited to 512 bytes
+            # see: https://bleak.readthedocs.io/en/latest/api/client.html#bleak.BleakClient.write_gatt_char
+            return 512
+        else:
+            if self._ble_packet_size is None:
+                char = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA)
+                try:
+                    async with asyncio.timeout(3):
+                        while char.max_write_without_response_size == 20:
+                            self.logging.debug("waiting for characteristic to be ready")
+                            await asyncio.sleep(0.5)
+                    self._ble_packet_size = char.max_write_without_response_size
+                except asyncio.TimeoutError:
+                    # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
+                    self.logging.error(
+                        "timed out waiting for characteristic to be ready, using default size of 514 bytes"
+                    )
+                    self._ble_packet_size = 514
+
+        return self._ble_packet_size
 
     async def read(self) -> bytes:
         if not self.client.is_connected:
