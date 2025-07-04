@@ -10,6 +10,7 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
+from idotmatrix.util.image_utils import ResizeMode
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -38,6 +39,7 @@ class GifModule(IDotMatrixModule):
     async def upload_gif_file(
         self,
         file_path: PathLike | str,
+        resize_mode: ResizeMode = ResizeMode.FIT,
         palletize: bool = True,
         background_color: Tuple[int, int, int] or int or str = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
@@ -47,17 +49,19 @@ class GifModule(IDotMatrixModule):
 
         Args:
             file_path (str): path to the image file
+            resize_mode (ResizeMode): The mode to resize the image.
             palletize (bool): Whether to convert the image to a color palette. Usually bad for images with
                 high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to True.
             background_color (Tuple[int, int, int]): RGB color to fill transparent pixels. Defaults to black (0, 0, 0).
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         """
-        pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
+        screen_width = self.screen_size.value[0]  # assuming square canvas, so width == height
         background_color = color_utils.parse_color_rgb(background_color)
 
         gif_data = self._load_gif_and_adapt_to_canvas(
             file_path=file_path,
-            canvas_size=pixel_size,
+            canvas_size=screen_width,
+            resize_mode=resize_mode,
             palletize=palletize,
             background_color=background_color,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
@@ -68,10 +72,14 @@ class GifModule(IDotMatrixModule):
         # fails completely (previous GIF is just "stuck" and the new GIF is never displayed). So there is probably some edge case
         # that is not handled correctly.
 
+        GIF_TYPE_DIY_ANIMATION = 13
+        GIF_TYPE_NO_TIME_SIGNATURE = 12
         packets = self.create_gif_data_packets(
             gif_data=gif_data,
             # TODO: figure out what this does
-            gif_type=12,  # Assuming 12 is the type used for GIFs in the device
+            #  this might be the index that this GIF will be stored within the device's memory :think:
+            #  it doesn't seem to have an effect when sending a single GIF like it is done here though
+            gif_type=GIF_TYPE_NO_TIME_SIGNATURE,
             # TODO: figure out what this does, doesn't seem to have any effect
             time_sign=1,
         )
@@ -101,6 +109,7 @@ class GifModule(IDotMatrixModule):
         self,
         file_path: PathLike | str,
         canvas_size: int,
+        resize_mode: ResizeMode,
         palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
@@ -111,12 +120,20 @@ class GifModule(IDotMatrixModule):
         Args:
             file_path (PathLike): Path to the GIF file.
             canvas_size (int): Size of the pixel in the device's canvas.
+            resize_mode (ResizeMode): The mode to resize the image. Options are:
+                - ResizeMode.FIT: Resize to fit within the canvas while maintaining aspect ratio.
+                - ResizeMode.FILL: Resize to fill the canvas, may crop the image.
+                - ResizeMode.STRETCH: Stretch the image to fit the canvas, may distort the image.
+                - ResizeMode.CROP: Crop the image to fit the canvas without resizing.
             palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
+        from PIL import GifImagePlugin
+        GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_AFTER_DIFFERENT_PALETTE_ONLY
+
         with PilImage.open(file_path) as img:
             frames = []
             try:
@@ -124,14 +141,17 @@ class GifModule(IDotMatrixModule):
                 # To be on the safe side, we limit it to 64 frames.
                 while True:
                     frame = img.copy()
-                    # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
-                    # and adding a black background if necessary.
+
                     if frame.size != (canvas_size, canvas_size):
-                        frame.thumbnail(
-                            size=(canvas_size, canvas_size),
-                            # needs to use NEAREST to stay within color palette limits
-                            resample=PilImage.Resampling.NEAREST,
+                        # needs to use NEAREST to stay within color palette limits
+                        resample_mode = PilImage.Resampling.NEAREST if palletize else PilImage.Resampling.LANCZOS
+                        frame = image_utils.resize_image(
+                            image=frame,
+                            canvas_size=canvas_size,
+                            resize_mode=resize_mode,
+                            resample_mode=resample_mode
                         )
+
                     # convert transparent pixels to the background color
                     new_image = PilImage.new(
                         mode="RGBA",
@@ -211,7 +231,7 @@ class GifModule(IDotMatrixModule):
 
         Args:
             gif_data: The raw byte array of the GIF data.
-            gif_type: The type parameter (e.g., 12 or other values from sendImageData).
+            gif_type: The type parameter (e.g., 12 or other values from sendImageData). Values up until 19 display an image on the device.
             time_sign: 0: "0", 1: "10", 2: "30", 3: "60", 4: "300", else: "5".
             ble_device_mtu_enabled: Boolean indicating if MTU is enabled on the BLE device.
 

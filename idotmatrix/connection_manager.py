@@ -243,7 +243,13 @@ class ConnectionManager:
             return
         if not self.is_connected():
             await self.connect()
-        self.logging.debug(f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device")
+
+        total_byte_count = 0
+        for packet in packets:
+            for ble_packet in packet:
+                total_byte_count += len(ble_packet)
+
+        self.logging.debug(f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes")
         # ble_packet_size = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA).max_write_without_response_size
         # self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
