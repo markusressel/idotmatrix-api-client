@@ -60,8 +60,8 @@ async def main():
         await client.reset()
         await client.gif.upload_gif_file(
             file_path=gif_file,
-            resize_mode=ResizeMode.FIT,
-            duration_per_frame_in_ms=200,
+            resize_mode=ResizeMode.FILL,
+            duration_per_frame_in_ms=100,
         )
         if idx < len(gif_file_paths) - 1:
             print(f"Waiting...")

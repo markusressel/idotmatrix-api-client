@@ -143,8 +143,8 @@ class GifModule(IDotMatrixModule):
                     frame = img.copy()
 
                     if frame.size != (canvas_size, canvas_size):
-                        # needs to use NEAREST to stay within color palette limits
-                        resample_mode = PilImage.Resampling.NEAREST if palletize else PilImage.Resampling.LANCZOS
+                        # needs to use NEAREST to to avoid color distortion
+                        resample_mode = PilImage.Resampling.NEAREST
                         frame = image_utils.resize_image(
                             image=frame,
                             canvas_size=canvas_size,

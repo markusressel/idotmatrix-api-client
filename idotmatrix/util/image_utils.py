@@ -24,7 +24,7 @@ def palettize(
     # see: https://github.com/python-pillow/Pillow/issues/6832#issuecomment-1366276887
     # see: https://github.com/python-pillow/Pillow/blob/2755e0ffaadc8b29c3e67e223c333c50e197a733/src/PIL/Image.py#L964-L965
     # TODO: not sure if this actually makes a difference
-    image = image.convert(mode="RGB")
+    # image = image.convert(mode="RGB")
 
     return image.convert(
         mode="P",
@@ -52,8 +52,9 @@ def resize_image(
     Resize an image to a specific size.
 
     :param image: The input image to be resized.
-    :param size: The target size as a tuple (width, height).
-    :param resample: The resampling filter to use (default is PILImage.Resampling.LANCZOS).
+    :param canvas_size: The (square) size of the canvas to fit the image into.
+    :param resize_mode: The mode to use for resizing the image (ResizeMode.FIT, ResizeMode.FILL, ResizeMode.STRETCH).
+    :param resample_mode: The resampling mode to use for resizing (e.g., PILImage.Resampling.LANCZOS).
     :return: The resized image.
     """
     if resize_mode == ResizeMode.FIT:
