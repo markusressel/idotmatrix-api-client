@@ -5,6 +5,7 @@ from pathlib import Path
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.digital_picture_frame import DigitalPictureFrame
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.util.image_utils import ResizeMode
 
 # set basic logging
 logging.basicConfig(
@@ -63,6 +64,7 @@ async def main():
         device_client=client,
         # either input a static list of images or use a folder to watch (see below)
         # images=all_file_paths
+        resize_mode=ResizeMode.FILL,
         shuffle_images=True,
     )
 

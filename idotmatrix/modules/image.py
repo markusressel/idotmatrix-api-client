@@ -56,6 +56,7 @@ class ImageModule(IDotMatrixModule):
     async def upload_image_file(
         self,
         file_path: PathLike | str,
+        resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
         palletize: bool = False,
         background_color: Tuple[int, int, int] or int or str = (0, 0, 0),  # default to black background
     ) -> None:
@@ -64,6 +65,7 @@ class ImageModule(IDotMatrixModule):
 
         Args:
             file_path (str): path-like object to the image file
+            resize_mode (image_utils.ResizeMode): The mode to use for resizing the image (ResizeMode.FIT, ResizeMode.FILL, ResizeMode.STRETCH).
             palletize (bool): If True, the image will be converted to a palette-based image. Usually bad for images with
                 high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to False.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
@@ -73,6 +75,7 @@ class ImageModule(IDotMatrixModule):
         pixel_data = self._load_image_and_adapt_to_canvas(
             file_path=file_path,
             canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
+            resize_mode=resize_mode,
             palletize=palletize,
             background_color=background_color,
         )
@@ -82,6 +85,7 @@ class ImageModule(IDotMatrixModule):
     def _load_image_and_adapt_to_canvas(
         file_path: PathLike | str,
         canvas_size: int,
+        resize_mode: image_utils.ResizeMode,
         palletize: bool,
         background_color: Tuple[int, int, int],
     ) -> bytearray:
@@ -100,7 +104,16 @@ class ImageModule(IDotMatrixModule):
             raise ValueError("background_color must be a tuple of three integers (R, G, B)")
 
         with PilImage.open(file_path) as img:
-            # resize image to pixel_size x pixel_size, but keep aspect ratio
+            # LANCZOS leads to a more pleasing result for images with high detail,
+            # NEAREST is better for pixel-art images, as it preserves the pixel structure.
+            resample_mode = PilImage.Resampling.NEAREST if palletize else PilImage.Resampling.LANCZOS
+            img = image_utils.resize_image(
+                image=img,
+                canvas_size=canvas_size,
+                resize_mode=resize_mode,
+                resample_mode=resample_mode
+            )
+
             img.thumbnail((canvas_size, canvas_size), PilImage.Resampling.LANCZOS)
 
             # rotate image based on EXIF data if available

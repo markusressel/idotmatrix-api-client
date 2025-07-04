@@ -16,6 +16,7 @@ from idotmatrix.client import IDotMatrixClient
 from idotmatrix.connection_manager import ConnectionListener
 from idotmatrix.modules.image import ImageMode
 from idotmatrix.util.file_watch import ImageFileEventHandler
+from idotmatrix.util.image_utils import ResizeMode
 
 FilesystemObserver = InotifyObserver | PollingObserver
 
@@ -73,6 +74,7 @@ class DigitalPictureFrame:
         self,
         device_client: IDotMatrixClient,
         images: List[PictureFrameImage | PictureFrameGif | PathLike | str] = None,
+        resize_mode: ResizeMode = ResizeMode.FIT,
         interval_seconds: int = DEFAULT_INTERVAL_SECONDS,
         shuffle_images: bool = False,
     ):
@@ -81,12 +83,15 @@ class DigitalPictureFrame:
         Args:
             device_client (IDotMatrixClient): The client to communicate with the digital picture frame device.
             images (List[PictureFrameImage | PictureFrameGif | PathLike | str]): A list of images or GIFs to display.
+            resize_mode (ResizeMode): The mode to use for resizing images (ResizeMode.FIT, ResizeMode.FILL, ResizeMode.STRETCH).
             interval_seconds (int): The time in seconds between image changes in the slideshow. Defaults to 30 seconds.
             shuffle_images (bool): Whether to shuffle the images in the slideshow. Defaults to False.
         """
         self.device_client: IDotMatrixClient = device_client
         self.device_client.set_auto_reconnect(True)
         self._setup_connection_listener()
+
+        self.resize_mode: ResizeMode = resize_mode
 
         if not images:
             images = []
@@ -431,7 +436,8 @@ class DigitalPictureFrame:
         self.logging.debug(f"Setting image file: {file_path}")
         await self._switch_device_to_image_mode()
         await self.device_client.image.upload_image_file(
-            file_path=file_path
+            file_path=file_path,
+            resize_mode=self.resize_mode,
         )
 
     async def _set_gif(
@@ -443,6 +449,7 @@ class DigitalPictureFrame:
         await self._switch_device_to_gif_mode()
         await self.device_client.gif.upload_gif_file(
             file_path=file_path,
+            resize_mode=self.resize_mode,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
         # give the device some time to process the GIF
