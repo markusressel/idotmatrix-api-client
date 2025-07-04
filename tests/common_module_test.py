@@ -42,4 +42,4 @@ class TestCommonModule(TestBase):
         expected_data = bytearray(
             [5, 0, 7, 1, 0]
         )
-        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=False, chunk_size=None)
+        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=True, chunk_size=None)

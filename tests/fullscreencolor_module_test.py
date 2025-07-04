@@ -22,7 +22,7 @@ class TestFullscreenColorModule(TestBase):
         # THEN
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\xff\x00\x00'),
-            response=False,
+            response=True,
             chunk_size=None
         )
 
@@ -42,7 +42,7 @@ class TestFullscreenColorModule(TestBase):
         # THEN
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\x00\xff\x00'),
-            response=False,
+            response=True,
             chunk_size=None
         )
 
@@ -62,6 +62,6 @@ class TestFullscreenColorModule(TestBase):
         # THEN
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\x00\x00\xff'),
-            response=False,
+            response=True,
             chunk_size=None
         )
