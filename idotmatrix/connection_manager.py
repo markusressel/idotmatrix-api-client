@@ -299,7 +299,7 @@ class ConnectionManager:
         A loop that attempts to reconnect to the device if the connection is lost.
         It will keep trying to reconnect until it succeeds or the auto-reconnect is disabled.
         """
-        while self._auto_reconnect and self._is_auto_reconnect_active and not await self.is_connected():
+        while self._auto_reconnect and self._is_auto_reconnect_active and not self.is_connected():
             try:
                 await asyncio.sleep(5)  # Wait before trying to reconnect
                 await self.connect()
