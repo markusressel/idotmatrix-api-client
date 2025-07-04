@@ -146,8 +146,8 @@ class ConnectionManager:
             self.logging.warning("device address is not set, trying to connect by discovery...")
             await self.connect_by_discovery()
 
-        if not await self.is_connected():
-            async with connection_manager_lock:
+        async with connection_manager_lock:
+            if not await self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
                 await self.client.connect()
                 self._notify_connection_listeners_connected()
@@ -160,8 +160,8 @@ class ConnectionManager:
                         self.logging.debug(f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
                         self.logging.debug(f"    Properties: {characteristic.properties}")
                         self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
-        else:
-            self.logging.info(f"already connected to {self.address}")
+            else:
+                self.logging.info(f"already connected to {self.address}")
 
     async def disconnect(self) -> None:
         """
@@ -183,10 +183,9 @@ class ConnectionManager:
         Returns:
             bool: True if connected, False otherwise.
         """
-        async with connection_manager_lock:
-            if not self.client:
-                return False
-            return self.client.is_connected
+        if not self.client:
+            return False
+        return self.client.is_connected
 
     async def send_bytes(
         self,
