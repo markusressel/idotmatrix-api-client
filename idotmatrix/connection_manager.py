@@ -256,7 +256,11 @@ class ConnectionManager:
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
                 self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
-                await self.client.write_gatt_char(UUID_CHARACTERISTIC_WRITE_DATA, ble_paket, response=response)
+                await self.client.write_gatt_char(
+                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
+                    data=ble_paket,
+                    response=response if j == len(packet) - 1 else False
+                )
 
     async def read(self) -> bytes:
         if not self.client.is_connected:
