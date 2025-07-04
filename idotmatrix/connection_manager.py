@@ -25,6 +25,9 @@ class ConnectionListener:
         self.on_disconnected = on_disconnected
 
 
+connection_manager_lock = asyncio.Lock()
+
+
 class ConnectionManager:
     logging = logging.getLogger(__name__)
 
@@ -142,19 +145,21 @@ class ConnectionManager:
         if not self.address:
             self.logging.warning("device address is not set, trying to connect by discovery...")
             await self.connect_by_discovery()
-        if not await self.is_connected():
-            self.logging.info(f"connecting to {self.address}...")
-            await self.client.connect()
-            self._notify_connection_listeners_connected()
-            self.logging.info(f"connected to {self.address}")
 
-            # print service and characteristic information for debugging
-            for service in self.client.services:
-                self.logging.debug(f"Service: {service.uuid} ({service.handle})")
-                for characteristic in service.characteristics:
-                    self.logging.debug(f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
-                    self.logging.debug(f"    Properties: {characteristic.properties}")
-                    self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
+        if not await self.is_connected():
+            async with connection_manager_lock:
+                self.logging.info(f"connecting to {self.address}...")
+                await self.client.connect()
+                self._notify_connection_listeners_connected()
+                self.logging.info(f"connected to {self.address}")
+
+                # print service and characteristic information for debugging
+                for service in self.client.services:
+                    self.logging.debug(f"Service: {service.uuid} ({service.handle})")
+                    for characteristic in service.characteristics:
+                        self.logging.debug(f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
+                        self.logging.debug(f"    Properties: {characteristic.properties}")
+                        self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
         else:
             self.logging.info(f"already connected to {self.address}")
 
@@ -165,11 +170,12 @@ class ConnectionManager:
         """
         # Disable auto-reconnect during active disconnection, it will be re-enabled on active connection attempt
         self._is_auto_reconnect_active = False
-        if self._reconnect_loop_task:
-            self._reconnect_loop_task.cancel()
-            self._reconnect_loop_task = None
-        if await self.is_connected():
-            await self.client.disconnect()
+        async with connection_manager_lock:
+            if self._reconnect_loop_task:
+                self._reconnect_loop_task.cancel()
+                self._reconnect_loop_task = None
+            if await self.is_connected():
+                await self.client.disconnect()
 
     async def is_connected(self) -> bool:
         """
@@ -177,9 +183,10 @@ class ConnectionManager:
         Returns:
             bool: True if connected, False otherwise.
         """
-        if not self.client:
-            return False
-        return self.client.is_connected
+        async with connection_manager_lock:
+            if not self.client:
+                return False
+            return self.client.is_connected
 
     async def send_bytes(
         self,
