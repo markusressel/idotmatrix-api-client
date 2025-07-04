@@ -27,5 +27,4 @@ class TestEcoModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\n\x00\x02\x80\x01\x02\x03\x04\x05\xff'),
             response=False,
-            chunk_size=None
         )

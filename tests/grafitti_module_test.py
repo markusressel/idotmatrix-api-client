@@ -23,5 +23,4 @@ class TestGraffitiModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\n\x00\x05\x01\x00\x01\x02\x03\x04\x05'),
             response=False,
-            chunk_size=None,
         )

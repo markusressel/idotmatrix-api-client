@@ -20,7 +20,6 @@ class TestCountdownModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x08\x80\x01\x05\x1e'),
             response=False,
-            chunk_size=None
         )
 
     async def test_stop(self):
@@ -37,7 +36,6 @@ class TestCountdownModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x08\x80\x00\x00\x00'),
             response=False,
-            chunk_size=None
         )
 
     async def test_restart(self):
@@ -54,7 +52,6 @@ class TestCountdownModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x08\x80\x03\x00\x00'),
             response=False,
-            chunk_size=None
         )
 
     async def test_pause(self):
@@ -71,5 +68,4 @@ class TestCountdownModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x08\x80\x02\x00\x00'),
             response=False,
-            chunk_size=None
         )

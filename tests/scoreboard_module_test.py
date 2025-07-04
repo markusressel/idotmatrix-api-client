@@ -23,5 +23,4 @@ class TestScoreboardModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\n\x80\n\x00\x19\x00'),
             response=False,
-            chunk_size=None
         )

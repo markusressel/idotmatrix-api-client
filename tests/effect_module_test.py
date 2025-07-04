@@ -27,5 +27,4 @@ class TestEffectModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\t\x00\x03\x02\x03Z\x03\xff\x00\x00\x00\xff\x00\x00\x00\xff'),
             response=False,
-            chunk_size=None
         )

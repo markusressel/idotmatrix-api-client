@@ -20,7 +20,6 @@ class TestChronographModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x05\x00\t\x80\x00'),
             response=False,
-            chunk_size=None
         )
 
     async def test_start_from_zero(self):
@@ -37,7 +36,6 @@ class TestChronographModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x05\x00\t\x80\x01'),
             response=False,
-            chunk_size=None
         )
 
     async def test_pause(self):
@@ -54,7 +52,6 @@ class TestChronographModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x05\x00\t\x80\x02'),
             response=False,
-            chunk_size=None
         )
 
     async def test_resume(self):
@@ -71,5 +68,4 @@ class TestChronographModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x05\x00\t\x80\x03'),
             response=False,
-            chunk_size=None
         )
