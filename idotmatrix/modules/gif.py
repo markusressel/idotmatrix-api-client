@@ -4,7 +4,7 @@ import logging
 from os import PathLike
 from typing import List, Tuple
 
-from PIL import Image as PilImage
+from PIL import Image as PILImage
 
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
@@ -134,7 +134,7 @@ class GifModule(IDotMatrixModule):
         from PIL import GifImagePlugin
         GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_AFTER_DIFFERENT_PALETTE_ONLY
 
-        with PilImage.open(file_path) as img:
+        with PILImage.open(file_path) as img:
             frames = []
             try:
                 # There doesn't seem to be a frame limit in the app, but too many frames cause problems.
@@ -144,28 +144,17 @@ class GifModule(IDotMatrixModule):
 
                     if frame.size != (canvas_size, canvas_size):
                         # needs to use NEAREST to to avoid color distortion
-                        resample_mode = PilImage.Resampling.NEAREST
+                        resample_mode = PILImage.Resampling.NEAREST
                         frame = image_utils.resize_image(
                             image=frame,
                             canvas_size=canvas_size,
                             resize_mode=resize_mode,
-                            resample_mode=resample_mode
+                            resample_mode=resample_mode,
+                            background_color=background_color,
+                            mode="RGBA",
                         )
-
-                    # convert transparent pixels to the background color
-                    new_image = PilImage.new(
-                        mode="RGBA",
-                        size=(canvas_size, canvas_size),
-                        color=background_color
-                    )
-                    new_image.paste(
-                        im=frame,
-                        box=((canvas_size - frame.width) // 2, (canvas_size - frame.height) // 2),
-                        mask=frame.convert("RGBA")
-                    )
                     if palletize:
-                        new_image = image_utils.palettize(new_image)
-                    frame = new_image
+                        frame = image_utils.palettize(frame)
 
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
@@ -346,24 +335,24 @@ class GifModule(IDotMatrixModule):
 
     @staticmethod
     def _ensure_reasonable_frame_count(
-        img: PilImage.Image,
-        frames: List[PilImage.Image],
+        img: PILImage.Image,
+        frames: List[PILImage.Image],
         duration_per_frame_in_ms: int = None,
         default_total_duration: int = DEFAULT_ANIMATION_TOTAL_DURATION_MS,
         default_duration_per_frame: int = DEFAULT_DURATION_PER_FRAME_MS,
         total_duration_limit_ms: int = ANIMATION_TOTAL_DURATION_LIMIT_MS,
         max_total_frame_count: int = ANIMATION_MAX_FRAME_COUNT,
-    ) -> Tuple[List[PilImage.Image], int]:
+    ) -> Tuple[List[PILImage.Image], int]:
         """
         The device can only handle a limited number of frames in a GIF animation, due to limited processing power and memory.
         This function ensures that the number of frames does not exceed the maximum allowed frames (64) and adjusts the duration per frame if necessary.
 
         Args:
-            img (PilImage.Image): The image object of the GIF.
-            frames (List[PilImage.Image]): List of frames in the GIF.
+            img (PILImage.Image): The image object of the GIF.
+            frames (List[PILImage.Image]): List of frames in the GIF.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
         Returns:
-            Tuple[List[PilImage.Image], int]: A tuple containing the list of frames and the duration per frame in milliseconds.
+            Tuple[List[PILImage.Image], int]: A tuple containing the list of frames and the duration per frame in milliseconds.
         """
         # determine the optimal duration per frame if not provided
         if duration_per_frame_in_ms is None:

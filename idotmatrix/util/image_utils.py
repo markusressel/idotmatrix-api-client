@@ -42,11 +42,14 @@ class ResizeMode(Enum):
     FILL = "fill"  # Resize to fill the canvas, may crop the image, but maintains aspect ratio
     STRETCH = "stretch"  # Stretch the image to fit the canvas, may distort the image
 
+
 def resize_image(
     image: PILImage.Image,
     canvas_size: int,
     resize_mode: ResizeMode,
-    resample_mode: PILImage.Resampling
+    resample_mode: PILImage.Resampling,
+    background_color: tuple[int, int, int] = (0, 0, 0),
+    mode: str = "RGB",
 ) -> PILImage.Image:
     """
     Resize an image to a specific size.
@@ -55,6 +58,8 @@ def resize_image(
     :param canvas_size: The (square) size of the canvas to fit the image into.
     :param resize_mode: The mode to use for resizing the image (ResizeMode.FIT, ResizeMode.FILL, ResizeMode.STRETCH).
     :param resample_mode: The resampling mode to use for resizing (e.g., PILImage.Resampling.LANCZOS).
+    :param background_color: The color to fill the background with if the image does not fill the whole canvas.
+    :param mode: The mode to use for the new image (default is "RGB").
     :return: The resized image.
     """
     if resize_mode == ResizeMode.FIT:
@@ -90,5 +95,28 @@ def resize_image(
             size=(canvas_size, canvas_size),
             resample=resample_mode,
         )
+
+    # convert transparent pixels to the background color
+    new_image = PILImage.new(
+        mode="RGBA",
+        size=(canvas_size, canvas_size),
+        color=background_color
+    )
+    new_image.paste(
+        im=image,
+        box=((canvas_size - image.width) // 2, (canvas_size - image.height) // 2),
+        mask=image.convert("RGBA")
+    )
+    image = new_image
+
+    # ensure exact image dimensions
+    # ensure the image is always exactly canvas_size x canvas_size pixels and
+    # fill the background behind the image with background_color, if the image doesn't fill the whole canvas
+    new_img = PILImage.new(mode, (canvas_size, canvas_size), background_color)
+    new_img.paste(
+        im=image,
+        box=((canvas_size - image.width) // 2, (canvas_size - image.height) // 2)
+    )
+    image = new_img
 
     return image

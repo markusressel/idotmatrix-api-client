@@ -5,7 +5,7 @@ from enum import Enum
 from os import PathLike
 from typing import List, Tuple
 
-from PIL import Image as PilImage, ImageOps
+from PIL import Image as PILImage, ImageOps
 
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
@@ -103,27 +103,20 @@ class ImageModule(IDotMatrixModule):
         if background_color is None or len(background_color) != 3:
             raise ValueError("background_color must be a tuple of three integers (R, G, B)")
 
-        with PilImage.open(file_path) as img:
+        with PILImage.open(file_path) as img:
             # rotate image based on EXIF data if available
             img = ImageOps.exif_transpose(img)
 
             # LANCZOS leads to a more pleasing result for images with high detail,
             # NEAREST is better for pixel-art images, as it preserves the pixel structure.
-            resample_mode = PilImage.Resampling.NEAREST if palletize else PilImage.Resampling.LANCZOS
+            resample_mode = PILImage.Resampling.NEAREST if palletize else PILImage.Resampling.LANCZOS
             img = image_utils.resize_image(
                 image=img,
                 canvas_size=canvas_size,
                 resize_mode=resize_mode,
-                resample_mode=resample_mode
+                resample_mode=resample_mode,
+                mode="RGB",  # ensure the image is in RGB mode
             )
-
-            # ensure the image is always exactly canvas_size x canvas_size pixels and
-            # fill the background behind the image with background_color, if the image doesn't fill the whole canvas
-            new_img = PilImage.new("RGB", (canvas_size, canvas_size), background_color)
-            new_img.paste(
-                img, ((canvas_size - img.width) // 2, (canvas_size - img.height) // 2)
-            )
-            img = new_img
 
             if palletize:
                 img = image_utils.palettize(img)
