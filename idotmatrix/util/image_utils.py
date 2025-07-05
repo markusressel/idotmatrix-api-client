@@ -20,12 +20,6 @@ def palettize(
     if not isinstance(image, PILImage.Image):
         raise TypeError("Input must be a PIL Image.")
 
-    # Ensure the image is in RGB mode before palettizing to avoid quantization,
-    # see: https://github.com/python-pillow/Pillow/issues/6832#issuecomment-1366276887
-    # see: https://github.com/python-pillow/Pillow/blob/2755e0ffaadc8b29c3e67e223c333c50e197a733/src/PIL/Image.py#L964-L965
-    # TODO: not sure if this actually makes a difference
-    # image = image.convert(mode="RGB")
-
     return image.convert(
         mode="P",
         dither=dither,
