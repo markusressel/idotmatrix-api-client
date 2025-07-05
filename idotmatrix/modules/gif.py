@@ -293,7 +293,8 @@ class GifModule(IDotMatrixModule):
 
         return send_data_3
 
-    def _create_ble_packets(self, data_packet: bytes, ble_device_mtu_enabled: bool = True) -> list[bytearray]:
+    @staticmethod
+    def _create_ble_packets(data_packet: bytes, ble_device_mtu_enabled: bool = True) -> list[bytearray]:
         """
         Splits a single data packet into smaller packets suitable for BLE transmission.
         Corresponds to getSendData.

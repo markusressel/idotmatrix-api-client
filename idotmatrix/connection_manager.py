@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
+from bleak.exc import BleakDBusError
 
 from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA, BLUETOOTH_DEVICE_NAME
 
@@ -168,9 +169,11 @@ class ConnectionManager:
                 for service in self.client.services:
                     self.logging.debug(f"Service: {service.uuid} ({service.handle})")
                     for characteristic in service.characteristics:
-                        self.logging.debug(f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
+                        self.logging.debug(
+                            f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
                         self.logging.debug(f"    Properties: {characteristic.properties}")
-                        self.logging.debug(f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
+                        self.logging.debug(
+                            f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
             else:
                 self.logging.info(f"already connected to {self.address}")
 
@@ -257,27 +260,40 @@ class ConnectionManager:
         self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
 
         # restructure packets to fit the BLE packet size
-        restructured_packets = []
-        for packet in packets:
-            restructured_packet = []
-            # first combine all packets into one bytearray
-            combined_packet = bytearray()
-            for ble_packet in packet:
-                combined_packet.extend(ble_packet)
-            # then split the combined packet into chunks of size ble_packet_size
-            for i in range(0, len(combined_packet), ble_packet_size):
-                restructured_packet.append(combined_packet[i:i + ble_packet_size])
-            restructured_packets.append(restructured_packet)
-        packets = restructured_packets
+        # restructured_packets = []
+        # for packet in packets:
+        #     restructured_packet = []
+        #     # first combine all packets into one bytearray
+        #     combined_packet = bytearray()
+        #     for ble_packet in packet:
+        #         combined_packet.extend(ble_packet)
+        #     # then split the combined packet into chunks of size ble_packet_size
+        #     for i in range(0, len(combined_packet), ble_packet_size):
+        #         restructured_packet.append(combined_packet[i:i + ble_packet_size])
+        #     restructured_packets.append(restructured_packet)
+        # packets = restructured_packets
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
                 self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
+                wait_for_response = response if j == len(packet) - 1 else False
                 await self.client.write_gatt_char(
                     char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
                     data=ble_paket,
-                    response=response if j == len(packet) - 1 else False
+                    response=wait_for_response
                 )
+                if wait_for_response:
+                    try:
+                        response_data = await self.client.read_gatt_char(UUID_READ_DATA)
+                        self.logging.debug(f"received response data: {response_data}")
+                    except BleakDBusError as e:
+                        if e.dbus_error == "org.bluez.Error.NotPermitted":
+                            pass
+                        else:
+                            self.logging.error(f"error while reading response data: {e}")
+                            # self.logging.warning("no response received, this is expected for some commands")
+                    except Exception as e:
+                        self.logging.error(f"error while reading response data: {e}")
 
     async def get_max_bytes_per_chunk(self, response: bool) -> int:
         if response:
@@ -287,17 +303,10 @@ class ConnectionManager:
         else:
             if self._ble_packet_size is None:
                 char = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA)
-                try:
-                    async with asyncio.timeout(3):
-                        while char.max_write_without_response_size == 20:
-                            self.logging.debug("waiting for characteristic to be ready")
-                            await asyncio.sleep(0.5)
+                if char.max_write_without_response_size != 20:
                     self._ble_packet_size = char.max_write_without_response_size
-                except asyncio.TimeoutError:
+                else:
                     # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
-                    self.logging.error(
-                        "timed out waiting for characteristic to be ready, using default size of 514 bytes"
-                    )
                     self._ble_packet_size = 514
 
         return self._ble_packet_size

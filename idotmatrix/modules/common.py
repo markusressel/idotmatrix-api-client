@@ -237,8 +237,8 @@ class CommonModule(IDotMatrixModule):
             https://github.com/8none1/idotmatrix/commit/1a08e1e9b82d78427ab1c896c24c2a7fb45bc2f0
         """
         reset_packets = [
-            bytes(bytearray.fromhex("04 00 03 80")),
-            bytes(bytearray.fromhex("05 00 04 80 50")),
+            [
+                bytes(bytearray.fromhex("04 00 03 80"))
+            ]
         ]
-        for data in reset_packets:
-            await self._send_bytes(data=data, response=True)
+        await self._send_packets(packets=reset_packets, response=True)
