@@ -79,7 +79,7 @@ git clone https://github.com/markusressel/python3-idotmatrix-library.git
 
 ```sh
 cd python3-idotmatrix-library/
-pip -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # on Windows use `venv\Scripts\activate`
 pip install --upgrade pip poetry
 poetry install
