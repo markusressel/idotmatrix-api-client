@@ -60,6 +60,10 @@ async def main():
         color=(255, 255, 255),
         xy=(10, 10),
     )
+    await client.graffiti.set_pixels(
+        color=(128, 192, 255),
+        xys=[(x, y) for y in range(20, 30) for x in range(20, 30)]
+    )
     time.sleep(5)
 
     # Image
