@@ -14,6 +14,9 @@
 >
 > In addition to that, the support for returning the raw bytearray data for specific commands **has been dropped**
 > to simplify maintenance and usability of the library.
+>
+> If you run into an issue with compatibility due to a device which needs the "Loy Space" controls, this is based on
+> a different device.  @eskibars maintains a separate repository for that device at https://github.com/eskibars/popledder/
 
 <br/>
 <p align="center">
