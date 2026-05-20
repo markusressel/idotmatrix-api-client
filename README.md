@@ -164,6 +164,12 @@ into other issues please check for "#TODO" comments in the source code as well.
   * [pixilart](https://www.pixilart.com/draw)
     * Create a new drawing and select a preset for the size of your display (e.g. 64x64)
 
+## Other Hardware
+This software is specifically built for devices which are supported by the iDotMatrix app. There are other devices
+being sold which have a similar form factor and claim to be compatible, but which are not.  Below is a list of known
+non-iDotMatrix-compatible hardware and associated software.
+- For hardware supported by the "LOY SPACE" app: https://github.com/eskibars/popledder/
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any
