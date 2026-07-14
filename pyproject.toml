@@ -1,5 +1,5 @@
 [project]
-name = "idotmatrix"
+name = "idotmatrix-api-client"
 description = "A library for controlling iDotMatrix displays."
 license = "GPL-3.0-or-later"
 readme = "README.md"
@@ -12,17 +12,17 @@ classifiers = [
 dependencies = [
     "asyncio>=3.4.3",
     "bleak>=0.22.3",
-    "pillow>=11.2.1",
-    "cryptography>=45.0.4",
+    "pillow>=12.2.0",
+    "cryptography>=46.0.7",
     "matplotlib>=3.10.3",
     "watchdog>=6.0.0"
 ]
 
 [project.urls]
-homepage = "https://github.com/markusressel/python3-idotmatrix-library"
-repository = "https://github.com/markusressel/python3-idotmatrix-library"
-documentation = "https://github.com/markusressel/python3-idotmatrix-library"
-"Bug Tracker" = "https://github.com/markusressel/python3-idotmatrix-library/issues"
+homepage = "https://github.com/markusressel/idotmatrix-api-client"
+repository = "https://github.com/markusressel/idotmatrix-api-client"
+documentation = "https://github.com/markusressel/idotmatrix-api-client"
+"Bug Tracker" = "https://github.com/markusressel/idotmatrix-api-client/issues"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
