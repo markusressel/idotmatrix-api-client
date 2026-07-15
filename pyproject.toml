@@ -3,7 +3,7 @@ name = "idotmatrix-api-client"
 description = "A library for controlling iDotMatrix displays."
 license = "GPL-3.0-or-later"
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 version = "0.1.0"
 classifiers = [
     "Intended Audience :: Developers",
