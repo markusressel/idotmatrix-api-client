@@ -397,5 +397,15 @@ class ConnectionManager:
             logging.info(f'Signal handler called with signal {signame} ({signum})')
             asyncio.ensure_future(async_signal_handler())
 
-        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, lambda: signal_handler(signal.SIGINT))
-        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, lambda: signal_handler(signal.SIGTERM))
+        try:
+            loop = asyncio.get_event_loop()
+            loop.add_signal_handler(signal.SIGINT, lambda: signal_handler(signal.SIGINT))
+            loop.add_signal_handler(signal.SIGTERM, lambda: signal_handler(signal.SIGTERM))
+        except (NotImplementedError, RuntimeError) as e:
+            # NotImplementedError: add_signal_handler() isn't supported on
+            # Windows, by any event loop (Proactor or Selector).
+            # RuntimeError: no running event loop yet (e.g. ConnectionManager
+            # constructed at plain module import time, before an event loop
+            # has started).
+            logging.debug(f"signal handlers are not supported in this context, skipping: {e}")
+

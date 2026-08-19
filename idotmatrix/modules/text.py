@@ -1,4 +1,5 @@
 import logging
+import os
 import zlib
 from enum import Enum
 from typing import Tuple, Optional
@@ -180,25 +181,48 @@ class TextModule(IDotMatrixModule):
         """Converts text to bitmap images suitable for iDotMatrix devices."""
         if not font_path:
             # using open source font from https://www.fontspace.com/rain-font-f22577
-            font_path = "./fonts/Rain-DRM3.otf"
+            font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "fonts", "Rain-DRM3.otf")
+            font_path = os.path.normpath(font_path)
         font = ImageFont.truetype(font_path, font_size)
+
+        # The device protocol supports two fixed per-character cell sizes: a
+        # compact 8x16 cell (separator 0x02) and the full 16x32 cell
+        # (separator 0x05, this class's `image_width`/`image_height`
+        # defaults). Confirmed via a real BLE capture of the official
+        # Android app: at its default ~16px font, every character was sent
+        # using the compact 8x16 cell, giving much tighter spacing than
+        # always using the 16x32 cell. Probe every character's bounding box
+        # first and use the compact cell for the whole string whenever it
+        # fits, to avoid clipping wider/bold fonts that need the full cell.
+        probe_image = Image.new("1", (1, 1), 0)
+        probe_draw = ImageDraw.Draw(probe_image)
+        max_width = max_height = 0
+        for char in text:
+            _, _, w, h = probe_draw.textbbox((0, 0), text=char, font=font)
+            max_width = max(max_width, w)
+            max_height = max(max_height, h)
+
+        if max_width <= 8 and max_height <= 16:
+            cell_width, cell_height, separator = 8, 16, bytes([0x02, 0xFF, 0xFF, 0xFF])
+        else:
+            cell_width, cell_height, separator = self.image_width, self.image_height, self.separator
+
         byte_stream = bytearray()
         for char in text:
-            # todo make image the correct size for 16x16, 32x32 and 64x64
-            image = Image.new("1", (self.image_width, self.image_height), 0)
+            image = Image.new("1", (cell_width, cell_height), 0)
             draw = ImageDraw.Draw(image)
             _, _, text_width, text_height = draw.textbbox((0, 0), text=char, font=font)
-            text_x = (self.image_width - text_width) // 2
-            text_y = (self.image_height - text_height) // 2
+            text_x = (cell_width - text_width) // 2
+            text_y = (cell_height - text_height) // 2
             draw.text((text_x, text_y), char, fill=1, font=font)
             bitmap = bytearray()
-            for y in range(self.image_height):
-                for x in range(self.image_width):
+            for y in range(cell_height):
+                for x in range(cell_width):
                     if x % 8 == 0:
                         byte = 0
                     pixel = image.getpixel((x, y))
                     byte |= (pixel & 1) << (x % 8)
-                    if x % 8 == 7 or x == self.image_width - 1:
+                    if x % 8 == 7 or x == cell_width - 1:
                         bitmap.append(byte)
-            byte_stream.extend(self.separator + bitmap)
+            byte_stream.extend(separator + bitmap)
         return byte_stream
