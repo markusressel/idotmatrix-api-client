@@ -331,7 +331,7 @@ class ConnectionManager:
         """
         Determines the maximum payload of a single write-without-response on the current connection.
         Writes above this size are silently truncated or dropped by some BLE stacks (f.e. macOS Catalina
-        negotiates an ATT MTU of 104), so this must never return a value larger than the connection allows.
+        negotiates an ATT MTU of 104), so the negotiated MTU is preferred whenever the stack reports one.
         """
         if self._max_ble_packet_size_override:
             return self._max_ble_packet_size_override
@@ -357,7 +357,9 @@ class ConnectionManager:
             # 3 bytes of the ATT MTU are used by the ATT header
             return mtu_size - 3
 
-        return 20
+        # the stack reports no usable MTU at all: keep the previous default,
+        # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
+        return 514
 
     async def read(self) -> bytes:
         if not self.client.is_connected:

@@ -78,9 +78,9 @@ class TestConnectionManager(TestBase):
         under_test = _create_under_test(max_write_without_response_size=20, mtu_size=104)
         assert await under_test.get_max_bytes_per_chunk(response=False) == 101
 
-    async def test_packet_size_never_exceeds_default_when_mtu_is_unknown(self):
+    async def test_packet_size_keeps_previous_default_when_mtu_is_unknown(self):
         under_test = _create_under_test(max_write_without_response_size=20)
-        assert await under_test.get_max_bytes_per_chunk(response=False) == 20
+        assert await under_test.get_max_bytes_per_chunk(response=False) == 514
 
     async def test_packet_size_override(self):
         under_test = _create_under_test(max_write_without_response_size=509, max_ble_packet_size=100)
