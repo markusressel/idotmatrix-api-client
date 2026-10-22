@@ -43,7 +43,6 @@ class IDotMatrixClient:
             address=mac_address,
             max_ble_packet_size=max_ble_packet_size,
         )
-        self._connection_manager.address = mac_address
         self.screen_size = screen_size
         self.mac_address = mac_address
 
