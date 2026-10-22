@@ -103,8 +103,17 @@ forces or disables it. The list holds the commands that were verified: brightnes
 fullscreen color, effects, countdown, chronograph, scoreboard and the microphone mode. These take 25-45 ms on the 64x64
 (the clock 125 ms), and the modules skip the 0.5 s pause they used to make after a command. `set_speed` and
 `set_joint` are never acknowledged, freeze, text and `set_time` are answered differently, so they are not in the list.
-Add a command to the list once its acknowledgement was verified on a device. Still open: a heartbeat that detects
-a silently dead link (see TODO.md).
+Add a command to the list once its acknowledgement was verified on a device.
+
+### Heartbeat
+
+`ConnectionManager.set_heartbeat(seconds)` detects a link that died silently. After the device has been silent for the
+given time it is sent `05 00 04 80 ff`, a brightness that is out of range. The device rejects it with `05 00 04 80 00`
+and changes nothing (**verified**: the display stayed dimmed through values 200, 255, 0 and 101), which is all that is
+needed to know that it is alive. Any notification also counts. Without an answer within 3 s the link is closed and
+restored by the reconnect logic. Verified on the 64x64 with the power cut: BlueZ reported the lost connection itself
+after about 5 s, so the heartbeat's own detection was not needed there, and the reconnect worked once the device had power
+again. Where the Bluetooth stack takes long to notice a vanished device the heartbeat is the faster way.
 
 A third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
 does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked on a 32x32)
