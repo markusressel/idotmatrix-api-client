@@ -45,7 +45,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 ## 4. Larger ideas (not started)
 
-- [ ] `Transport` protocol + fake device for tests
+- [x] `Transport` protocol + fake device for tests (`idotmatrix/transport.py`, `tests/fake_transport.py`)
 - [ ] Opcode table / protocol layer
 - [ ] Move `digital_picture_frame.py` out of package top level
 - [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)

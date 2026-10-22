@@ -5,9 +5,10 @@ from asyncio import Task
 from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
 
-from bleak import BleakClient, BleakScanner, AdvertisementData
+from bleak import BleakScanner, AdvertisementData
 
-from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA, BLUETOOTH_DEVICE_NAME
+from .const import BLUETOOTH_DEVICE_NAME
+from .transport import Transport, BleakTransport
 from .util.command_ack import is_acknowledged_command
 from .util.upload_ack import UploadStatus, parse_upload_notification
 
@@ -57,6 +58,7 @@ class ConnectionManager:
         self,
         address: Optional[str] = None,
         max_ble_packet_size: Optional[int] = None,
+        transport_factory: Optional[Callable[[str, Callable[[], None]], Transport]] = None,
     ) -> None:
         """
         Initializes the ConnectionManager with an optional Bluetooth address.
@@ -65,11 +67,15 @@ class ConnectionManager:
             If no address is provided, the instance can be used to discover devices and set the address later.
             max_ble_packet_size (Optional[int]): Overrides the maximum payload size of a single write-without-response.
             Only needed if the BLE stack misreports the negotiated MTU. By default, it is detected on connect.
+            transport_factory (Optional[Callable[[str, Callable[[], None]], Transport]]): Creates the `Transport` for an
+            address. It gets a callback that has to be called when the connection was lost. By default, a `BleakTransport`
+            is used. Mainly useful to test code against a fake device.
         """
         self._max_ble_packet_size_override = max_ble_packet_size
         self.address: Optional[str] = None
-        self.client: Optional[BleakClient] = None
-        self._client_address: Optional[str] = None
+        self._transport_factory = transport_factory or BleakTransport
+        self._transport: Optional[Transport] = None
+        self._transport_address: Optional[str] = None
 
         if address:
             self.set_address(address)
@@ -124,39 +130,36 @@ class ConnectionManager:
             address (str): The Bluetooth address (MAC) of the iDotMatrix device, f.e. "00:11:22:33:44:55".
         """
         self.address = address
-        self._create_ble_client()
+        self._create_transport()
 
-    def _create_ble_client(self, address: str = None) -> BleakClient:
+    def _create_transport(self, address: str = None) -> Transport:
         """
-        Creates a BleakClient instance for the given address.
+        Creates a transport for the given address.
         Args:
             address (str, optional): The Bluetooth address (MAC) of the iDotMatrix device. If not provided,
                                      it uses the address set in the ConnectionManager instance.
         Returns:
-            BleakClient: An instance of BleakClient connected to the specified address.
+            Transport: A transport for the specified address.
         Raises:
             ValueError: If no address is provided and the instance's address is not set.
         """
         if address is None and self.address is None:
-            raise ValueError("No address provided for BleakClient.")
+            raise ValueError("No address provided for the transport.")
         if address is None:
             address = self.address
 
-        if self.client and self._client_address == address:
-            self.logging.debug(f"reusing existing client for {address}")
-            return self.client
+        if self._transport and self._transport_address == address:
+            self.logging.debug(f"reusing existing transport for {address}")
+            return self._transport
 
-        if self.client:
-            # a BleakClient is bound to one address, so a different device needs a new client
+        if self._transport:
+            # a transport is bound to one address, so a different device needs a new one
             self._connected = False
             self._ble_packet_size = None
 
-        self.client = BleakClient(
-            address_or_ble_device=address,
-            disconnected_callback=self._on_disconnected
-        )
-        self._client_address = address
-        return self.client
+        self._transport = self._transport_factory(address, self._on_disconnected)
+        self._transport_address = address
+        return self._transport
 
     async def connect_by_address(self, address: str) -> None:
         """
@@ -206,7 +209,7 @@ class ConnectionManager:
 
             if not self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
-                await self.client.connect()
+                await self._transport.connect()
                 self._connected = True
                 newly_connected = True
                 # the negotiated MTU can differ between connections, so it has to be detected again
@@ -215,16 +218,6 @@ class ConnectionManager:
                 self._last_activity = time.monotonic()
                 await self._subscribe_to_notifications()
                 self._update_heartbeat()
-
-                # print service and characteristic information for debugging
-                for service in self.client.services:
-                    self.logging.debug(f"Service: {service.uuid} ({service.handle})")
-                    for characteristic in service.characteristics:
-                        self.logging.debug(
-                            f"  Characteristic: {characteristic.uuid} ({characteristic.handle}): {characteristic.description}")
-                        self.logging.debug(f"    Properties: {characteristic.properties}")
-                        self.logging.debug(
-                            f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
             else:
                 self.logging.info(f"already connected to {self.address}")
 
@@ -244,7 +237,7 @@ class ConnectionManager:
                 self._reconnect_loop_task.cancel()
                 self._reconnect_loop_task = None
             if self.is_connected():
-                await self.client.disconnect()
+                await self._transport.disconnect()
             self._connected = False
 
     def is_connected(self) -> bool:
@@ -253,9 +246,9 @@ class ConnectionManager:
         Returns:
             bool: True if connected, False otherwise.
         """
-        if not self.client:
+        if not self._transport:
             return False
-        return self.client.is_connected or self._connected
+        return self._transport.is_connected or self._connected
 
     async def send_bytes(
         self,
@@ -294,10 +287,7 @@ class ConnectionManager:
             chunk_count = -(-len(data) // ble_packet_size)
             for packet in range(0, len(data), ble_packet_size):
                 self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
-                await self.client.write_gatt_char(
-                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
-                    data=data[packet:packet + ble_packet_size],
-                    response=response)
+                await self._transport.write(data[packet:packet + ble_packet_size], response=response)
 
             return wait_for_ack and await self._wait_for_command_ack(bytes(data))
 
@@ -333,13 +323,13 @@ class ConnectionManager:
         """
         self._notifications = asyncio.Queue()
         try:
-            await self.client.start_notify(UUID_READ_DATA, self._on_notification)
+            await self._transport.start_notify(self._on_notification)
             self._notifications_available = True
         except Exception as e:
             self._notifications_available = False
             self.logging.warning(f"could not subscribe to device notifications, uploads are not flow controlled: {e}")
 
-    def _on_notification(self, _characteristic, data: bytearray) -> None:
+    def _on_notification(self, data: bytes) -> None:
         self.logging.debug(f"received notification: {bytes(data).hex()}")
         self._last_activity = time.monotonic()
         self._notifications.put_nowait(bytes(data))
@@ -418,11 +408,7 @@ class ConnectionManager:
                 for j, ble_paket in enumerate(packet):
                     self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
                     wait_for_response = response if j == len(packet) - 1 else False
-                    await self.client.write_gatt_char(
-                        char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
-                        data=ble_paket,
-                        response=wait_for_response
-                    )
+                    await self._transport.write(ble_paket, response=wait_for_response)
                 if wait_for_ack:
                     status = await self._wait_for_upload_status()
                     if status == UploadStatus.FINISHED and i < len(packets) - 1:
@@ -470,41 +456,15 @@ class ConnectionManager:
     async def _detect_max_write_without_response_size(self) -> int:
         """
         Determines the maximum payload of a single write-without-response on the current connection.
-        Writes above this size are silently truncated or dropped by some BLE stacks (f.e. macOS Catalina
-        negotiates an ATT MTU of 104), so the negotiated MTU is preferred whenever the stack reports one.
         """
         if self._max_ble_packet_size_override:
             return self._max_ble_packet_size_override
-
-        char = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA)
-        size = char.max_write_without_response_size
-        if size > 20:
-            return size
-
-        # 20 is the default before the MTU exchange has completed. On BlueZ the exchange can be forced.
-        acquire_mtu = getattr(self.client._backend, "_acquire_mtu", None)
-        if acquire_mtu is not None:
-            try:
-                await acquire_mtu()
-                size = char.max_write_without_response_size
-                if size > 20:
-                    return size
-            except Exception as e:
-                self.logging.debug(f"could not acquire MTU: {e}")
-
-        mtu_size = self.client.mtu_size
-        if mtu_size and mtu_size > 23:
-            # 3 bytes of the ATT MTU are used by the ATT header
-            return mtu_size - 3
-
-        # the stack reports no usable MTU at all: keep the previous default,
-        # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
-        return 514
+        return await self._transport.max_write_without_response_size()
 
     async def read(self) -> bytes:
-        if not self.client.is_connected:
+        if not self._transport.is_connected:
             await self.connect()
-        data = await self.client.read_gatt_char(UUID_READ_DATA)
+        data = await self._transport.read()
         self.logging.info("data received")
         return data
 
@@ -524,17 +484,15 @@ class ConnectionManager:
             if listener.on_connected:
                 asyncio.ensure_future(listener.on_connected())
 
-    def _on_disconnected(self, client: BleakClient):
+    def _on_disconnected(self):
         """
-        Callback function that is called when the client is disconnected.
+        Callback function that is called when the transport lost the connection.
         It notifies all registered connection listeners about the disconnection.
-        Args:
-            client (BleakClient): The BleakClient instance that was disconnected.
         """
         if not self.is_connected():
             return
 
-        self.logging.info(f"disconnected from {client.address}")
+        self.logging.info(f"disconnected from {self.address}")
         self._handle_disconnect()
 
     def _handle_disconnect(self):
@@ -602,8 +560,7 @@ class ConnectionManager:
         try:
             async with self._io_lock:
                 self._notifications = asyncio.Queue()
-                await self.client.write_gatt_char(
-                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA, data=HEARTBEAT_COMMAND, response=True)
+                await self._transport.write(HEARTBEAT_COMMAND, response=True)
                 try:
                     return await self._wait_for_command_ack(HEARTBEAT_COMMAND, HEARTBEAT_ACK_TIMEOUT_SECONDS)
                 except CommandRejectedError:
@@ -619,12 +576,12 @@ class ConnectionManager:
         self._handle_disconnect()
         try:
             async with asyncio.timeout(HEARTBEAT_ACK_TIMEOUT_SECONDS):
-                await self.client.disconnect()
+                await self._transport.disconnect()
         except Exception as e:
             self.logging.debug(f"error while closing the dead link: {e}")
-        # the old client may still believe that it is connected, so it is not used again
-        self.client = None
-        self._create_ble_client()
+        # the old transport may still believe that it is connected, so it is not used again
+        self._transport = None
+        self._create_transport()
 
     async def _reconnect_loop(self):
         """

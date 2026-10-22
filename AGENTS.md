@@ -29,7 +29,8 @@ CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12, 3.13 and 3.14. K
 ```
 idotmatrix/
   client.py              IDotMatrixClient: public entry point, exposes one property per module
-  connection_manager.py  BLE connection, send_bytes, auto-reconnect, listeners
+  connection_manager.py  connection logic: send_bytes, acks, heartbeat, auto-reconnect, listeners
+  transport.py           Transport protocol (write, notify, MTU) and BleakTransport, which wraps the bleak client
   screensize.py          ScreenSize enum
   const.py               BLE UUIDs and constants
   digital_picture_frame.py
@@ -44,7 +45,7 @@ example*.py              runnable usage examples (need a real device)
 
 - Everything that talks to the device is `async`. Never block the event loop; use `asyncio.sleep`.
 - Each feature module subclasses `IDotMatrixModule`, takes a `ConnectionManager`, and sends via
-  `self._send_bytes(data=..., response=...)`. Do not call `bleak` directly from modules.
+  `self._send_bytes(data=..., response=...)`. Do not call `bleak` directly from modules; the connection manager talks to a `Transport`.
 - Commands are raw byte payloads (`bytearray([len, 0, cmd, ...])`). Document the source in the docstring
   (`Based on the BleProtocolN.java file ...`). Public methods do not return raw bytes (dropped by design).
 - New module checklist: add `idotmatrix/modules/<name>.py`, register a property on `IDotMatrixClient`
@@ -77,7 +78,8 @@ The most important rules:
 - Assert exact byte payloads. A changed byte means a changed wire protocol; do not "fix" expected bytes
   without confirming against the protocol source or a real device.
 - Use GIVEN / WHEN / THEN comments, as existing tests do.
-- Tests must not need hardware or Bluetooth.
+- Tests must not need hardware or Bluetooth. To test the connection logic, use `tests.fake_device.FakeDeviceTestBase`
+  (a `ConnectionManager` on a `tests.fake_transport.FakeTransport`) instead of patching `bleak`.
 
 ## Boundaries
 
