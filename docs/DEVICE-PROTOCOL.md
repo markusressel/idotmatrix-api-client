@@ -152,6 +152,19 @@ the drawing mode of the app. The DIY mode has to be entered first (`05 00 04 01 
 The official app shows photos with a static image upload (type 2, index 13) containing raw RGB, no mode switch needed.
 (**verified**: photos and GIFs can follow each other freely without delays) `ImageModule.show_image_file` does this.
 
+### PNG payload
+
+The data of a static image (type 2) and of a DIY image (type 0) can also be a PNG file instead of raw RGB, the device
+decodes it. The header is the same, the length and CRC32 refer to the PNG bytes. (**verified** on a 64x64 for RGB and
+palette PNGs; the original Python library and the Homey app do this for DIY images, the official app sends raw RGB.)
+Not tested on 16x16 and 32x32 devices. `show_image_file(png=True)` does this.
+
+Measured on a 64x64 (raw RGB is 12288 bytes, 3 chunks): photos shrink to 6.6-10 KB as RGB PNG and 4.6-4.8 KB as palette
+PNG, pixel-art to 4.7 KB / 1.8 KB. Upload time dropped from 0.8-1.1 s (raw) to 0.7-0.85 s (RGB PNG) and 0.5-0.6 s
+(palette PNG), so the gain is small: the time is mostly one acknowledgement round trip per 4096 byte chunk, and PNG only
+saves chunks when it crosses a chunk boundary. RGB PNGs are lossless, palette PNGs lose colors beyond 256. Nobody could
+see a difference on the display. (**verified**)
+
 Do not use the DIY mode for slideshows. Switching between DIY and GIFs needed `DisableDIY`, a black screen and `reset()`
 in between, a GIF that started right after the reset was rejected (`status 00`), the device briefly showed its default
 rainbow effect, and once it rebooted. (**verified**)

@@ -1,4 +1,5 @@
 import binascii
+import io
 import logging
 import struct
 from enum import Enum
@@ -137,6 +138,7 @@ class ImageModule(IDotMatrixModule):
         resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
         palletize: bool = False,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
+        png: bool = False,
     ) -> None:
         """
         Shows an image file on the device, the way the official app does it for photos.
@@ -151,6 +153,9 @@ class ImageModule(IDotMatrixModule):
                 high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to False.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
                 image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
+            png (bool): If True, the image is sent as a PNG file instead of raw RGB data. That is smaller (about 25-45%
+                for photos, more for pixel-art, and a palette PNG with `palletize`), which saves a little upload time.
+                Experimental: tested on a 64x64 device only, the official app sends raw RGB. Defaults to False.
         """
         background_color = color_utils.parse_color_rgb(background_color)
         pixel_data = self._load_image_and_adapt_to_canvas(
@@ -160,20 +165,41 @@ class ImageModule(IDotMatrixModule):
             palletize=palletize,
             background_color=background_color,
         )
-        await self._send_static_image_data(pixel_data)
+        await self._send_static_image_data(pixel_data, png=png, palette=palletize)
 
     async def show_image_pixeldata(
         self,
         pixel_colors: List[Tuple[int, int, int] | int | str],
+        png: bool = False,
     ) -> None:
         """
         Shows pixel data on the device, the way the official app does it for photos. See `show_image_file`.
         Args:
             pixel_colors: One color for each pixel of the screen, row by row.
+            png (bool): If True, the pixels are sent as a PNG file. See `show_image_file`.
         """
-        await self._send_static_image_data(self._pixel_colors_to_bytes(pixel_colors))
+        await self._send_static_image_data(self._pixel_colors_to_bytes(pixel_colors), png=png)
 
-    async def _send_static_image_data(self, pixel_data: bytearray) -> None:
+    def _encode_png(self, pixel_data: bytearray, palette: bool = False) -> bytearray:
+        """
+        Encodes raw RGB pixel data of the whole screen as a PNG file.
+
+        Args:
+            pixel_data: RGB bytes, row by row.
+            palette: If True, the PNG uses a palette of up to 256 colors, which is smaller, but changes the colors of
+                images with more than 256 of them.
+        """
+        size = self.screen_size.value[0]
+        img = PILImage.frombytes("RGB", (size, size), bytes(pixel_data))
+        if palette:
+            img = img.quantize(256, dither=PILImage.Dither.NONE)
+        buffer = io.BytesIO()
+        img.save(buffer, "PNG", optimize=True)
+        return bytearray(buffer.getvalue())
+
+    async def _send_static_image_data(self, pixel_data: bytearray, png: bool = False, palette: bool = False) -> None:
+        if png:
+            pixel_data = self._encode_png(pixel_data, palette=palette)
         packets = self._create_static_image_data_packets(pixel_data)
         await self._send_packets(packets, response=True, wait_for_ack=True)
 
