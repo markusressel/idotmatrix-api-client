@@ -64,6 +64,8 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 ## 6. Ideas to try on a device
 
 - [ ] PNG payload: the original Python library (and the Homey app) send a PNG file instead of raw RGB in the DIY image upload, and the device decodes it. That is usually much smaller than raw RGB (64x64 raw = 12 KB), so uploads could be faster. Compare upload time and reliability, and find out if the static image upload (type 2) takes PNG too.
-- [ ] Use the acknowledgements of normal commands (see docs/DEVICE-PROTOCOL.md, verified for most commands): an opt-in `wait_for_ack` for `send_bytes` that raises when the device rejects the arguments (status `00`), confirms delivery instead of blind `sleep_after`, and a heartbeat that detects a silently dead link. Not every command is acknowledged (`set_speed`, `set_joint`), so it has to be per command with a short timeout.
+- [x] Acknowledgements of normal commands: `send_bytes(wait_for_ack=True)`, used for the commands verified to be acknowledged
+- [ ] Heartbeat that detects a silently dead link: a no-op command (f.e. brightness) with `wait_for_ack`, run periodically while connected (the Homey app does this every 60 s with a 3 s timeout)
+- [ ] Use `wait_for_ack` for more commands once their acknowledgements are known (text, time, speed, joint, freeze behave differently)
 - [ ] Find out what the longer reply to the set time command (`09 00 01 80 05 09 01 04 00`) means
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.

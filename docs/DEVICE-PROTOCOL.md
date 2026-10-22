@@ -91,13 +91,18 @@ arguments are out of range silently, the acknowledgement is the only way to noti
 | freeze (it toggles) | `04 00 03 00` | `05 00 03 00 00`, then `05 00 03 00 01` for the second call (**guess**: the new state) |
 | text | upload | `05 00 03 00 03` (the upload acknowledgement, type 3 finished) |
 | set time | `0b 00 01 80 ...` | `09 00 01 80 05 09 01 04 00`, a longer reply, content unknown |
-| countdown off | `07 00 08 80 00 ...` | `05 00 04 80 01`, the acknowledgement of a brightness command (**guess**: the device restores the brightness) |
+| countdown off after the countdown has ended | `07 00 08 80 00 ...` | `05 00 04 80 01` once, the acknowledgement of a brightness command (**guess**: the device restores the brightness when a countdown ends). Stopping a running countdown is acknowledged normally, `05 00 08 80 01` |
 
 No acknowledgement came for `set_speed`, `set_joint`, an unknown command (`05 00 63 80 01`) and a command whose length
 byte does not match (`09 00 04 80 32`). Knocking on the display or other events do not produce notifications either.
 
-The library does not use these acknowledgements yet, see TODO.md for ideas (confirming that a command arrived,
-reporting rejected arguments, detecting a silently dead link).
+`send_bytes(wait_for_ack=True)` waits for the acknowledgement of the command (matched by command and subcommand, so
+other notifications are skipped) and raises `CommandRejectedError` for status `00`. A missing acknowledgement is only
+logged. It is used for the commands that were verified to be acknowledged: brightness, flip, screen on and off, clock,
+fullscreen color, effects, countdown, chronograph, scoreboard and the microphone mode. These take 25-45 ms on the 64x64
+(the clock 125 ms) and need no pause afterwards. Not used for `set_speed`, `set_joint`, `set_time`, `set_password`
+and freeze, whose answers are missing or have another meaning. Still open: a heartbeat that detects a silently dead
+link (see TODO.md).
 
 A third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
 does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked on a 32x32)
