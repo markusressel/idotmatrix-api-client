@@ -70,6 +70,8 @@ class TestImageList(DigitalPictureFrameTestBase):
     def test_registers_a_connection_listener(self):
         self.client.add_connection_listener.assert_called_once()
         self.client.set_auto_reconnect.assert_called_once_with(True)
+        # unattended, so a connection that died silently has to be noticed
+        self.client.set_heartbeat.assert_called_once_with(60)
 
     def test_add_and_remove_image(self):
         self.frame.add_image("a.png")

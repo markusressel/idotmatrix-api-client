@@ -194,3 +194,14 @@ class IDotMatrixClient:
             auto_reconnect (bool): True to enable auto-reconnect, False to disable.
         """
         self._connection_manager.set_auto_reconnect(auto_reconnect=auto_reconnect)
+
+    def set_heartbeat(self, interval_seconds: Optional[float]):
+        """
+        Set whether a connection that died silently (f.e. because the device was switched off) is detected.
+        While the device is silent for the given time it is asked for a sign of life, and if it does not answer the
+        connection is closed, the connection listeners are informed, and the connection is restored if
+        `set_auto_reconnect` is enabled.
+        Args:
+            interval_seconds (Optional[float]): How long the device may be silent before it is checked, or None to disable.
+        """
+        self._connection_manager.set_heartbeat(interval_seconds=interval_seconds)

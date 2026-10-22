@@ -120,6 +120,13 @@ class TestIDotMatrixClient(TestBase):
         self.assertIn(bytearray([5, 0, 4, 128, 50]), sent)
         self.assertIn([[bytes([4, 0, 3, 128])]], sent)
 
+    def test_heartbeat_delegates(self):
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32)
+
+        client.set_heartbeat(30)
+
+        self.manager.set_heartbeat.assert_called_once_with(interval_seconds=30)
+
     def test_listener_and_auto_reconnect_delegate(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32)
         listener = ConnectionListener(on_connected=None, on_disconnected=None)

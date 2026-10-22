@@ -56,6 +56,7 @@ class PictureFrameImage:
 
 
 DEFAULT_INTERVAL_SECONDS = 30
+HEARTBEAT_INTERVAL_SECONDS = 60
 
 
 class FileObserverType(Enum):
@@ -88,6 +89,7 @@ class DigitalPictureFrame:
         """
         self.device_client: IDotMatrixClient = device_client
         self.device_client.set_auto_reconnect(True)
+        self.device_client.set_heartbeat(HEARTBEAT_INTERVAL_SECONDS)
         self._setup_connection_listener()
 
         self.resize_mode: ResizeMode = resize_mode

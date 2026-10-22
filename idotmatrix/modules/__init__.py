@@ -27,12 +27,14 @@ class IDotMatrixModule:
         Args:
             data (bytearray | bytes): The data to send.
             response (bool, optional): Whether to expect a response from the device. Defaults to False.
-            sleep_after (float, optional): Time to wait after sending the data. Defaults to 0 if response=True and 0.5 seconds if response=False.
+            sleep_after (float, optional): Time to wait after sending the data. Defaults to 0 if response=True or the
+                device acknowledged the command, and 0.5 seconds otherwise.
         """
+        acknowledged = await self._connection_manager.send_bytes(data=data, response=response)
         if sleep_after is None:
-            sleep_after = 0 if response else 0.5
+            # the acknowledgement tells that the device is done with the command
+            sleep_after = 0 if (response or acknowledged is True) else 0.5
 
-        await self._connection_manager.send_bytes(data=data, response=response)
         if sleep_after > 0:
             # sometimes the device needs a moment to process the command before it is able to receive the next one
             await sleep(sleep_after)

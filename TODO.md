@@ -49,3 +49,23 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [ ] Opcode table / protocol layer
 - [ ] Move `digital_picture_frame.py` out of package top level
 - [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)
+
+## 5. Verify on a device (README roadmap items without confirmation)
+
+- [x] MusicSync with the device microphone works (`set_mic_type`, fixed). Not done: streaming sound from the computer to the device (`06 00 00 02 <level> 01` for the image scenes, 28 frequency levels for the bar scenes, see docs/DEVICE-PROTOCOL.md), and finding out how many scenes exist
+- [ ] Bluetooth password protection: `CommonModule.set_password` exists, but nobody confirmed the whole flow (setting a password, then connecting and authenticating against a protected device)
+- [ ] Alarm & Buzzer (see issue #18): no module yet
+- [ ] Cloud-API to download / upload images: not started
+- [ ] Cloud-firmware update: unknown whether possible
+- [ ] Understand the other notifications of the device (only the upload acknowledgements on `fa03` are known, see `util/upload_ack.py`)
+- [ ] `GifModule.clear_storage` (the app's "delete all materials" command) has not been tried on a device
+- [ ] Uploads on 16x16 and 32x32 devices (tests only use mocks for those sizes)
+
+## 6. Ideas to try on a device
+
+- [ ] PNG payload: the original Python library (and the Homey app) send a PNG file instead of raw RGB in the DIY image upload, and the device decodes it. That is usually much smaller than raw RGB (64x64 raw = 12 KB), so uploads could be faster. Compare upload time and reliability, and find out if the static image upload (type 2) takes PNG too.
+- [x] Acknowledgements of normal commands: `send_bytes` waits for them by default for the commands in `util/command_ack.py`
+- [x] Heartbeat that detects a silently dead link (`set_heartbeat`, enabled by `DigitalPictureFrame`). Its own dead-link detection is only tested with mocks, BlueZ noticed the power loss first; try it on another platform or with a device that is out of range instead of switched off
+- [ ] Add more commands to `util/command_ack.py` once their acknowledgements are verified (eco, graffiti, ...; text, time, speed, joint, freeze behave differently)
+- [ ] Find out what the longer reply to the set time command (`09 00 01 80 05 09 01 04 00`) means
+- [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.

@@ -269,7 +269,7 @@ into other issues please check for "#TODO" comments in the source code as well.
     * [ ] Cloud-Firmware Update possible?
     * [X] Eco-Mode
     * [X] Fullscreen Color
-    * [ ] MusicSync
+    * [X] MusicSync (with the microphone of the device)
     * [X] Scoreboard
     * [ ] bluetooth password protection
     * [ ] understand the returned byte arrays of the device for better error logs (done for the upload acknowledgements,

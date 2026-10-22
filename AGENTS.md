@@ -55,20 +55,19 @@ example*.py              runnable usage examples (need a real device)
 - Docstrings: Google style (`Args:`), as in existing modules.
 - 4-space indent, max line length 127 (flake8 config in CI).
 
-## Device protocol notes (from the decompiled official app and tests on a 64x64)
+## Device protocol notes
 
-- Image and GIF uploads send 4096 byte chunks, each with a header. The device acknowledges every chunk with a
-  notification on `fa03` (`05 00 <type> 00 <status>`, see `util/upload_ack.py`). The next chunk must not be sent before
-  that (`send_packets(wait_for_ack=True)`), or the device drops data and rejects uploads (status `00`).
-- The device skips an upload of data it already has (answers `finished` right away).
-- Upload types: GIF = 1, static image = 2, DIY image = 0. The last header byte is an index: 0 to 11 are slots the
-  device keeps, 13 shows the item right away (what the app uses for photos and GIFs), 12 is used for text.
-- The official app shows photos with a static image upload (`ImageModule.show_image_file`). The DIY mode is for drawing,
-  switching between it and GIFs needs `DisableDIY`, a black screen and `reset()`, and was unreliable (rejected uploads,
-  rainbow flash, one device reset). Do not reintroduce mode switching.
-- All frames of a GIF need color tables of the same size. PIL trims them to the used colors, so they are padded to 256
-  entries (`image_utils.pad_palette`), otherwise the device garbles or drops frames.
-- Not verified on a device: `GifModule.clear_storage` (the app's "delete all materials" command).
+What we know about the devices is collected in [`docs/DEVICE-PROTOCOL.md`](docs/DEVICE-PROTOCOL.md). Read it before
+changing anything that talks to the device. **Keep it up to date**: whenever you learn something about how the devices
+behave (from the decompiled app, a device test or a third party), add it there, mark how sure it is (verified / app /
+claim / guess), and correct entries that turn out to be wrong. Do this in the same change as the code, and put
+anything unverified into `TODO.md` as well.
+
+The most important rules:
+
+- Image and GIF uploads must wait for the acknowledgement of each chunk (`send_packets(wait_for_ack=True)`).
+- Show photos with `ImageModule.show_image_file`. Do not reintroduce DIY mode switching in slideshows.
+- All frames of a GIF need color tables of the same size (`image_utils.pad_palette`).
 
 ## Testing
 
