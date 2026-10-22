@@ -27,6 +27,7 @@ class IDotMatrixClient:
         self,
         screen_size: ScreenSize,
         mac_address: Optional[str] = None,
+        max_ble_packet_size: Optional[int] = None,
     ):
         """
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
@@ -35,9 +36,12 @@ class IDotMatrixClient:
             screen_size (ScreenSize): The size of the screen, e.g., ScreenSize.SIZE_64x64.
             mac_address (Optional[str]): The Bluetooth MAC address of the iDotMatrix device. If not provided,
                                          the client will attempt to discover devices.
+            max_ble_packet_size (Optional[int]): Overrides the detected maximum size of a single BLE write.
+                                                 Only needed if the BLE stack misreports the negotiated MTU.
         """
         self._connection_manager = ConnectionManager(
             address=mac_address,
+            max_ble_packet_size=max_ble_packet_size,
         )
         self._connection_manager.address = mac_address
         self.screen_size = screen_size

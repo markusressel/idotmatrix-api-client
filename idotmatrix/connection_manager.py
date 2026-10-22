@@ -35,13 +35,17 @@ class ConnectionManager:
     def __init__(
         self,
         address: Optional[str] = None,
+        max_ble_packet_size: Optional[int] = None,
     ) -> None:
         """
         Initializes the ConnectionManager with an optional Bluetooth address.
         Args:
             address (Optional[str]): The Bluetooth address (MAC) of the iDotMatrix device, f.e. "00:11:22:33:44:55".
             If no address is provided, the instance can be used to discover devices and set the address later.
+            max_ble_packet_size (Optional[int]): Overrides the maximum payload size of a single write-without-response.
+            Only needed if the BLE stack misreports the negotiated MTU. By default, it is detected on connect.
         """
+        self._max_ble_packet_size_override = max_ble_packet_size
         self.address: Optional[str] = None
         self.client: Optional[BleakClient] = None
 
@@ -163,6 +167,8 @@ class ConnectionManager:
                 self.logging.info(f"connecting to {self.address}...")
                 await self.client.connect()
                 self._connected = True
+                # the negotiated MTU can differ between connections, so it has to be detected again
+                self._ble_packet_size = None
                 self.logging.info(f"connected to {self.address}")
 
                 # print service and characteristic information for debugging
@@ -256,22 +262,11 @@ class ConnectionManager:
             f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes"
         )
 
-        ble_packet_size = await self.get_max_bytes_per_chunk(response)
+        # All but the last BLE packet of each packet are sent without response,
+        # so every one of them has to fit into a single write-without-response.
+        ble_packet_size = await self.get_max_bytes_per_chunk(response=False)
         self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
-
-        # restructure packets to fit the BLE packet size
-        # restructured_packets = []
-        # for packet in packets:
-        #     restructured_packet = []
-        #     # first combine all packets into one bytearray
-        #     combined_packet = bytearray()
-        #     for ble_packet in packet:
-        #         combined_packet.extend(ble_packet)
-        #     # then split the combined packet into chunks of size ble_packet_size
-        #     for i in range(0, len(combined_packet), ble_packet_size):
-        #         restructured_packet.append(combined_packet[i:i + ble_packet_size])
-        #     restructured_packets.append(restructured_packet)
-        # packets = restructured_packets
+        packets = self._split_oversized_ble_packets(packets, ble_packet_size)
 
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
@@ -295,6 +290,31 @@ class ConnectionManager:
                     except Exception as e:
                         self.logging.error(f"error while reading response data: {e}")
 
+    @staticmethod
+    def _split_oversized_ble_packets(
+        packets: List[List[bytearray | bytes]],
+        max_size: int,
+    ) -> List[List[bytearray | bytes]]:
+        """
+        Splits BLE packets that are larger than max_size into multiple BLE packets.
+        Packets that already fit are passed through unchanged, and packets are never merged,
+        so commands that rely on their own packet boundaries are not affected.
+        The device reassembles the byte stream, so the BLE packet size is not part of the protocol.
+        Args:
+            packets: A list of packets, where each packet is a list of bytearrays or bytes.
+            max_size: The maximum size of a single BLE packet.
+        Returns:
+            The packets, with every BLE packet being at most max_size bytes long.
+        """
+        return [
+            [
+                ble_packet[offset:offset + max_size]
+                for ble_packet in packet
+                for offset in range(0, max(len(ble_packet), 1), max_size)
+            ]
+            for packet in packets
+        ]
+
     async def get_max_bytes_per_chunk(self, response: bool) -> int:
         if response:
             # Maximum write size with response is limited to 512 bytes
@@ -302,14 +322,44 @@ class ConnectionManager:
             return 512
         else:
             if self._ble_packet_size is None:
-                char = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA)
-                if char.max_write_without_response_size != 20:
-                    self._ble_packet_size = char.max_write_without_response_size
-                else:
-                    # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
-                    self._ble_packet_size = 514
+                self._ble_packet_size = await self._detect_max_write_without_response_size()
+                self.logging.info(f"using a BLE packet size of {self._ble_packet_size} bytes")
 
         return self._ble_packet_size
+
+    async def _detect_max_write_without_response_size(self) -> int:
+        """
+        Determines the maximum payload of a single write-without-response on the current connection.
+        Writes above this size are silently truncated or dropped by some BLE stacks (f.e. macOS Catalina
+        negotiates an ATT MTU of 104), so the negotiated MTU is preferred whenever the stack reports one.
+        """
+        if self._max_ble_packet_size_override:
+            return self._max_ble_packet_size_override
+
+        char = self.client.services.get_characteristic(UUID_CHARACTERISTIC_WRITE_DATA)
+        size = char.max_write_without_response_size
+        if size > 20:
+            return size
+
+        # 20 is the default before the MTU exchange has completed. On BlueZ the exchange can be forced.
+        acquire_mtu = getattr(self.client._backend, "_acquire_mtu", None)
+        if acquire_mtu is not None:
+            try:
+                await acquire_mtu()
+                size = char.max_write_without_response_size
+                if size > 20:
+                    return size
+            except Exception as e:
+                self.logging.debug(f"could not acquire MTU: {e}")
+
+        mtu_size = self.client.mtu_size
+        if mtu_size and mtu_size > 23:
+            # 3 bytes of the ATT MTU are used by the ATT header
+            return mtu_size - 3
+
+        # the stack reports no usable MTU at all: keep the previous default,
+        # my 64x64 device reports a max_write_without_response_size of 514 bytes, most of the time
+        return 514
 
     async def read(self) -> bytes:
         if not self.client.is_connected:
