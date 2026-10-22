@@ -1,0 +1,176 @@
+# iDotMatrix device protocol
+
+Everything we know about how the iDotMatrix BLE displays work. This document is the place for findings, so that they
+are not lost in commit messages or chat logs. **Update it whenever you learn something new or find that something here
+is wrong**, and say how sure you are (see the legend).
+
+## Legend and sources
+
+| Mark | Meaning |
+|---|---|
+| **verified** | Tried on a real device, with the result described |
+| **app** | Read in the decompiled official Android app (`com.tech.idotmatrix`), not tried on a device |
+| **claim** | Said by a third party (see "Third-party sources"), not checked by us |
+| **guess** | Our interpretation of an observation |
+
+Devices used so far: a 64x64 panel on Linux/BlueZ (verified), a 32x32 panel on macOS Catalina (issue #11, reported by
+its owner).
+
+## Bluetooth basics
+
+- Devices advertise as `IDM-<6 hex characters>`, no pairing is needed. (**verified**)
+- Service `000000fa-0000-1000-8000-00805f9b34fb` is used for everything we do:
+  - `fa02` accepts commands, as write or write-without-response.
+  - `fa03` only supports notifications. Reading it always fails with `READ_NOT_PERMITTED`; the library used to read it
+    after every write for that reason, which only produced errors. (**verified**)
+- Service `0000ae00-...` (`ae01` write-without-response, `ae02` notify) is the firmware update (OTA) channel of the
+  Jieli Bluetooth chip, encrypted. (**claim**, plausible because the app references the Jieli OTA SDK)
+- The size of a write-without-response depends on the negotiated MTU: 514 bytes on the 64x64 under BlueZ (20 before the
+  MTU exchange completed), 101 on macOS Catalina (MTU 104). Writes above the limit are silently truncated by the OS.
+  `ConnectionManager` detects the limit on every connect and splits the writes accordingly. (**verified**)
+- The ATT MTU is not part of the protocol: the device reassembles the byte stream, so the size of the BLE writes can
+  be chosen freely. (**verified**)
+
+## Commands
+
+A command is a byte string `[length, 0, command, subcommand, ...arguments]`. The implemented ones are in
+`idotmatrix/modules/`, each module documents the source of its bytes. Writes are always sent to `fa02`.
+
+Known quirks:
+
+- `reset()` writes `04 00 03 80` and `05 00 04 80 50`. The display goes back to its defaults and replays the boot
+  animation. (**verified**) The boot beep is said to be the only way to make the device beep. (**claim**)
+- Brightness below 5 % is not accepted. (**claim**)
+- The device does not resize anything it is sent. Data for a larger screen is cropped to the top-left corner, so
+  the host has to scale to the exact screen size. (**verified**)
+
+## Acknowledgements on `fa03`
+
+### During uploads (**verified** on the 64x64)
+
+Each 4096 byte chunk of an image or GIF upload is answered with a notification `05 00 <type> 00 <status>`:
+
+| Type | Upload | `status` |
+|---|---|---|
+| `00` | DIY image | `02` = send the next chunk, `01` (or `00`) = finished |
+| `01` | GIF | `01` = send the next chunk, `03` = finished, `00` = rejected (see below) |
+| `02` | static image | like GIF (**app**) |
+
+Rules:
+
+- The next chunk must not be sent before the acknowledgement of the previous one. The official app does the same
+  (it also paces the BLE writes 20 ms apart and gives up after 5 s without an answer). If chunks are sent too early,
+  the device answers `status 00`, drops data, and the animation stutters, loses frames or never changes. In the app,
+  `02` for a GIF means "not enough space" (**app**). `00` is the "not ready" answer we saw in practice.
+- The last chunk is answered with "finished". If the device already has the exact same data (probably compared by the
+  CRC), it answers "finished" to the first chunk and skips the rest. Uploading the same GIF twice therefore takes well
+  under a second. (**verified**)
+- Implemented in `ConnectionManager.send_packets(wait_for_ack=True)` and `util/upload_ack.py`. A device that does
+  not answer leads to an `UploadError` after 5 s.
+
+### For other commands
+
+A third party reports that every command gets `05 00 <command> <subcommand> 01` within about 300 ms, for example
+`05 00 07 01 00` (screen off) is answered with `05 00 07 01 01`. (**claim**, see TODO.md)
+
+The same third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
+does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked)
+
+## Image and GIF uploads
+
+All uploads split the data into chunks of at most 4096 bytes, put a header in front of each and then split the result
+into BLE writes. All numbers are little endian unless noted.
+
+### Header of GIF (type 1) and static image (type 2) uploads, 16 bytes (**app**, GIF **verified**)
+
+| Byte | Content |
+|---|---|
+| 0-1 | size of this chunk including the header |
+| 2 | type: 1 = GIF, 2 = static image |
+| 3 | 0 |
+| 4 | 0 for the first chunk, 2 for the following |
+| 5-8 | size of all data |
+| 9-12 | CRC32 of all data |
+| 13-14 | display time in seconds, big endian, see below |
+| 15 | index |
+
+The index selects where the item goes: 0 to 11 are slots the device keeps and cycles through (**app**, the app calls
+them "device materials"), 13 shows the item right away, 12 is the one the app uses for text. The official app uses 13
+for showing a photo or GIF, and so do we. The display time is the time the item stays on screen in a cycle of stored
+items; the app takes it from a setting (default 5 s) and we send 5. (**app**)
+
+### Header of DIY image uploads (type 0), 9 bytes (**verified**)
+
+`[size(2), 0, 0, first/continue(1), total size(4)]` followed by raw RGB data, 3 bytes per pixel, row by row. Used by
+the drawing mode of the app. The DIY mode has to be entered first (`05 00 04 01 01`) and left again
+(`05 00 04 01 00`) before other content can be shown. (**verified**)
+
+### Photos
+
+The official app shows photos with a static image upload (type 2, index 13) containing raw RGB, no mode switch needed.
+(**verified**: photos and GIFs can follow each other freely without delays) `ImageModule.show_image_file` does this.
+
+Do not use the DIY mode for slideshows. Switching between DIY and GIFs needed `DisableDIY`, a black screen and `reset()`
+in between, a GIF that started right after the reset was rejected (`status 00`), the device briefly showed its default
+rainbow effect, and once it rebooted. (**verified**)
+
+### GIFs
+
+- All frames need color tables of the same size. PIL writes tables that are only as large as the number of colors a
+  frame uses, so they differ in size from frame to frame. The device then garbles or drops frames: a GIF with a flat
+  background showed frame 1 and 11 of 12, another one played 6 of its 12 frames, a third stuttered. With all tables
+  padded to 256 entries all of them played completely and smoothly. (**verified**, `image_utils.pad_palette`)
+- Frames have to be written without optimization, or PIL trims the tables again. Frames are full size, disposal
+  method 2. (**verified**)
+- The code limits a GIF to 64 frames and a total duration of 2 s per loop by dropping frames; this came from the
+  earlier experiments and is not understood. (**guess**)
+- Large GIFs (60+ frames, 50-70 KB) work, a 70 KB upload takes about 5 s. (**verified**)
+
+### Storage
+
+- The app has a command that deletes all stored materials: `11 00 02 01 0c 00 01 02 03 04 05 06 07 08 09 0a 0b`
+  (`GifModule.clear_storage`). (**app**, not tried by us)
+- We never got a "no space" answer. The rejections we saw were all status `00` ("not ready"). The size of the storage
+  is not known, the app does not ask for it. (**verified**)
+
+## Text
+
+The device has no fonts: the host draws every character with PIL and sends bitmaps. (**verified**)
+
+Packet: a 16 byte header (total length at 0-1, payload length at 5-8, CRC32 at 9-12), 14 bytes of metadata (number of
+characters (2), `00`, `01`, mode, speed, color mode, RGB, background mode, background RGB), then one bitmap per character.
+
+Two cell sizes exist, chosen for the whole string:
+
+| Cell | Separator | Bitmap | Per character |
+|---|---|---|---|
+| compact 8x16 | `02 ff ff ff` | 16 bytes | 20 bytes |
+| full 16x32 | `05 ff ff ff` | 64 bytes | 68 bytes |
+
+The number of characters in the metadata must be the real number of characters. Counting separators found 0 in compact
+mode because the bytes of a bitmap can contain anything, and the device then showed 4 characters of "Hello 123".
+(**verified**)
+
+## Music sync
+
+- Start: `06 00 00 02 <type> 01`, stop: `06 00 00 02 00 00`. Type 1 is a dancing figure. The device reacts to its own
+  microphone, no audio is sent. (**claim**, same bytes as `MusicSyncModule.send_image_rythm`/`stop_rythm`; see TODO.md)
+
+## Not understood yet
+
+- `set_joint` (`05 00 0c 80 <mode>`), `set_mic_type` (`06 00 0b 80 <type>`): not used by the app.
+- `get_device_location` needs an AES step that the app does in a native library (`csh.tiro.cc.aes`).
+- The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`), what a protected device expects from a client
+  is unknown.
+- Firmware update (OTA) over `ae00`: encrypted, not a goal for now.
+- The other notifications of the device, see above.
+
+## Third-party sources
+
+- [fbnlrz/homeyidotmatrix](https://github.com/fbnlrz/homeyidotmatrix) (`docs/idm.md`, `docs/AE-SERVICE.md`): notes
+  from a Homey integration, tested on a 32x32 and written with the help of an AI, so treat them as claims. Source of
+  the acknowledgements for other commands, the music sync bytes, the buzzer remark and the OTA findings.
+- [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) and
+  [8none1/idotmatrix](https://github.com/8none1/idotmatrix): the origin of this library and further notes.
+- The decompiled Android app (`com.tech.idotmatrix`): `ImageAgreement`, `GifAgreement` and `Agreement` contain the
+  upload protocol.
