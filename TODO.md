@@ -28,7 +28,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [x] `util/file_watch.py`: missing `dulwich` dependency, wrong `Pattern` type, filter uses `dest_path`
 - [x] (fixed by PR #10) `ConnectionManager()` raises outside a running event loop; signal handler overrides user's SIGINT, breaks on Windows
 - [ ] `parse_color_rgb`: `#fff` / `0xfff` shorthand and length check, reject `bool`, bare `except`, rounding of named colours
-- [ ] `or` used instead of `|` in type hints (`clock.py`, `gif.py`)
+- [x] `or` used instead of `|` in type hints (`clock.py`, `gif.py`)
 - [ ] `idotmatrix/__init__.py` does not export `IDotMatrixClient` / `ScreenSize` (README example fails)
 - [ ] `connect()` notifies listeners when already connected
 - [ ] `send_bytes` chunk log off by one; `discover_devices` uses root logger

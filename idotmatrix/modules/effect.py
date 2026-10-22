@@ -26,7 +26,7 @@ class EffectModule(IDotMatrixModule):
     async def show(
         self,
         style: EffectStyle | int,
-        colors: List[Tuple[int, int, int] or int or str],
+        colors: List[Tuple[int, int, int] | int | str],
     ):
         """
         Set the effect mode of the device.

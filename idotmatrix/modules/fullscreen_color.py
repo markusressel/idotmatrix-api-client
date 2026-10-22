@@ -14,7 +14,7 @@ class FullscreenColorModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
     async def show_color(
-        self, color: Tuple[int, int, int] or int or str
+        self, color: Tuple[int, int, int] | int | str
     ):
         """
         Sets the fullscreen color of the screen of the device.

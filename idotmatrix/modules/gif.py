@@ -41,7 +41,7 @@ class GifModule(IDotMatrixModule):
         file_path: PathLike | str,
         resize_mode: ResizeMode = ResizeMode.FIT,
         palletize: bool = True,
-        background_color: Tuple[int, int, int] or int or str = (0, 0, 0),
+        background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
     ):
         """

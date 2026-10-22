@@ -56,7 +56,7 @@ class ImageModule(IDotMatrixModule):
         file_path: PathLike | str,
         resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
         palletize: bool = False,
-        background_color: Tuple[int, int, int] or int or str = (0, 0, 0),  # default to black background
+        background_color: Tuple[int, int, int] | int | str = (0, 0, 0),  # default to black background
     ) -> None:
         """
         Uploads a file processed and makes sure everything is correct before uploading to the device.
@@ -129,7 +129,7 @@ class ImageModule(IDotMatrixModule):
 
     async def upload_image_pixeldata(
         self,
-        pixel_colors: List[Tuple[int, int, int] or int or str],
+        pixel_colors: List[Tuple[int, int, int] | int | str],
     ) -> None:
         """
         Uploads pixel data to the iDotMatrix device.

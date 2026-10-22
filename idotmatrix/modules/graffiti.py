@@ -13,7 +13,7 @@ class GraffitiModule(IDotMatrixModule):
 
     async def set_pixel(
         self,
-        color: tuple[int, int, int] or int or str,
+        color: tuple[int, int, int] | int | str,
         xy: tuple[int, int],
     ):
         """
@@ -33,7 +33,7 @@ class GraffitiModule(IDotMatrixModule):
 
     async def set_pixels(
             self,
-            color: tuple[int, int, int] or int or str,
+            color: tuple[int, int, int] | int | str,
             xys: list[tuple[int, int]]
     ):
         """
