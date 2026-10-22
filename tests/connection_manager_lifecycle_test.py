@@ -3,10 +3,9 @@ import threading
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from bleak.exc import BleakDBusError
 
 from idotmatrix.connection_manager import ConnectionListener, ConnectionManager
-from idotmatrix.const import UUID_CHARACTERISTIC_WRITE_DATA, UUID_READ_DATA
+from idotmatrix.const import UUID_CHARACTERISTIC_WRITE_DATA
 from tests import TestBase
 
 ADDRESS = "00:11:22:33:44:55"
@@ -28,6 +27,7 @@ def _fake_bleak_client(connected: bool = False, write_size: int = 514) -> MagicM
     client.disconnect = AsyncMock()
     client.write_gatt_char = AsyncMock()
     client.read_gatt_char = AsyncMock(return_value=b"ok")
+    client.start_notify = AsyncMock()
     return client
 
 
@@ -232,8 +232,8 @@ class TestConnectionManager(TestBase):
 
         calls = [(c.kwargs["data"], c.kwargs["response"]) for c in self.client.write_gatt_char.await_args_list]
         self.assertEqual([(b"a", False), (b"b", True), (b"c", True)], calls)
-        self.assertEqual(2, self.client.read_gatt_char.await_count)
-        self.client.read_gatt_char.assert_awaited_with(UUID_READ_DATA)
+        # fa03 only supports notifications, reading it is always rejected
+        self.client.read_gatt_char.assert_not_awaited()
 
     async def test_send_packets_without_response_never_reads(self):
         under_test = ConnectionManager(address=ADDRESS)
@@ -241,18 +241,6 @@ class TestConnectionManager(TestBase):
         await under_test.send_packets([[b"a", b"b"]], response=False)
 
         self.client.read_gatt_char.assert_not_awaited()
-
-    async def test_send_packets_survives_read_errors(self):
-        under_test = ConnectionManager(address=ADDRESS)
-        self.client.read_gatt_char.side_effect = [
-            BleakDBusError("org.bluez.Error.NotPermitted", []),
-            BleakDBusError("org.bluez.Error.Failed", []),
-            RuntimeError("boom"),
-        ]
-
-        await under_test.send_packets([[b"a"], [b"b"], [b"c"]], response=True)
-
-        self.assertEqual(3, self.client.write_gatt_char.await_count)
 
     async def test_read_returns_data(self):
         under_test = ConnectionManager(address=ADDRESS)

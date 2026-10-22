@@ -116,4 +116,4 @@ class TestCommonModule(TestBase):
         module = self._module()
         await module.reset()
         self.connection_manager.send_packets.assert_awaited_once_with(
-            packets=[[bytes([4, 0, 3, 128])]], response=True)
+            packets=[[bytes([4, 0, 3, 128])]], response=True, wait_for_ack=False)

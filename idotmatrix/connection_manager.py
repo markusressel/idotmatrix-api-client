@@ -5,9 +5,9 @@ from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
 
 from bleak import BleakClient, BleakScanner, AdvertisementData
-from bleak.exc import BleakDBusError
 
 from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA, BLUETOOTH_DEVICE_NAME
+from .util.upload_ack import UploadStatus, parse_upload_notification
 
 
 class ConnectionListener:
@@ -26,8 +26,15 @@ class ConnectionListener:
         self.on_disconnected = on_disconnected
 
 
+# the official app gives up on an upload if the device does not acknowledge a chunk within 5 seconds
+UPLOAD_ACK_TIMEOUT_SECONDS = 5
+
 RECONNECT_INITIAL_DELAY_SECONDS = 5
 RECONNECT_MAX_DELAY_SECONDS = 60
+
+
+class UploadError(Exception):
+    """The device rejected an upload or did not acknowledge it."""
 
 
 class ConnectionManager:
@@ -62,6 +69,9 @@ class ConnectionManager:
         self._reconnect_loop_task: Optional[Task] = None
 
         self._ble_packet_size = None
+
+        self._notifications: asyncio.Queue[bytes] = asyncio.Queue()
+        self._notifications_available = False
 
         self._connection_listeners: List[ConnectionListener] = []
 
@@ -183,6 +193,7 @@ class ConnectionManager:
                 # the negotiated MTU can differ between connections, so it has to be detected again
                 self._ble_packet_size = None
                 self.logging.info(f"connected to {self.address}")
+                await self._subscribe_to_notifications()
 
                 # print service and characteristic information for debugging
                 for service in self.client.services:
@@ -249,7 +260,48 @@ class ConnectionManager:
                 data=data[packet:packet + ble_packet_size],
                 response=response)
 
-    async def send_packets(self, packets: List[List[bytearray | bytes]], response: bool = False):
+    async def _subscribe_to_notifications(self) -> None:
+        """
+        Subscribes to the notifications of the device, which acknowledge the chunks of an upload.
+        """
+        self._notifications = asyncio.Queue()
+        try:
+            await self.client.start_notify(UUID_READ_DATA, self._on_notification)
+            self._notifications_available = True
+        except Exception as e:
+            self._notifications_available = False
+            self.logging.warning(f"could not subscribe to device notifications, uploads are not flow controlled: {e}")
+
+    def _on_notification(self, _characteristic, data: bytearray) -> None:
+        self.logging.debug(f"received notification: {bytes(data).hex()}")
+        self._notifications.put_nowait(bytes(data))
+
+    async def _wait_for_upload_status(self) -> UploadStatus:
+        """
+        Waits for the device to acknowledge an upload chunk.
+        Raises:
+            UploadError: If the device rejects the upload or does not answer in time.
+        """
+        try:
+            async with asyncio.timeout(UPLOAD_ACK_TIMEOUT_SECONDS):
+                while True:
+                    status = parse_upload_notification(await self._notifications.get())
+                    if status is not None:
+                        break
+        except TimeoutError:
+            raise UploadError(
+                f"the device did not acknowledge the upload within {UPLOAD_ACK_TIMEOUT_SECONDS} seconds") from None
+
+        if status == UploadStatus.ERROR:
+            raise UploadError("the device rejected the upload (is there enough space left?)")
+        return status
+
+    async def send_packets(
+        self,
+        packets: List[List[bytearray | bytes]],
+        response: bool = False,
+        wait_for_ack: bool = False,
+    ):
         """
         Sends multiple packets to the device.
         Each packet is a list of bytearrays or bytes, which will be sent sequentially.
@@ -261,6 +313,10 @@ class ConnectionManager:
         Args:
             packets: A list of packets, where each packet is a list of bytearrays or bytes.
             response: If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
+            wait_for_ack: If True, the device has to acknowledge each packet before the next one is sent. This is how
+                the official app transfers images and GIFs, the device drops or garbles data that is sent too early.
+        Raises:
+            UploadError: If wait_for_ack is set and the device rejects a packet or does not answer in time.
         """
         if len(packets) == 0:
             self.logging.warning("no packets to send, skipping")
@@ -283,6 +339,11 @@ class ConnectionManager:
         self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
         packets = self._split_oversized_ble_packets(packets, ble_packet_size)
 
+        wait_for_ack = wait_for_ack and self._notifications_available
+        if wait_for_ack:
+            # leftovers of earlier commands must not be taken for the acknowledgement of the first packet
+            self._notifications = asyncio.Queue()
+
         for i, packet in enumerate(packets):
             for j, ble_paket in enumerate(packet):
                 self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
@@ -292,18 +353,12 @@ class ConnectionManager:
                     data=ble_paket,
                     response=wait_for_response
                 )
-                if wait_for_response:
-                    try:
-                        response_data = await self.client.read_gatt_char(UUID_READ_DATA)
-                        self.logging.debug(f"received response data: {response_data}")
-                    except BleakDBusError as e:
-                        if e.dbus_error == "org.bluez.Error.NotPermitted":
-                            pass
-                        else:
-                            self.logging.error(f"error while reading response data: {e}")
-                            # self.logging.warning("no response received, this is expected for some commands")
-                    except Exception as e:
-                        self.logging.error(f"error while reading response data: {e}")
+            if wait_for_ack:
+                status = await self._wait_for_upload_status()
+                if status == UploadStatus.FINISHED and i < len(packets) - 1:
+                    # f.e. the device already has the same data stored
+                    self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
+                    return
 
     @staticmethod
     def _split_oversized_ble_packets(

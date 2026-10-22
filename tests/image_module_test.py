@@ -59,5 +59,6 @@ class TestImageModule(TestBase):
                     b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
                 ]
             ],
-            response=True
+            response=True,
+            wait_for_ack=True
         )

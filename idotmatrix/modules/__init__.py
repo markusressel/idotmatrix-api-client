@@ -41,7 +41,8 @@ class IDotMatrixModule:
         self,
         packets: List[List[bytearray | bytes]],
         response: bool = False,
-        sleep_after: float = None
+        sleep_after: float = None,
+        wait_for_ack: bool = False,
     ):
         """
         Sends multiple packets to the IDotMatrix device.
@@ -49,11 +50,13 @@ class IDotMatrixModule:
             packets (List[List[bytearray | bytes]]): The packets to send.
             response (bool, optional): Whether to expect a response from the device. Defaults to False.
             sleep_after (float, optional): Time to wait after sending the packets. Defaults to 0 if response=True and 0.5 seconds if response=False.
+            wait_for_ack (bool, optional): Whether the device has to acknowledge each packet before the next one is sent.
+                Required for uploads of images and GIFs. Defaults to False.
         """
         if sleep_after is None:
             sleep_after = 0 if response else 0.5
 
-        await self._connection_manager.send_packets(packets=packets, response=response)
+        await self._connection_manager.send_packets(packets=packets, response=response, wait_for_ack=wait_for_ack)
         if sleep_after > 0:
             # sometimes the device needs a moment to process the command before it is able to receive the next one
             await sleep(sleep_after)

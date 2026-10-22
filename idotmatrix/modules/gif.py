@@ -83,7 +83,7 @@ class GifModule(IDotMatrixModule):
             # TODO: figure out what this does, doesn't seem to have any effect
             time_sign=1,
         )
-        await self._send_packets(packets=packets, response=True)
+        await self._send_packets(packets=packets, response=True, wait_for_ack=True)
 
     @staticmethod
     def _convert_device_material_time(input_key: int) -> int:
