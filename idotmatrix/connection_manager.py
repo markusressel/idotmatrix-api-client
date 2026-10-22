@@ -156,17 +156,22 @@ class ConnectionManager:
         Raises:
             ValueError: If the device address is not set.
         """
+        if not self.address:
+            # discovery calls connect() again, so it must run before the (non-reentrant) lock is taken
+            self.logging.warning("device address is not set, trying to connect by discovery...")
+            await self.connect_by_discovery()
+            return
+
+        newly_connected = False
         async with connection_manager_lock:
             if self._auto_reconnect:
                 self._is_auto_reconnect_active = True
-            if not self.address:
-                self.logging.warning("device address is not set, trying to connect by discovery...")
-                await self.connect_by_discovery()
 
             if not self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
                 await self.client.connect()
                 self._connected = True
+                newly_connected = True
                 # the negotiated MTU can differ between connections, so it has to be detected again
                 self._ble_packet_size = None
                 self.logging.info(f"connected to {self.address}")
@@ -183,7 +188,8 @@ class ConnectionManager:
             else:
                 self.logging.info(f"already connected to {self.address}")
 
-        self._notify_connection_listeners_connected()
+        if newly_connected:
+            self._notify_connection_listeners_connected()
 
     async def disconnect(self) -> None:
         """
