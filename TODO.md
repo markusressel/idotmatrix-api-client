@@ -18,7 +18,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [x] `modules/music_sync.py`
 - [x] validation (`ValueError`) branches: clock, eco, countdown, fullscreen_color, effect, chronograph, graffiti, text, image, gif
 - [x] `util/file_watch.py`
-- [ ] `digital_picture_frame.py` (smoke tests)
+- [x] `digital_picture_frame.py` (smoke tests; found and fixed the folder watching bugs)
 - [ ] CI: add `pytest-cov`, report coverage, add Python 3.14 to matrix
 
 ## 2. Bugs (each has a red test first)

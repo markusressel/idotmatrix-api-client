@@ -136,6 +136,8 @@ class DigitalPictureFrame:
         """
         Sets the interval between two images/GIFs for the slideshow.
         """
+        if interval <= 0:
+            raise ValueError("Interval must be greater than 0 seconds.")
         self.logging.info(f"Setting slideshow interval to {interval} seconds")
         self.interval_seconds = interval
 
@@ -204,13 +206,19 @@ class DigitalPictureFrame:
             raise ValueError(f"The provided path '{folder}' is not a directory.")
 
         self.logging.info(f"Adding images from folder: {folder_path} (recursive={recursive})")
-        path_glob = "*" if not recursive else "**/*"
-        for file in folder_path.rglob(path_glob):
+        files = folder_path.rglob("*") if recursive else folder_path.glob("*")
+        for file in files:
             if file.is_file():
-                if file.suffix.lower() in IMAGE_FILE_EXTENSIONS:
-                    self.add_image(PictureFrameImage(file))
-                elif file.suffix.lower() in ANIMATION_FILE_EXTENSIONS:
-                    self.add_image(PictureFrameGif(file))
+                self._add_image_file(file)
+
+    def _add_image_file(self, file: Path):
+        """
+        Adds a file to the slideshow as image or GIF, depending on its extension. Other files are ignored.
+        """
+        if file.suffix.lower() in IMAGE_FILE_EXTENSIONS:
+            self.add_image(PictureFrameImage(file))
+        elif file.suffix.lower() in ANIMATION_FILE_EXTENSIONS:
+            self.add_image(PictureFrameGif(file))
 
     def add_image(self, image: PictureFrameImage | PictureFrameGif | PathLike | str):
         """
@@ -390,8 +398,12 @@ class DigitalPictureFrame:
         if next_image != self._last_set_image:
             try:
                 image_path = await self._switch_to(next_image)
-            except:
-                self.logging.error(f"Failed to switch to image: {next_image}. Skipping this image.")
+            except Exception as ex:
+                self.logging.error(f"Failed to switch to image: {next_image} ({ex}). Skipping this image.")
+                if isinstance(ex, FileNotFoundError):
+                    # the file is gone, so there is no point in trying it again on every round
+                    self.remove_image(next_image)
+                    self._current_slideshow_index -= 1
                 return
             if len(self.images) > 1:
                 self.logging.info(f"Displaying image '{image_path}'.")
@@ -484,10 +496,10 @@ class DigitalPictureFrame:
         """
         self.file_regex = re.compile(rf"^.*({'|'.join(SUPPORTED_FILE_EXTENSIONS)})$", re.IGNORECASE)
 
-        source_directories = Path(folder).glob("**/*") if recursive else [Path(folder)]
         observers = self._setup_file_observers(
             observer_type=observer_type,
-            source_directories=source_directories,
+            source_directories=[Path(folder)],
+            recursive=recursive,
             file_filter=self.file_regex,
         )
         self._filesystem_observers.extend(observers)
@@ -498,6 +510,7 @@ class DigitalPictureFrame:
         self,
         observer_type: FileObserverType,
         source_directories: List[Path],
+        recursive: bool = False,
         file_filter: re.Pattern | None = None,
     ) -> List[FilesystemObserver]:
         observers = []
@@ -512,16 +525,16 @@ class DigitalPictureFrame:
 
             def on_file_moved(old, new):
                 self.remove_image(old)
-                self.add_image(new)
+                self._add_image_file(new)
 
             event_handler = ImageFileEventHandler(
                 file_filter=file_filter,
-                on_created=lambda x: self.add_image(x),
+                on_created=self._add_image_file,
                 on_deleted=lambda x: self.remove_image(x),
                 on_moved=on_file_moved
             )
 
-            observer.schedule(event_handler, str(directory), recursive=True)
+            observer.schedule(event_handler, str(directory), recursive=recursive)
             observer.start()
             observers.append(observer)
 
