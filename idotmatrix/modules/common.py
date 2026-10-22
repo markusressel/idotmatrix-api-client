@@ -46,7 +46,7 @@ class CommonModule(IDotMatrixModule):
                 0,
             ]
         )
-        await self._send_bytes(data=data, response=True)
+        await self._send_bytes(data=data, response=True, wait_for_ack=True)
 
     async def turn_on(self):
         """
@@ -64,7 +64,7 @@ class CommonModule(IDotMatrixModule):
                 1,
             ]
         )
-        await self._send_bytes(data=data)
+        await self._send_bytes(data=data, wait_for_ack=True)
 
     async def set_screen_state(self, is_on: bool):
         """
@@ -83,7 +83,7 @@ class CommonModule(IDotMatrixModule):
                 1 if is_on else 0,
             ]
         )
-        await self._send_bytes(data=data)
+        await self._send_bytes(data=data, wait_for_ack=True)
 
     async def set_screen_flipped(self, flip: bool = True):
         """
@@ -101,7 +101,7 @@ class CommonModule(IDotMatrixModule):
                 1 if flip else 0,
             ]
         )
-        await self._send_bytes(data=data, response=True)
+        await self._send_bytes(data=data, response=True, wait_for_ack=True)
 
     async def set_brightness(self, brightness_percent: int):
         """
@@ -121,7 +121,7 @@ class CommonModule(IDotMatrixModule):
                 brightness_percent,
             ]
         )
-        await self._send_bytes(data=data, response=True)
+        await self._send_bytes(data=data, response=True, wait_for_ack=True)
 
     async def set_speed(self, speed: int):
         """

@@ -38,4 +38,4 @@ class ScoreboardModule(IDotMatrixModule):
                 bytearray_count2[0],  # Upper byte of count2
             ]
         )
-        await self._send_bytes(data=data)
+        await self._send_bytes(data=data, wait_for_ack=True)

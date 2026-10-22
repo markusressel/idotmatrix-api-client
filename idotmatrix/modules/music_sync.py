@@ -31,7 +31,7 @@ class MusicSyncModule(IDotMatrixModule):
                 sensitivity,
             ]
         )
-        await self._send_bytes(data=data)
+        await self._send_bytes(data=data, wait_for_ack=True)
 
     async def send_image_rythm(self, value1: int):
         """

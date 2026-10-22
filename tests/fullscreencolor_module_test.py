@@ -23,6 +23,7 @@ class TestFullscreenColorModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\xff\x00\x00'),
             response=True,
+            wait_for_ack=True,
         )
 
     async def test_set_color_green(self):
@@ -42,6 +43,7 @@ class TestFullscreenColorModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\x00\xff\x00'),
             response=True,
+            wait_for_ack=True,
         )
 
     async def test_set_color_blue(self):
@@ -61,4 +63,5 @@ class TestFullscreenColorModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x07\x00\x02\x02\x00\x00\xff'),
             response=True,
+            wait_for_ack=True,
         )

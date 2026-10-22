@@ -20,6 +20,7 @@ class TestClockModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\x06\x01\xc0\xff\xff\xff'),
             response=False,
+            wait_for_ack=True,
         )
 
     async def test_show_with_style(self):
@@ -37,6 +38,7 @@ class TestClockModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\x06\x01\xc0\xff\xff\xff'),
             response=False,
+            wait_for_ack=True,
         )
 
     async def test_show_with_custom_color(self):
@@ -54,6 +56,7 @@ class TestClockModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\x06\x01\xc0{\xea-'),
             response=False,
+            wait_for_ack=True,
         )
 
     async def test_show_without_date(self):
@@ -70,6 +73,7 @@ class TestClockModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\x06\x01@\xff\xff\xff'),
             response=False,
+            wait_for_ack=True,
         )
 
     async def test_show_with_12_hour_format(self):
@@ -86,4 +90,5 @@ class TestClockModule(TestBase):
         connection_manager.send_bytes.assert_awaited_once_with(
             data=bytearray(b'\x08\x00\x06\x01\x80\xff\xff\xff'),
             response=False,
+            wait_for_ack=True,
         )

@@ -45,7 +45,7 @@ class FullscreenColorModule(IDotMatrixModule):
         data = self._create_payload(
             r=r, g=g, b=b
         )
-        await self._send_bytes(data=data, response=True)
+        await self._send_bytes(data=data, response=True, wait_for_ack=True)
 
     @staticmethod
     def _create_payload(r, g, b) -> bytearray:

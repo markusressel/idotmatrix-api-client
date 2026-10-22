@@ -47,7 +47,7 @@ class EffectModule(IDotMatrixModule):
         colors = color_utils.parse_color_rgb_list(colors)
 
         data = self._compute_payload(style=style, rgb_values=colors)
-        await self._send_bytes(data=data)
+        await self._send_bytes(data=data, wait_for_ack=True)
 
     @staticmethod
     def _compute_payload(style: int, rgb_values: List[Tuple[int, int, int]]) -> bytearray:
