@@ -22,7 +22,7 @@ just build                # poetry build
 
 `make <target>` proxies to `just <target>`. Without `just`/`uv`, use `poetry install --with test` and `cd tests && pytest`.
 
-CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12 and 3.13. Keep code compatible with both.
+CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12, 3.13 and 3.14. Keep code compatible with all of them.
 
 ## Layout
 
@@ -35,7 +35,7 @@ idotmatrix/
   digital_picture_frame.py
   modules/               one class per device feature (clock, text, gif, image, ...)
     __init__.py          IDotMatrixModule base class (_send_bytes, _connect)
-  util/                  color_utils, image_utils, file_watch
+  util/                  color_utils, image_utils, file_watch, upload_ack, device_material
 tests/                   *_module_test.py, one per module; shared TestBase in tests/__init__.py
 example*.py              runnable usage examples (need a real device)
 ```
@@ -54,6 +54,21 @@ example*.py              runnable usage examples (need a real device)
 - Module-level `logging = logging.getLogger(__name__)` pattern is used on module classes; match it.
 - Docstrings: Google style (`Args:`), as in existing modules.
 - 4-space indent, max line length 127 (flake8 config in CI).
+
+## Device protocol notes (from the decompiled official app and tests on a 64x64)
+
+- Image and GIF uploads send 4096 byte chunks, each with a header. The device acknowledges every chunk with a
+  notification on `fa03` (`05 00 <type> 00 <status>`, see `util/upload_ack.py`). The next chunk must not be sent before
+  that (`send_packets(wait_for_ack=True)`), or the device drops data and rejects uploads (status `00`).
+- The device skips an upload of data it already has (answers `finished` right away).
+- Upload types: GIF = 1, static image = 2, DIY image = 0. The last header byte is an index: 0 to 11 are slots the
+  device keeps, 13 shows the item right away (what the app uses for photos and GIFs), 12 is used for text.
+- The official app shows photos with a static image upload (`ImageModule.show_image_file`). The DIY mode is for drawing,
+  switching between it and GIFs needs `DisableDIY`, a black screen and `reset()`, and was unreliable (rejected uploads,
+  rainbow flash, one device reset). Do not reintroduce mode switching.
+- All frames of a GIF need color tables of the same size. PIL trims them to the used colors, so they are padded to 256
+  entries (`image_utils.pad_palette`), otherwise the device garbles or drops frames.
+- Not verified on a device: `GifModule.clear_storage` (the app's "delete all materials" command).
 
 ## Testing
 
