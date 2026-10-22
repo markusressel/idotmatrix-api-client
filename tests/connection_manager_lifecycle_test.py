@@ -48,6 +48,21 @@ class TestConnectionManager(TestBase):
         self.bleak_client_cls.assert_called_once()
         self.assertEqual(ADDRESS, self.bleak_client_cls.call_args.kwargs["address_or_ble_device"])
 
+    async def test_set_address_to_another_address_creates_a_new_client(self):
+        under_test = ConnectionManager(address=ADDRESS)
+
+        under_test.set_address("AA:BB:CC:DD:EE:FF")
+
+        self.assertEqual(2, self.bleak_client_cls.call_count)
+        self.assertEqual("AA:BB:CC:DD:EE:FF", self.bleak_client_cls.call_args.kwargs["address_or_ble_device"])
+
+    async def test_set_address_to_the_same_address_keeps_the_client(self):
+        under_test = ConnectionManager(address=ADDRESS)
+
+        under_test.set_address(ADDRESS)
+
+        self.bleak_client_cls.assert_called_once()
+
     async def test_create_ble_client_without_address_raises(self):
         under_test = ConnectionManager()
         with self.assertRaises(ValueError):

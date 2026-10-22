@@ -40,7 +40,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [x] Drop `matplotlib` (named colours via `PIL.ImageColor`)
 - [ ] Remove commented-out block in `send_packets`
 - [x] Remove duplicate address assignment in `IDotMatrixClient.__init__`
-- [ ] Stop touching `client._backend.address`
+- [x] Stop touching `client._backend.address`
 - [x] Reconnect loop backoff
 - [ ] Cache module instances in `IDotMatrixClient`
 

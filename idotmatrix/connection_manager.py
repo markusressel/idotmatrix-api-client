@@ -49,6 +49,7 @@ class ConnectionManager:
         self._max_ble_packet_size_override = max_ble_packet_size
         self.address: Optional[str] = None
         self.client: Optional[BleakClient] = None
+        self._client_address: Optional[str] = None
 
         if address:
             self.set_address(address)
@@ -112,15 +113,20 @@ class ConnectionManager:
         if address is None:
             address = self.address
 
-        if self.client:
-            self.client._backend.address = address
+        if self.client and self._client_address == address:
             self.logging.debug(f"reusing existing client for {address}")
             return self.client
+
+        if self.client:
+            # a BleakClient is bound to one address, so a different device needs a new client
+            self._connected = False
+            self._ble_packet_size = None
 
         self.client = BleakClient(
             address_or_ble_device=address,
             disconnected_callback=self._on_disconnected
         )
+        self._client_address = address
         return self.client
 
     async def connect_by_address(self, address: str) -> None:
