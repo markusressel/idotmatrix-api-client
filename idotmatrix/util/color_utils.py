@@ -11,6 +11,8 @@ def parse_color_rgb(color: Tuple[int, int, int] | int | str) -> Tuple[int, int, 
     """
     if color is None:
         return None
+    if isinstance(color, bool):
+        raise ValueError("Color must be an integer, a string, or a tuple of three integers (r, g, b)")
     if isinstance(color, int):
         if not (0 <= color < 16777216):
             raise ValueError("Color integer must be between 0 and 16777215 (0xFFFFFF)")
@@ -20,12 +22,14 @@ def parse_color_rgb(color: Tuple[int, int, int] | int | str) -> Tuple[int, int, 
         b = color & 0xFF
         color = (r, g, b)
     elif isinstance(color, str):
-        if color.startswith("#"):
-            # Convert hex color to RGB
-            color = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
-        elif color.startswith("0x"):
-            # Convert hex color with '0x' prefix to RGB
-            color = tuple(int(color[i:i + 2], 16) for i in (2, 4, 6))
+        if color.startswith("#") or color.startswith("0x"):
+            digits = color[1:] if color.startswith("#") else color[2:]
+            if len(digits) == 3 and color.startswith("#"):
+                # expand shorthand notation (#rgb -> #rrggbb)
+                digits = "".join(d * 2 for d in digits)
+            if len(digits) != 6:
+                raise ValueError("Invalid hex color. Use #RRGGBB, #RGB or 0xRRGGBB.")
+            color = tuple(int(digits[i:i + 2], 16) for i in (0, 2, 4))
         else:
             try:
                 from matplotlib import colors
