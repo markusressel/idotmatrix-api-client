@@ -1,3 +1,4 @@
+import binascii
 import logging
 import struct
 from enum import Enum
@@ -10,10 +11,13 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
+from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
 CHUNK_SIZE_4096 = 4096
+HEADER_SIZE_STATIC_IMAGE = 16
+TYPE_STATIC_IMAGE = 2
 
 
 class ImageMode(Enum):
@@ -127,6 +131,84 @@ class ImageModule(IDotMatrixModule):
             png_buffer = bytearray(img.tobytes())
             return png_buffer
 
+    async def show_image_file(
+        self,
+        file_path: PathLike | str,
+        resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
+        palletize: bool = False,
+        background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
+    ) -> None:
+        """
+        Shows an image file on the device, the way the official app does it for photos.
+
+        In contrast to `upload_image_file` this does not need `set_mode`, and it can be mixed with
+        GIF uploads without any mode switching in between.
+
+        Args:
+            file_path (str): path-like object to the image file
+            resize_mode (image_utils.ResizeMode): The mode to use for resizing the image.
+            palletize (bool): If True, the image will be converted to a palette-based image. Usually bad for images with
+                high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to False.
+            background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
+                image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
+        """
+        background_color = color_utils.parse_color_rgb(background_color)
+        pixel_data = self._load_image_and_adapt_to_canvas(
+            file_path=file_path,
+            canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
+            resize_mode=resize_mode,
+            palletize=palletize,
+            background_color=background_color,
+        )
+        await self._send_static_image_data(pixel_data)
+
+    async def show_image_pixeldata(
+        self,
+        pixel_colors: List[Tuple[int, int, int] | int | str],
+    ) -> None:
+        """
+        Shows pixel data on the device, the way the official app does it for photos. See `show_image_file`.
+        Args:
+            pixel_colors: One color for each pixel of the screen, row by row.
+        """
+        await self._send_static_image_data(self._pixel_colors_to_bytes(pixel_colors))
+
+    async def _send_static_image_data(self, pixel_data: bytearray) -> None:
+        packets = self._create_static_image_data_packets(pixel_data)
+        await self._send_packets(packets, response=True, wait_for_ack=True)
+
+    def _create_static_image_data_packets(
+        self,
+        image_data: bytearray,
+        index: int = INDEX_SHOW_NOW,
+        time_sign: int = 0,
+    ) -> List[List[bytearray]]:
+        """
+        Creates the packets of a static image upload. This corresponds to `sendImageData` of the official app,
+        which looks like `sendDIYImageData` with a longer header, that contains a CRC32 and the index of the image.
+
+        Returns:
+            A list of lists of byte arrays. The outer list represents the "4K chunks"
+            and the inner lists contain the actual BLE packets for each 4K chunk.
+        """
+        total_length = len(image_data).to_bytes(4, "little")
+        crc32 = (binascii.crc32(image_data) & 0xFFFFFFFF).to_bytes(4, "little")
+
+        packets = []
+        for i, chunk in enumerate(self.chunk_data_by_size(image_data, CHUNK_SIZE_4096)):
+            header = bytearray(HEADER_SIZE_STATIC_IMAGE)
+            header[0:2] = (len(chunk) + HEADER_SIZE_STATIC_IMAGE).to_bytes(2, "little")
+            header[2] = TYPE_STATIC_IMAGE
+            header[3] = 0
+            header[4] = 2 if i > 0 else 0  # continuation / first chunk
+            header[5:9] = total_length
+            header[9:13] = crc32
+            header[13:15] = convert_display_time(time_sign).to_bytes(2, "big")
+            header[15] = index
+
+            packets.append(self._create_ble_packets(bytes(header) + chunk))
+        return packets
+
     async def upload_image_pixeldata(
         self,
         pixel_colors: List[Tuple[int, int, int] | int | str],
@@ -138,6 +220,11 @@ class ImageModule(IDotMatrixModule):
                 Each tuple should contain three integers (R, G, B) in the range 0-255.
                 The length of this list must match the square of the screen size (pixel_size * pixel_size).
         """
+        pixel_data = self._pixel_colors_to_bytes(pixel_colors)
+
+        return await self._send_diy_image_data(pixel_data)
+
+    def _pixel_colors_to_bytes(self, pixel_colors: List[Tuple[int, int, int] | int | str]) -> bytearray:
         pixel_size = self.screen_size.value[0]  # assuming square canvas, so width == height
         if len(pixel_colors) != pixel_size * pixel_size:
             raise ValueError(
@@ -153,8 +240,7 @@ class ImageModule(IDotMatrixModule):
             if not (0 <= r <= 255 and 0 <= g <= 255 and 0 <= b <= 255):
                 raise ValueError(f"Invalid RGB value: ({r}, {g}, {b}). Values must be between 0 and 255.")
             pixel_data.extend([r, g, b])
-
-        return await self._send_diy_image_data(pixel_data)
+        return pixel_data
 
     async def _send_diy_image_data(
         self, pixel_data: bytearray,
