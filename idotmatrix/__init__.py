@@ -8,3 +8,8 @@ __author__ = "Kalle Minkner, Jon-Mailes Graeffe"
 __credits__ = (
     "everyone who thankfully helped with the reverse-engineering. You are awesome!"
 )
+
+from .client import IDotMatrixClient
+from .screensize import ScreenSize
+
+__all__ = ["IDotMatrixClient", "ScreenSize"]
