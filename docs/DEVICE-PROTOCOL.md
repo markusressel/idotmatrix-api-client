@@ -70,10 +70,34 @@ Rules:
 
 ### For other commands (**verified** on the 64x64)
 
-Normal commands are answered too: `05 00 <command> <subcommand> 01`, within a few milliseconds. For example the clock
-command (`08 00 06 01 ...`) gives `05 00 06 01 01`, and the microphone command (`06 00 0b 80 ...`) gives
-`05 00 0b 80 01`. A third party reports the same for screen off (`05 00 07 01 00` gives `05 00 07 01 01`). The library
-does not use these acknowledgements yet.
+Most commands are answered within a few milliseconds with `05 00 <command> <subcommand> <status>`, where the status
+is `01` if the command was accepted and `00` if the device rejected its arguments. The device accepts a command whose
+arguments are out of range silently, the acknowledgement is the only way to notice.
+
+| Command | Sent | Acknowledgement |
+|---|---|---|
+| brightness 50 | `05 00 04 80 32` | `05 00 04 80 01` |
+| brightness 200 or 0 (invalid) | `05 00 04 80 c8` | `05 00 04 80 00` |
+| flip | `05 00 06 80 00` | `05 00 06 80 01` |
+| clock | `08 00 06 01 ...` | `05 00 06 01 01` |
+| clock with style 99 (invalid) | `08 00 06 01 63 ...` | `05 00 06 01 00` |
+| fullscreen color | `07 00 02 02 ...` | `05 00 02 02 01` |
+| effect | `... 03 02 ...` | `05 00 03 02 01` |
+| countdown | `07 00 08 80 ...` | `05 00 08 80 01` |
+| chronograph | `05 00 09 80 ...` | `05 00 09 80 01` |
+| scoreboard | `08 00 0a 80 ...` | `05 00 0a 80 01` |
+| microphone mode | `06 00 0b 80 ...` | `05 00 0b 80 01` |
+| screen on | `05 00 07 01 01` | `05 00 07 01 01` |
+| freeze (it toggles) | `04 00 03 00` | `05 00 03 00 00`, then `05 00 03 00 01` for the second call (**guess**: the new state) |
+| text | upload | `05 00 03 00 03` (the upload acknowledgement, type 3 finished) |
+| set time | `0b 00 01 80 ...` | `09 00 01 80 05 09 01 04 00`, a longer reply, content unknown |
+| countdown off | `07 00 08 80 00 ...` | `05 00 04 80 01`, the acknowledgement of a brightness command (**guess**: the device restores the brightness) |
+
+No acknowledgement came for `set_speed`, `set_joint`, an unknown command (`05 00 63 80 01`) and a command whose length
+byte does not match (`09 00 04 80 32`). Knocking on the display or other events do not produce notifications either.
+
+The library does not use these acknowledgements yet, see TODO.md for ideas (confirming that a command arrived,
+reporting rejected arguments, detecting a silently dead link).
 
 A third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
 does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked on a 32x32)
@@ -178,7 +202,7 @@ something else, f.e. the clock, does. (**verified**)
 - The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`), what a protected device expects from a client
   is unknown.
 - Firmware update (OTA) over `ae00`: encrypted, not a goal for now.
-- The other notifications of the device, see above.
+- What the longer reply to the set time command means, and whether any command produces other notifications.
 
 ## Third-party sources
 
