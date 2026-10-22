@@ -272,7 +272,8 @@ into other issues please check for "#TODO" comments in the source code as well.
     * [ ] MusicSync
     * [X] Scoreboard
     * [ ] bluetooth password protection
-    * [ ] understand the returned byte arrays of the device for better error logs
+    * [ ] understand the returned byte arrays of the device for better error logs (done for the upload acknowledgements,
+      see the protocol notes in [AGENTS.md](./AGENTS.md))
 
 ## Helpful Links
 
