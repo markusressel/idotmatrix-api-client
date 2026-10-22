@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from idotmatrix.connection_manager import UploadError
 from idotmatrix.digital_picture_frame import DigitalPictureFrame, PictureFrameGif, PictureFrameImage
 from tests import TestBase
 
@@ -251,6 +252,28 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         await self.frame.next()
 
         self.assertEqual(2, self.client.image.upload_image_file.await_count)
+
+    async def test_full_device_storage_is_cleared_and_the_gif_uploaded_again(self):
+        self.client.gif.clear_storage = AsyncMock()
+        self.client.gif.upload_gif_file.side_effect = [UploadError("no space"), None]
+        self.frame.add_image(PictureFrameGif(Path("a.gif")))
+
+        await self.frame.next()
+
+        self.client.gif.clear_storage.assert_awaited_once()
+        self.assertEqual(2, self.client.gif.upload_gif_file.await_count)
+        self.assertEqual(Path("a.gif"), self.frame._last_set_image.file_path)
+
+    async def test_gif_is_skipped_if_it_is_rejected_after_clearing_the_storage(self):
+        self.client.gif.clear_storage = AsyncMock()
+        self.client.gif.upload_gif_file.side_effect = UploadError("too large")
+        self.frame.add_image(PictureFrameGif(Path("a.gif")))
+
+        await self.frame.next()
+
+        self.client.gif.clear_storage.assert_awaited_once()
+        self.assertEqual(2, self.client.gif.upload_gif_file.await_count)
+        self.assertNotEqual(PictureFrameGif(Path("a.gif")), self.frame._last_set_image)
 
     async def test_missing_file_is_removed_from_the_slideshow(self):
         self.client.image.upload_image_file.side_effect = FileNotFoundError("gone")

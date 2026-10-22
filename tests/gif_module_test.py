@@ -78,6 +78,21 @@ def _color_table_sizes(data: bytes) -> tuple[int, list[int]]:
     return global_size, local_sizes
 
 
+class TestGifStorage(TestBase):
+
+    async def test_clear_storage(self):
+        connection_manager = AsyncMock()
+        under_test = GifModule(connection_manager=connection_manager, screen_size=ScreenSize.SIZE_64x64)
+
+        await under_test.clear_storage()
+
+        # the command the official app sends to delete all materials stored on the device
+        connection_manager.send_bytes.assert_awaited_once_with(
+            data=bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
+            response=True,
+        )
+
+
 class TestGifEncoding(TestBase):
     """
     The device garbles or drops frames of GIFs whose color tables differ in size from frame to frame,

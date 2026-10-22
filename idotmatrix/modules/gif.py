@@ -83,6 +83,16 @@ class GifModule(IDotMatrixModule):
         )
         await self._send_packets(packets=packets, response=True, wait_for_ack=True)
 
+    async def clear_storage(self) -> None:
+        """
+        Deletes all GIFs (and other materials) that are stored on the device.
+
+        The device keeps every uploaded GIF and rejects new uploads once its storage is full.
+        Uploading a GIF the device already has stored is fast, because the device skips it.
+        """
+        data = bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        await self._send_bytes(data=data, response=True)
+
     @staticmethod
     def _convert_device_material_time(input_key: int) -> int:
         """
