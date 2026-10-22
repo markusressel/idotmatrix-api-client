@@ -28,6 +28,29 @@ def palettize(
     )
 
 
+def pad_palette(image: PILImage.Image, size: int = 256) -> PILImage.Image:
+    """
+    Makes sure an image is palettized and its palette has exactly `size` entries.
+
+    PIL writes palettes that are only as large as the number of colors an image uses, so the
+    color tables of the frames in an animation differ in size. The iDotMatrix device garbles
+    or drops frames of GIFs like that.
+
+    :param image: The input image, converted with `palettize` if it is not palettized yet.
+    :param size: The number of palette entries (default is 256).
+    :return: A palettized image with a palette of `size` entries.
+    """
+    if image.mode != "P":
+        image = palettize(image.convert("RGB"), colors=size)
+    else:
+        image = image.copy()
+
+    palette = image.getpalette()[:size * 3]
+    palette += [0] * (size * 3 - len(palette))
+    image.putpalette(palette)
+    return image
+
+
 class ResizeMode(Enum):
     """
     Enum for resize modes.

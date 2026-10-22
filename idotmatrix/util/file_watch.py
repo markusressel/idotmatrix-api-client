@@ -1,8 +1,8 @@
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Dict
 
-from dulwich.ignore import Pattern
 from watchdog.events import FileSystemEventHandler, EVENT_TYPE_MODIFIED, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, \
     EVENT_TYPE_DELETED, FileSystemEvent
 
@@ -11,7 +11,7 @@ class ImageFileEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        file_filter: Pattern,
+        file_filter: re.Pattern | None,
         on_created: Callable[[Path], None] = None,
         on_modified: Callable[[Path], None] = None,
         on_moved: Callable[[Path, Path], None] = None,
@@ -52,4 +52,6 @@ class ImageFileEventHandler(FileSystemEventHandler):
     def _event_matches_filter(self, event: FileSystemEvent) -> bool:
         if event.is_directory:
             return False
-        return self._file_filter.match(event.dest_path)
+        # dest_path is only set for moved events
+        path = event.dest_path if event.event_type == EVENT_TYPE_MOVED else event.src_path
+        return self._file_filter is None or bool(self._file_filter.match(str(path)))

@@ -49,8 +49,8 @@ class TextModule(IDotMatrixModule):
         text_mode: TextMode | int = TextMode.MARQUEE,
         speed: int = 95,
         text_color_mode: TextColorMode | int = TextColorMode.WHITE,
-        text_color: Tuple[int, int, int] or int or str = None,
-        text_bg_color: Optional[Tuple[int, int, int] or int or str] = None,
+        text_color: Tuple[int, int, int] | int | str = None,
+        text_bg_color: Optional[Tuple[int, int, int] | int | str] = None,
     ):
         """
         Displays text on the iDotMatrix device with specified settings.

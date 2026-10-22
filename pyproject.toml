@@ -10,11 +10,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "asyncio>=3.4.3",
     "bleak>=0.22.3",
     "pillow>=12.2.0",
     "cryptography>=46.0.7",
-    "matplotlib>=3.10.3",
     "watchdog>=6.0.0"
 ]
 
@@ -35,6 +33,7 @@ pytest = "^8.2.0,<9"
 pytest_asyncio = "^1.0.0"
 asyncmock = "*"
 pytest-mock = "*"
+pytest-cov = "*"
 mock = "*"
 
 [tool.poetry]

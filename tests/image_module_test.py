@@ -1,7 +1,9 @@
+import zlib
 from unittest.mock import AsyncMock
 
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.util.image_utils import ResizeMode
 from tests import TestBase
 
 
@@ -59,5 +61,90 @@ class TestImageModule(TestBase):
                     b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
                 ]
             ],
-            response=True
+            response=True,
+            wait_for_ack=True
         )
+
+
+class TestStaticImage(TestBase):
+    """
+    The official app shows photos with a "static image" upload (type 2, index 13) that needs no mode switch,
+    in contrast to the DIY mode, which is meant for drawing and has to be left again to show a GIF.
+    """
+
+    def setUp(self):
+        self.connection_manager = AsyncMock()
+        self.under_test = ImageModule(
+            connection_manager=self.connection_manager,
+            screen_size=ScreenSize.SIZE_32x32,
+        )
+
+    @staticmethod
+    def _pixels():
+        return [(i % 256, (i * 3) % 256, (i * 7) % 256) for i in range(32 * 32)]
+
+    async def test_show_image_pixeldata(self):
+        await self.under_test.show_image_pixeldata(self._pixels())
+
+        self.connection_manager.send_packets.assert_awaited_once()
+        kwargs = self.connection_manager.send_packets.await_args.kwargs
+        self.assertTrue(kwargs["response"])
+        self.assertTrue(kwargs["wait_for_ack"])
+        self.connection_manager.send_bytes.assert_not_awaited()  # no mode switch
+
+        # 32 * 32 * 3 = 3072 bytes fit into a single chunk with a 16 byte header
+        chunks = [b"".join(ble_packets) for ble_packets in kwargs["packets"]]
+        self.assertEqual(1, len(chunks))
+        chunk = chunks[0]
+        pixel_data = bytes(c for pixel in self._pixels() for c in pixel)
+        self.assertEqual(3072 + 16, len(chunk))
+        self.assertEqual(3072 + 16, int.from_bytes(chunk[0:2], "little"))
+        self.assertEqual(2, chunk[2])  # static image
+        self.assertEqual(0, chunk[3])
+        self.assertEqual(0, chunk[4])  # first chunk
+        self.assertEqual(3072, int.from_bytes(chunk[5:9], "little"))
+        self.assertEqual(zlib.crc32(pixel_data), int.from_bytes(chunk[9:13], "little"))
+        self.assertEqual(5, int.from_bytes(chunk[13:15], "big"))  # display time
+        self.assertEqual(13, chunk[15])  # show now
+        self.assertEqual(pixel_data, chunk[16:])
+
+    async def test_large_images_are_sent_in_4096_byte_chunks(self):
+        under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+
+        await under_test.show_image_pixeldata([(1, 2, 3)] * (64 * 64))
+
+        chunks = [b"".join(p) for p in self.connection_manager.send_packets.await_args.kwargs["packets"]]
+        self.assertEqual([4096 + 16] * 3, [len(c) for c in chunks])
+        self.assertEqual([0, 2, 2], [c[4] for c in chunks])
+        self.assertEqual({64 * 64 * 3}, {int.from_bytes(c[5:9], "little") for c in chunks})
+        self.assertEqual({chunks[0][9:13]}, {c[9:13] for c in chunks})
+
+    async def test_ble_packets_are_at_most_509_bytes(self):
+        under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+
+        await under_test.show_image_pixeldata([(1, 2, 3)] * (64 * 64))
+
+        packets = self.connection_manager.send_packets.await_args.kwargs["packets"]
+        self.assertLessEqual(max(len(p) for chunk in packets for p in chunk), 509)
+
+    async def test_show_image_pixeldata_validates_the_pixel_count(self):
+        with self.assertRaises(ValueError):
+            await self.under_test.show_image_pixeldata([(0, 0, 0)] * 10)
+
+    async def test_show_image_file(self):
+        under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+
+        await under_test.show_image_file(self._test_data_folder / "demo_64.png")
+
+        kwargs = self.connection_manager.send_packets.await_args.kwargs
+        chunks = [b"".join(ble_packets) for ble_packets in kwargs["packets"]]
+        self.assertEqual({2}, {chunk[2] for chunk in chunks})
+        self.assertEqual({13}, {chunk[15] for chunk in chunks})
+        expected = ImageModule._load_image_and_adapt_to_canvas(
+            file_path=self._test_data_folder / "demo_64.png",
+            canvas_size=64,
+            resize_mode=ResizeMode.FIT,
+            palletize=False,
+            background_color=(0, 0, 0),
+        )
+        self.assertEqual(bytes(expected), b"".join(chunk[16:] for chunk in chunks))

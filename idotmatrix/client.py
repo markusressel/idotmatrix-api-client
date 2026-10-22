@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Optional
 
 from idotmatrix.connection_manager import ConnectionManager, ConnectionListener
@@ -43,91 +44,90 @@ class IDotMatrixClient:
             address=mac_address,
             max_ble_packet_size=max_ble_packet_size,
         )
-        self._connection_manager.address = mac_address
         self.screen_size = screen_size
         self.mac_address = mac_address
 
-    @property
+    @cached_property
     def chronograph(self) -> ChronographModule:
         return ChronographModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def clock(self) -> ClockModule:
         return ClockModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def common(self) -> CommonModule:
         return CommonModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def countdown(self) -> CountdownModule:
         return CountdownModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def eco(self) -> EcoModule:
         return EcoModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def effect(self) -> EffectModule:
         return EffectModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def color(self) -> FullscreenColorModule:
         return FullscreenColorModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def gif(self) -> GifModule:
         return GifModule(
             connection_manager=self._connection_manager,
             screen_size=self.screen_size
         )
 
-    @property
+    @cached_property
     def graffiti(self) -> GraffitiModule:
         return GraffitiModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def image(self) -> ImageModule:
         return ImageModule(
             connection_manager=self._connection_manager,
             screen_size=self.screen_size
         )
 
-    @property
+    @cached_property
     def music_sync(self) -> MusicSyncModule:
         return MusicSyncModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def scoreboard(self) -> ScoreboardModule:
         return ScoreboardModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def system(self) -> SystemModule:
         return SystemModule(
             connection_manager=self._connection_manager,
         )
 
-    @property
+    @cached_property
     def text(self) -> TextModule:
         return TextModule(
             connection_manager=self._connection_manager,

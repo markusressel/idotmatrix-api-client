@@ -10,6 +10,7 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
+from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
 from idotmatrix.util.image_utils import ResizeMode
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
@@ -41,7 +42,7 @@ class GifModule(IDotMatrixModule):
         file_path: PathLike | str,
         resize_mode: ResizeMode = ResizeMode.FIT,
         palletize: bool = True,
-        background_color: Tuple[int, int, int] or int or str = (0, 0, 0),
+        background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
     ):
         """
@@ -67,43 +68,29 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
 
-        # TODO: although the current implementation seems to _mostly_ work,
-        # some GIFs stop animating during the upload, and often times the second upload after a successful upload
-        # fails completely (previous GIF is just "stuck" and the new GIF is never displayed). So there is probably some edge case
-        # that is not handled correctly.
+        # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
+        # and skips the rest of the upload, which is why uploading the same file twice is fast.
 
-        GIF_TYPE_DIY_ANIMATION = 13
-        GIF_TYPE_NO_TIME_SIGNATURE = 12
         packets = self.create_gif_data_packets(
             gif_data=gif_data,
             # TODO: figure out what this does
             #  this might be the index that this GIF will be stored within the device's memory :think:
             #  it doesn't seem to have an effect when sending a single GIF like it is done here though
-            gif_type=GIF_TYPE_NO_TIME_SIGNATURE,
-            # TODO: figure out what this does, doesn't seem to have any effect
-            time_sign=1,
+            # shows the GIF right away, like the official app does
+            gif_type=INDEX_SHOW_NOW,
+            time_sign=0,
         )
-        await self._send_packets(packets=packets, response=True)
+        await self._send_packets(packets=packets, response=True, wait_for_ack=True)
 
-    @staticmethod
-    def _convert_device_material_time(input_key: int) -> int:
+    async def clear_storage(self) -> None:
         """
-        Python equivalent of DeviceMaterialTimeConvert.ConvertTime(int i).
-        The input_key corresponds to the value from AppData.getInstance().getTimeSign(),
-        which originates from SharedPreferences.
+        Deletes all materials that are stored on the device. This is the command the official app
+        sends when the user deletes the materials on the device. Not verified on a real device yet.
+
+        Uploading a GIF the device already has is fast, because the device skips the transfer.
         """
-        if input_key == 1:
-            return 10
-        if input_key == 2:
-            return 30
-        # Note: Java's `if (i != 3)` followed by `return i != 4 ? 5 : 300;` else `return 60;`
-        # can be written more directly.
-        if input_key == 3:
-            return 60
-        if input_key == 4:
-            return 300
-        # Default case for any other input_key (including 0, which is the SP default)
-        return 5
+        data = bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        await self._send_bytes(data=data, response=True)
 
     def _load_gif_and_adapt_to_canvas(
         self,
@@ -168,13 +155,16 @@ class GifModule(IDotMatrixModule):
             # TODO: there are still some cases where
             #  - the GIF is not animating all frames
 
+            # all frames need color tables of the same size, or the device garbles / drops frames
+            frames = [image_utils.pad_palette(frame) for frame in frames]
+
             gif_buffer = io.BytesIO()
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,
                 format="GIF",
                 save_all=True,
-                optimize=True,  # setting this to False fails the transfer for some reason
+                optimize=False,  # True would shrink the color tables to the number of used colors again
                 append_images=frames[1:],
                 loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,
@@ -274,7 +264,7 @@ class GifModule(IDotMatrixModule):
             else:
                 # Java: DeviceMaterialTimeConvert.ConvertTime(AppData.getInstance().getTimeSign())
                 # 'time_sign' passed to create_gif_data_packets is the input_key
-                converted_time_value = self._convert_device_material_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
+                converted_time_value = convert_display_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
 
                 time_sign_bytes_be = bytearray(converted_time_value.to_bytes(2, byteorder='big'))
                 header[13] = time_sign_bytes_be[0]

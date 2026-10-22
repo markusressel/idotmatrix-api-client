@@ -32,7 +32,7 @@ class ClockModule(IDotMatrixModule):
         style: ClockStyle | int = ClockStyle.RGBSwipeOutline,
         show_date: bool = True,
         hour24: bool = True,
-        color: Tuple[int, int, int] or int or str or None = None,
+        color: Tuple[int, int, int] | int | str | None = None,
     ):
         """Set the clock mode of the device.
 

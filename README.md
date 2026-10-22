@@ -109,7 +109,7 @@ async def main():
   # do something with the device by using one of the toplevel functions or modules e.g. chronograph, clock, countdown, etc.
   await client.set_brightness(50)  # set brightness to 50%
 
-  await client.text.display_text("Hello World!")  # display text on the screen
+  await client.text.show_text("Hello World!")  # display text on the screen
 
 
 if __name__ == "__main__":
@@ -120,6 +120,25 @@ if __name__ == "__main__":
 ```
 
 For more examples please check the [example.py](./example.py).
+
+#### Images and GIFs
+
+```python
+from idotmatrix.util.image_utils import ResizeMode
+
+# show a photo or any other image, scaled to the screen
+await client.image.show_image_file("photo.jpg", resize_mode=ResizeMode.FILL)
+
+# show an animated GIF
+await client.gif.upload_gif_file("animation.gif")
+```
+
+Both can be mixed freely, no mode switching is needed in between. They work like the official app, which waits
+for the device to acknowledge each chunk of data. An `UploadError` is raised if the device rejects an upload or does
+not answer.
+
+`client.image.upload_image_file` uses the DIY mode instead (see `client.image.set_mode`), which is meant for drawing
+pixel by pixel and has to be left again before a GIF can be shown.
 
 ### Digital Picture Frame
 
@@ -253,7 +272,8 @@ into other issues please check for "#TODO" comments in the source code as well.
     * [ ] MusicSync
     * [X] Scoreboard
     * [ ] bluetooth password protection
-    * [ ] understand the returned byte arrays of the device for better error logs
+    * [ ] understand the returned byte arrays of the device for better error logs (done for the upload acknowledgements,
+      see the protocol notes in [AGENTS.md](./AGENTS.md))
 
 ## Helpful Links
 
