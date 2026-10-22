@@ -10,7 +10,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "asyncio>=3.4.3",
     "bleak>=0.22.3",
     "pillow>=12.2.0",
     "cryptography>=46.0.7",

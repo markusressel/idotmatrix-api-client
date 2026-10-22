@@ -36,7 +36,8 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 ## 3. Cleanup
 
 - [ ] Module-level lock -> per-instance lock
-- [ ] Drop `asyncio` dep, drop `matplotlib` (named colours via `PIL.ImageColor`)
+- [x] Drop `asyncio` dep (the PyPI package is a Python 3.3 backport that can shadow the stdlib module)
+- [ ] Drop `matplotlib` (named colours via `PIL.ImageColor`)
 - [ ] Remove commented-out block in `send_packets`
 - [ ] Remove duplicate address assignment in `IDotMatrixClient.__init__`
 - [ ] Stop touching `client._backend.address`
