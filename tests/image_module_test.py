@@ -1,5 +1,10 @@
+import io
+import os
+import tempfile
 import zlib
 from unittest.mock import AsyncMock
+
+from PIL import Image as PILImage
 
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
@@ -148,3 +153,39 @@ class TestStaticImage(TestBase):
             background_color=(0, 0, 0),
         )
         self.assertEqual(bytes(expected), b"".join(chunk[16:] for chunk in chunks))
+
+    async def test_png_payload(self):
+        under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+        pixels = [((i % 64) * 4, (i // 64) * 4, 7) for i in range(64 * 64)]
+
+        await under_test.show_image_pixeldata(pixels, png=True)
+
+        chunks = [b"".join(p) for p in self.connection_manager.send_packets.await_args.kwargs["packets"]]
+        body = b"".join(c[16:] for c in chunks)
+        self.assertEqual(b"\x89PNG\r\n\x1a\n", body[:8])
+        self.assertLess(len(body), 64 * 64 * 3)
+        self.assertEqual(len(body), int.from_bytes(chunks[0][5:9], "little"))
+        self.assertEqual(zlib.crc32(body), int.from_bytes(chunks[0][9:13], "little"))
+        self.assertEqual(2, chunks[0][2])  # still a static image
+        self.assertEqual(13, chunks[0][15])
+        decoded = PILImage.open(io.BytesIO(body))
+        self.assertEqual((64, 64), decoded.size)
+        self.assertEqual(bytes(c for pixel in pixels for c in pixel), decoded.convert("RGB").tobytes())  # lossless
+
+    async def test_png_is_off_by_default(self):
+        await self.under_test.show_image_pixeldata(self._pixels())
+
+        chunk = b"".join(self.connection_manager.send_packets.await_args.kwargs["packets"][0])
+        self.assertNotEqual(b"\x89PNG", chunk[16:20])
+
+    async def test_show_image_file_with_png_uses_a_palette_png_for_palletized_images(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "a.png")
+            PILImage.new("RGB", (32, 32), (10, 20, 30)).save(path)
+
+            await self.under_test.show_image_file(path, palletize=True, png=True)
+
+        chunk = b"".join(self.connection_manager.send_packets.await_args.kwargs["packets"][0])
+        decoded = PILImage.open(io.BytesIO(chunk[16:]))
+        self.assertEqual("P", decoded.mode)
+        self.assertEqual((10, 20, 30), decoded.convert("RGB").getpixel((5, 5)))
