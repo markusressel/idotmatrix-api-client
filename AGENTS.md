@@ -8,7 +8,7 @@ Not API-compatible with the original.
 
 - Python `>=3.12,<3.15`, packaging via Poetry (`poetry-core`).
 - Install: `poetry install --with test` (venv at `.venv`).
-- Runtime deps: `bleak` (BLE), `pillow`, `matplotlib`, `watchdog`, `cryptography`.
+- Runtime deps: `bleak` (BLE), `pillow`, `watchdog`, `cryptography`.
 
 ## Commands
 

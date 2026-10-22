@@ -1,3 +1,6 @@
+import sys
+from unittest.mock import patch
+
 from idotmatrix.util import color_utils
 from tests import TestBase
 
@@ -44,6 +47,13 @@ class TestColorUtils(TestBase):
     def test_named_color_rounds(self):
         # matplotlib "gray" is 128/255 (0.50196...), must not be truncated to 127
         self.assertEqual((128, 128, 128), color_utils.parse_color_rgb("gray"))
+
+    def test_named_color_does_not_need_matplotlib(self):
+        with patch.dict(sys.modules, {"matplotlib": None, "matplotlib.colors": None}):
+            self.assertEqual((255, 0, 0), color_utils.parse_color_rgb("red"))
+
+    def test_named_color_is_case_insensitive(self):
+        self.assertEqual((102, 51, 153), color_utils.parse_color_rgb("RebeccaPurple"))
 
     def test_invalid_named_color(self):
         with self.assertRaises(ValueError):

@@ -1,5 +1,7 @@
 from typing import Tuple
 
+from PIL import ImageColor
+
 
 def parse_color_rgb(color: Tuple[int, int, int] | int | str) -> Tuple[int, int, int]:
     """
@@ -32,11 +34,9 @@ def parse_color_rgb(color: Tuple[int, int, int] | int | str) -> Tuple[int, int, 
             color = tuple(int(digits[i:i + 2], 16) for i in (0, 2, 4))
         else:
             try:
-                from matplotlib import colors
-                color = colors.to_rgb(color)
-                # convert to integer values
-                color = tuple(int(c * 255) for c in color)
-            except:
+                # drop the alpha channel PIL returns for rgba() strings
+                color = tuple(ImageColor.getrgb(color)[:3])
+            except ValueError:
                 raise ValueError(
                     "Invalid color string. Use hex format (#RRGGBB), '0xRRGGBB', or a named color."
                 )
