@@ -43,6 +43,16 @@ class TestIDotMatrixClient(TestBase):
         self.manager.send_bytes = AsyncMock()
         self.manager.send_packets = AsyncMock()
 
+    def test_max_ble_packet_size_is_passed_to_the_connection_manager(self):
+        IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS, max_ble_packet_size=101)
+
+        self.assertEqual(101, self.manager_cls.call_args.kwargs["max_ble_packet_size"])
+
+    def test_max_ble_packet_size_defaults_to_detection(self):
+        IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)
+
+        self.assertIsNone(self.manager_cls.call_args.kwargs["max_ble_packet_size"])
+
     def test_modules_are_wired_to_the_connection_manager(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)
         expected = {
