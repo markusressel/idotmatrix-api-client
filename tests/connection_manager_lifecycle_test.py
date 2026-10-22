@@ -304,6 +304,36 @@ class TestConnectionManager(TestBase):
 
         self.assertEqual(2, len(calls))
 
+    async def test_reconnect_loop_backs_off_and_caps_the_delay(self):
+        under_test = ConnectionManager(address=ADDRESS)
+        under_test.set_auto_reconnect(True)
+        calls = []
+
+        async def connect():
+            calls.append(1)
+            if len(calls) <= 7:
+                raise RuntimeError("fail")
+            self.client.is_connected = True
+
+        self.client.connect = AsyncMock(side_effect=connect)
+        sleep = AsyncMock()
+        with patch("idotmatrix.connection_manager.asyncio.sleep", new=sleep):
+            await under_test._reconnect_loop()
+
+        self.assertEqual([5, 10, 20, 40, 60, 60, 60, 60], [c.args[0] for c in sleep.await_args_list])
+
+    async def test_reconnect_loop_starts_with_the_initial_delay_again(self):
+        under_test = ConnectionManager(address=ADDRESS)
+        under_test.set_auto_reconnect(True)
+        sleep = AsyncMock()
+        with patch("idotmatrix.connection_manager.asyncio.sleep", new=sleep):
+            await under_test._reconnect_loop()
+            self.client.is_connected = False
+            under_test._connected = False
+            await under_test._reconnect_loop()
+
+        self.assertEqual([5, 5], [c.args[0] for c in sleep.await_args_list])
+
     async def test_discover_devices_filters_by_name(self):
         from bleak import AdvertisementData
         idm = MagicMock(address="AA")

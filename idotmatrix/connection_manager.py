@@ -26,6 +26,10 @@ class ConnectionListener:
         self.on_disconnected = on_disconnected
 
 
+RECONNECT_INITIAL_DELAY_SECONDS = 5
+RECONNECT_MAX_DELAY_SECONDS = 60
+
+
 class ConnectionManager:
     logging = logging.getLogger(__name__)
 
@@ -415,9 +419,12 @@ class ConnectionManager:
         A loop that attempts to reconnect to the device if the connection is lost.
         It will keep trying to reconnect until it succeeds or the auto-reconnect is disabled.
         """
+        delay = RECONNECT_INITIAL_DELAY_SECONDS
         while self._auto_reconnect and self._is_auto_reconnect_active and not self.is_connected():
             try:
-                await asyncio.sleep(5)  # Wait before trying to reconnect
+                await asyncio.sleep(delay)  # Wait before trying to reconnect
+                # back off, so a device that is off or out of range is not hammered with attempts
+                delay = min(delay * 2, RECONNECT_MAX_DELAY_SECONDS)
                 await self.connect()
             except asyncio.CancelledError:
                 self.logging.info("Reconnection loop cancelled.")

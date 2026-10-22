@@ -41,7 +41,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [ ] Remove commented-out block in `send_packets`
 - [ ] Remove duplicate address assignment in `IDotMatrixClient.__init__`
 - [ ] Stop touching `client._backend.address`
-- [ ] Reconnect loop backoff
+- [x] Reconnect loop backoff
 - [ ] Cache module instances in `IDotMatrixClient`
 
 ## 4. Larger ideas (not started)
