@@ -29,12 +29,19 @@ class ConnectionListener:
 # the official app gives up on an upload if the device does not acknowledge a chunk within 5 seconds
 UPLOAD_ACK_TIMEOUT_SECONDS = 5
 
+# the device answers normal commands within a few milliseconds
+COMMAND_ACK_TIMEOUT_SECONDS = 1
+
 RECONNECT_INITIAL_DELAY_SECONDS = 5
 RECONNECT_MAX_DELAY_SECONDS = 60
 
 
 class UploadError(Exception):
     """The device rejected an upload or did not acknowledge it."""
+
+
+class CommandRejectedError(Exception):
+    """The device rejected the arguments of a command."""
 
 
 class ConnectionManager:
@@ -239,6 +246,7 @@ class ConnectionManager:
         self,
         data: bytearray | bytes,
         response=False,
+        wait_for_ack: bool = False,
     ):
         """
         Sends raw data to the device.
@@ -246,9 +254,19 @@ class ConnectionManager:
         Args:
             data (bytearray | bytes): The data to send to the device.
             response (bool): If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
+            wait_for_ack (bool): If True, waits for the acknowledgement of the device (`05 00 <command> <subcommand> <status>`)
+                and raises a `CommandRejectedError` if the device rejected the arguments of the command. Only for commands the
+                device acknowledges. A missing acknowledgement is logged, but not an error.
+        Raises:
+            CommandRejectedError: If wait_for_ack is set and the device rejects the command.
         """
         if not self.is_connected():
             await self.connect()
+
+        wait_for_ack = wait_for_ack and self._notifications_available
+        if wait_for_ack:
+            # leftovers of earlier commands must not be taken for the acknowledgement of this one
+            self._notifications = asyncio.Queue()
 
         self.logging.debug("sending raw data to device")
         ble_packet_size = await self.get_max_bytes_per_chunk(response)
@@ -259,6 +277,32 @@ class ConnectionManager:
                 char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
                 data=data[packet:packet + ble_packet_size],
                 response=response)
+
+        if wait_for_ack:
+            await self._wait_for_command_ack(bytes(data))
+
+    async def _wait_for_command_ack(self, command: bytes) -> None:
+        """
+        Waits for the acknowledgement of a command, which has the form `05 00 <command> <subcommand> <status>`.
+        Raises:
+            CommandRejectedError: If the device answers with status 0.
+        """
+        expected = (command[2], command[3])
+        try:
+            async with asyncio.timeout(COMMAND_ACK_TIMEOUT_SECONDS):
+                while True:
+                    notification = await self._notifications.get()
+                    if len(notification) >= 5 and notification[0:2] == b"\x05\x00" and \
+                            (notification[2], notification[3]) == expected:
+                        break
+        except TimeoutError:
+            self.logging.warning(
+                f"the device did not acknowledge the command {command.hex()} within {COMMAND_ACK_TIMEOUT_SECONDS} seconds")
+            return
+
+        if notification[4] == 0:
+            raise CommandRejectedError(
+                f"the device rejected the command {command.hex()} (notification {notification.hex()})")
 
     async def _subscribe_to_notifications(self) -> None:
         """

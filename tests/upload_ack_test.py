@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from idotmatrix.connection_manager import ConnectionManager, UploadError
+from idotmatrix.connection_manager import CommandRejectedError, ConnectionManager, UploadError
 from idotmatrix.const import UUID_READ_DATA
 from idotmatrix.util.upload_ack import UploadStatus, parse_upload_notification
 from tests import TestBase
@@ -36,7 +36,7 @@ class TestParseUploadNotification(TestBase):
         self.assertEqual(UploadStatus.NEXT, parse_upload_notification(GIF_NEXT + b"\x00\x00"))
 
 
-class TestUploadFlowControl(TestBase):
+class FakeDeviceTestBase(TestBase):
 
     def setUp(self):
         patcher = patch("idotmatrix.connection_manager.BleakClient")
@@ -55,6 +55,7 @@ class TestUploadFlowControl(TestBase):
         self.events = []
         self.listener = None
         self.replies = []
+        self.reply_to_any_write = False
 
         async def connect():
             self.client.is_connected = True
@@ -66,7 +67,7 @@ class TestUploadFlowControl(TestBase):
         async def write(char_specifier, data, response):
             self.events.append(("write", bytes(data)))
             # the device answers once a full protocol packet has been received
-            if response and self.replies:
+            if (response or self.reply_to_any_write) and self.replies:
                 self.listener(None, bytearray(self.replies.pop(0)))
 
         self.client.connect = AsyncMock(side_effect=connect)
@@ -75,6 +76,10 @@ class TestUploadFlowControl(TestBase):
         bleak_client_cls.return_value = self.client
 
         self.under_test = ConnectionManager(address=ADDRESS)
+
+
+
+class TestUploadFlowControl(FakeDeviceTestBase):
 
     async def test_subscribes_to_notifications_on_connect(self):
         await self.under_test.connect()
@@ -186,4 +191,84 @@ class TestUploadFlowControl(TestBase):
             await asyncio.wait_for(
                 self.under_test.send_packets([[b"a"], [b"b"]], response=True, wait_for_ack=True), timeout=2)
 
+        self.assertEqual(2, len(self.events))
+
+
+class TestCommandAcks(FakeDeviceTestBase):
+    """Normal commands are answered with 05 00 <command> <subcommand> <status>, 01 = accepted, 00 = rejected."""
+
+    BRIGHTNESS = bytearray([5, 0, 4, 128, 50])
+
+    def _answer_with(self, *notifications):
+        self.replies = list(notifications)
+
+    async def test_waits_for_the_ack_of_the_command(self):
+        self._answer_with(bytes.fromhex("0500048001"))
+        order = []
+        original_wait = self.under_test._wait_for_command_ack
+
+        async def spy(command):
+            order.append("wait")
+            return await original_wait(command)
+
+        self.under_test._wait_for_command_ack = spy
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
+
+        self.assertEqual(["wait"], order)
+
+    async def test_raises_if_the_device_rejects_the_command(self):
+        self._answer_with(bytes.fromhex("0500048000"))
+
+        with self.assertRaisesRegex(CommandRejectedError, "0500048000"):
+            await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
+
+    async def test_acks_of_other_commands_are_skipped(self):
+        write = self.client.write_gatt_char.side_effect
+
+        async def write_with_noise(char_specifier, data, response):
+            self.listener(None, bytearray(bytes.fromhex("0500060100")))  # a rejection of ANOTHER command
+            self.listener(None, bytearray(bytes.fromhex("0900018005090104")))  # something else entirely
+            self.listener(None, bytearray(bytes.fromhex("0500048001")))
+            await write(char_specifier=char_specifier, data=data, response=response)
+
+        self.client.write_gatt_char.side_effect = write_with_noise
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
+
+    async def test_stale_acks_are_discarded(self):
+        await self.under_test.connect()
+        self.listener(None, bytearray(bytes.fromhex("0500048000")))  # rejection of an earlier command
+        self._answer_with(bytes.fromhex("0500048001"))
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
+
+    async def test_a_missing_ack_is_only_logged(self):
+        with patch("idotmatrix.connection_manager.COMMAND_ACK_TIMEOUT_SECONDS", 0.05):
+            with self.assertLogs("idotmatrix.connection_manager", level="WARNING"):
+                await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
+
+        self.assertEqual(1, len(self.events))
+
+    async def test_does_not_wait_without_wait_for_ack(self):
+        self._answer_with(bytes.fromhex("0500048000"))
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=True)
+
+    async def test_does_not_wait_if_notifications_are_not_available(self):
+        self.client.start_notify.side_effect = RuntimeError("no notify")
+
+        await asyncio.wait_for(
+            self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True), timeout=2)
+
+        self.assertEqual(1, len(self.events))
+
+    async def test_large_commands_are_written_completely_before_waiting_for_the_ack(self):
+        self.under_test._max_ble_packet_size_override = 3
+        self.reply_to_any_write = True
+        self._answer_with(bytes.fromhex("0500048001"))
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=False, wait_for_ack=True)
+
+        # both chunks were written, the single ack was found afterwards
         self.assertEqual(2, len(self.events))
