@@ -334,6 +334,22 @@ class TestConnectionManager(TestBase):
 
         self.assertEqual([5, 5], [c.args[0] for c in sleep.await_args_list])
 
+    async def test_send_bytes_logs_the_correct_chunk_count(self):
+        under_test = ConnectionManager(address=ADDRESS)
+        await under_test.connect()
+
+        with self.assertLogs("idotmatrix.connection_manager", level="DEBUG") as logs:
+            # exactly two full chunks
+            await under_test.send_bytes(bytes(2 * 514))
+
+        messages = [r.getMessage() for r in logs.records if r.getMessage().startswith("sending chunk")]
+        self.assertEqual(["sending chunk 1 of 2", "sending chunk 2 of 2"], messages)
+
+    async def test_discover_devices_logs_with_the_module_logger(self):
+        with patch("idotmatrix.connection_manager.BleakScanner.discover", new=AsyncMock(return_value={})):
+            with self.assertLogs("idotmatrix.connection_manager", level="INFO"):
+                await ConnectionManager.discover_devices()
+
     async def test_discover_devices_filters_by_name(self):
         from bleak import AdvertisementData
         idm = MagicMock(address="AA")

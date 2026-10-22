@@ -31,7 +31,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [x] `or` used instead of `|` in type hints (`clock.py`, `gif.py`)
 - [ ] `idotmatrix/__init__.py` does not export `IDotMatrixClient` / `ScreenSize` (README example fails)
 - [ ] `connect()` notifies listeners when already connected
-- [ ] `send_bytes` chunk log off by one; `discover_devices` uses root logger
+- [x] `send_bytes` chunk log off by one; `discover_devices` uses root logger
 
 ## 3. Cleanup
 

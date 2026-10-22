@@ -74,7 +74,7 @@ class ConnectionManager:
         Returns:
             List[str]: A list of Bluetooth addresses (MAC) of discovered iDotMatrix devices.
         """
-        logging.info("scanning for iDotMatrix bluetooth devices...")
+        ConnectionManager.logging.info("scanning for iDotMatrix bluetooth devices...")
         devices = await BleakScanner.discover(return_adv=True)
         filtered_devices: List[str] = []
         for key, (device, adv) in devices.items():
@@ -83,7 +83,7 @@ class ConnectionManager:
                 and adv.local_name
                 and str(adv.local_name).startswith(BLUETOOTH_DEVICE_NAME)
             ):
-                logging.info(f"found device {key} with name {adv.local_name}")
+                ConnectionManager.logging.info(f"found device {key} with name {adv.local_name}")
                 filtered_devices.append(device.address)
         return filtered_devices
 
@@ -235,8 +235,9 @@ class ConnectionManager:
 
         self.logging.debug("sending raw data to device")
         ble_packet_size = await self.get_max_bytes_per_chunk(response)
+        chunk_count = -(-len(data) // ble_packet_size)
         for packet in range(0, len(data), ble_packet_size):
-            self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {len(data) // ble_packet_size + 1}")
+            self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
             await self.client.write_gatt_char(
                 char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
                 data=data[packet:packet + ble_packet_size],
