@@ -6,13 +6,21 @@ from idotmatrix.modules import IDotMatrixModule
 class MusicSyncModule(IDotMatrixModule):
     logging = logging.getLogger(__name__)
 
-    async def set_mic_type(self, type: int):
+    async def set_mic_type(self, type: int, sensitivity: int = 50):
         """
-        Set the microphone type. Not referenced anywhere in the iDotMatrix Android App. So not used atm.
+        Switches the device to music sync with its built-in microphone, which then reacts to sound on its own,
+        without any audio data being sent. This is what the "microphone" screen of the iDotMatrix Android App does
+        (`BleProtocolN.sendMicCommand1`, which sends the 1-based mode and the sensitivity).
+
+        Tested on a 64x64: modes 1 to 5 show different scenes (a figure, a heart, two frog-like faces, ...) that move
+        to sound and knocks. There is no command to leave the mode, show something else (f.e. the clock) instead.
 
         Args:
-            type (int): type of the Microphone. Unknown what values can be used.
+            type (int): The scene, starting at 1.
+            sensitivity (int): How sensitive the microphone is, 0 to 100. Defaults to 50, like the app.
         """
+        if not 0 <= sensitivity <= 100:
+            raise ValueError("sensitivity must be between 0 and 100")
         data = bytearray(
             [
                 6,
@@ -20,17 +28,20 @@ class MusicSyncModule(IDotMatrixModule):
                 11,
                 128,
                 type % 256,
+                sensitivity,
             ]
         )
         await self._send_bytes(data=data)
 
     async def send_image_rythm(self, value1: int):
         """
-        Set the image rhythm. Not referenced anywhere in the iDotMatrix Android App. When used (tested with values up to 10)
-        it displays a stick figure which dances if the value1 gets changed often enough to a different one.
+        Shows one frame of the "image rhythm" animation. The Android App sends this about every 60 ms with the loudness
+        (1 to 7) of the sound its microphone records, so the animation only moves if it is sent over and over with
+        changing values. Sent once it just shows a still frame. To let the device react to sound on its own use
+        `set_mic_type`.
 
         Args:
-            value1 (int): type of the rhythm? Unknown what values can be used.
+            value1 (int): The loudness, 1 to 7 in the App. Larger values were tested up to 10 and show other frames.
         """
         data = bytearray(
             [
@@ -62,7 +73,8 @@ class MusicSyncModule(IDotMatrixModule):
 
     async def stop_rythm(self):
         """
-        Stops the Microphone Rhythm on the iDotMatrix device.
+        Stops the Microphone Rhythm on the iDotMatrix device. Tested on a 64x64: this does not leave the animation that
+        `set_mic_type` or `send_image_rythm` started, show something else (f.e. the clock) to leave it.
 
         Returns:
             bytearray: Byte array of the command which needs to be sent to the device.
