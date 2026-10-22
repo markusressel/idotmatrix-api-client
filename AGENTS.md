@@ -70,5 +70,5 @@ example*.py              runnable usage examples (need a real device)
 - Ask before changing existing payload bytes, BLE UUIDs, or public method signatures: users depend on them.
 - Do not add dependencies without need; update `pyproject.toml` and `poetry.lock` together (`poetry lock`).
 - Do not commit `.venv/` or `.idea/`.
-- `fonts/` and `images/` are bundled assets; keep license files with them.
+- `idotmatrix/fonts/` and `images/` are bundled assets; keep license files with them.
 - Examples (`example*.py`) hit real hardware. Do not run them in automated checks.

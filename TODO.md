@@ -4,7 +4,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 
 ## 0. Upstream
 
-- [x] Merged PR #12 (BLE MTU fragmentation, fixes #11) and PR #10 (compact fonts) locally in `integrate-prs`; tests rebased on top
+- [x] Merged PR #12 (BLE MTU fragmentation, fixes #11) and PR #10 (compact fonts) upstream; this branch is rebased on top of them
 - [ ] Review / merge those PRs on GitHub (not done, local only)
 
 ## 1. Test coverage
