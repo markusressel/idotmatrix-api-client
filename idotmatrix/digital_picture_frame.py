@@ -14,7 +14,6 @@ from watchdog.observers.polling import PollingObserver
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.connection_manager import ConnectionListener
-from idotmatrix.modules.image import ImageMode
 from idotmatrix.util.file_watch import ImageFileEventHandler
 from idotmatrix.util.image_utils import ResizeMode
 
@@ -57,7 +56,6 @@ class PictureFrameImage:
 
 
 DEFAULT_INTERVAL_SECONDS = 30
-GIF_MODE_SWITCH_DELAY_SECONDS = 2
 
 
 class FileObserverType(Enum):
@@ -108,7 +106,6 @@ class DigitalPictureFrame:
         self._slideshow_task: Task | None = None
 
         self._is_paused: bool = False
-        self._is_in_diy_mode: bool = False
 
     def _setup_connection_listener(self):
         """
@@ -123,7 +120,6 @@ class DigitalPictureFrame:
         async def on_device_disconnected():
             self.logging.debug("Device disconnected, resetting state and pausing slideshow.")
             self._last_set_image = None
-            self._is_in_diy_mode = False
             await self.pause_slideshow()
 
         connection_listener = ConnectionListener(
@@ -447,8 +443,7 @@ class DigitalPictureFrame:
         file_path: PathLike | str
     ):
         self.logging.debug(f"Setting image file: {file_path}")
-        await self._switch_device_to_image_mode()
-        await self.device_client.image.upload_image_file(
+        await self.device_client.image.show_image_file(
             file_path=file_path,
             resize_mode=self.resize_mode,
         )
@@ -459,7 +454,6 @@ class DigitalPictureFrame:
         duration_per_frame_in_ms: int = None
     ):
         self.logging.debug(f"Setting GIF file: {file_path} ({duration_per_frame_in_ms} ms per frame)")
-        await self._switch_device_to_gif_mode()
         await self.device_client.gif.upload_gif_file(
             file_path=file_path,
             resize_mode=self.resize_mode,
@@ -467,22 +461,6 @@ class DigitalPictureFrame:
         )
         # give the device some time to process the GIF
         await sleep(3)
-
-    async def _switch_device_to_image_mode(self):
-        if self._is_in_diy_mode:
-            return
-        self.logging.debug("Switching device to image mode")
-        await self.device_client.image.set_mode(ImageMode.EnableDIY)
-        self._is_in_diy_mode = True
-
-    async def _switch_device_to_gif_mode(self):
-        if not self._is_in_diy_mode:
-            return
-        self.logging.debug("Switching device to GIF mode")
-        await self.device_client.image.set_mode(ImageMode.DisableDIY)
-        await self._show_black_screen()
-        # the device rejects a GIF upload that starts right after the reset
-        await sleep(GIF_MODE_SWITCH_DELAY_SECONDS)
 
     def _add_folder_watch(
         self,
@@ -548,9 +526,7 @@ class DigitalPictureFrame:
 
     async def _show_black_screen(self):
         self._last_set_image = None
-        self._is_in_diy_mode = False
         await self.device_client.color.show_color(color="black")
-        await self.device_client.reset()
 
     def _get_current_image(self) -> PictureFrameImage | PictureFrameGif | PathLike | str | None:
         return self.images[self._current_slideshow_index % len(self.images)] if self.images else None

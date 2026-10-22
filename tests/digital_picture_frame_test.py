@@ -11,7 +11,7 @@ from tests import TestBase
 def _client() -> MagicMock:
     client = MagicMock()
     for path in (
-        "image.set_mode", "image.upload_image_file", "gif.upload_gif_file",
+        "image.show_image_file", "gif.upload_gif_file",
         "color.show_color", "clock.show", "reset", "disconnect",
     ):
         obj = client
@@ -204,9 +204,8 @@ class TestSlideshow(DigitalPictureFrameTestBase):
 
         await self.frame.next()
 
-        self.client.image.set_mode.assert_awaited_once()
-        self.client.image.upload_image_file.assert_awaited_once()
-        self.assertEqual(Path("a.png"), self.client.image.upload_image_file.await_args.kwargs["file_path"])
+        self.client.image.show_image_file.assert_awaited_once()
+        self.assertEqual(Path("a.png"), self.client.image.show_image_file.await_args.kwargs["file_path"])
 
     async def test_next_shows_a_gif(self):
         self.frame.add_image(PictureFrameGif(Path("a.gif")))
@@ -223,7 +222,7 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         for _ in range(3):
             await self.frame.next()
 
-        shown = [call.kwargs["file_path"] for call in self.client.image.upload_image_file.await_args_list]
+        shown = [call.kwargs["file_path"] for call in self.client.image.show_image_file.await_args_list]
         self.assertEqual([Path("a.png"), Path("b.png"), Path("a.png")], shown)
 
     async def test_next_does_not_upload_the_same_image_again(self):
@@ -232,7 +231,7 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         await self.frame.next()
         await self.frame.next()
 
-        self.client.image.upload_image_file.assert_awaited_once()
+        self.client.image.show_image_file.assert_awaited_once()
 
     async def test_next_without_images_shows_a_black_screen_once(self):
         self.frame._last_set_image = PictureFrameImage(Path("a.png"))
@@ -243,50 +242,34 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         self.client.color.show_color.assert_awaited_once_with(color="black")
 
     async def test_next_survives_an_upload_error(self):
-        self.client.image.upload_image_file.side_effect = [RuntimeError("boom"), None]
+        self.client.image.show_image_file.side_effect = [RuntimeError("boom"), None]
         self.frame.add_image(PictureFrameImage(Path("broken.png")))
         self.frame.add_image(PictureFrameImage(Path("ok.png")))
 
         await self.frame.next()
         await self.frame.next()
 
-        self.assertEqual(2, self.client.image.upload_image_file.await_count)
-
-    async def test_gif_upload_waits_after_resetting_the_device(self):
-        events = []
-        self.client.reset.side_effect = lambda: events.append("reset")
-        self.client.gif.upload_gif_file.side_effect = lambda **kwargs: events.append("upload")
-
-        async def record_sleep(seconds):
-            events.append(f"sleep {seconds}")
-
-        self.frame.add_image(PictureFrameImage(Path("a.png")))
-        self.frame.add_image(PictureFrameGif(Path("b.gif")))
-        await self.frame.next()
-        events.clear()
-
-        with patch("idotmatrix.digital_picture_frame.sleep", new=record_sleep):
-            await self.frame.next()
-
-        self.assertEqual(["reset", "sleep 2", "upload", "sleep 3"], events)
+        self.assertEqual(2, self.client.image.show_image_file.await_count)
 
     async def test_missing_file_is_removed_from_the_slideshow(self):
-        self.client.image.upload_image_file.side_effect = FileNotFoundError("gone")
+        self.client.image.show_image_file.side_effect = FileNotFoundError("gone")
         self.frame.add_image(PictureFrameImage(self.root / "gone.png"))
 
         await self.frame.next()
 
         self.assertEqual([], self.frame.images)
 
-    async def test_switching_between_png_and_gif_changes_the_device_mode(self):
+    async def test_switching_between_png_and_gif_needs_no_mode_switch_or_reset(self):
         self.frame.add_image(PictureFrameImage(Path("a.png")))
         self.frame.add_image(PictureFrameGif(Path("b.gif")))
 
-        await self.frame.next()
-        await self.frame.next()
+        for _ in range(4):
+            await self.frame.next()
 
-        modes = [call.args[0].name for call in self.client.image.set_mode.await_args_list]
-        self.assertEqual(["EnableDIY", "DisableDIY"], modes)
+        self.assertEqual(2, self.client.image.show_image_file.await_count)
+        self.assertEqual(2, self.client.gif.upload_gif_file.await_count)
+        self.client.image.set_mode.assert_not_called()
+        self.client.reset.assert_not_awaited()
 
     async def test_start_pause_resume_and_stop(self):
         self.frame.add_image(PictureFrameImage(Path("a.png")))
@@ -311,10 +294,10 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         self.frame.add_image(PictureFrameImage(Path("a.png")))
 
         await self.frame.start_slideshow(interval=1)
-        await _eventually(lambda: self.client.image.upload_image_file.await_count >= 1)
+        await _eventually(lambda: self.client.image.show_image_file.await_count >= 1)
         await self.frame.stop_slideshow()
 
-        self.client.image.upload_image_file.assert_awaited()
+        self.client.image.show_image_file.assert_awaited()
 
     async def test_disconnect_pauses_and_connect_resumes(self):
         listener = self.client.add_connection_listener.call_args.args[0]
