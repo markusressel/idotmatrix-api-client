@@ -109,7 +109,7 @@ async def main():
     #     # text_color_mode=TextColorMode.WHITE,
     #     # text_color=(255, 0, 0),
     #     # text_bg_color=(0, 20, 0),
-    #     # font_path="./fonts/Rain-DRM3.otf",
+    #     # font_path="./idotmatrix/fonts/Rain-DRM3.otf",
     # )
 
     # colours = [(255, 0, 0), (255, 162, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (255, 255, 255)]  # default colours used in the app.

@@ -81,7 +81,7 @@ async def main():
     # Text
     await client.text.show_text(
         text="HELLO WORLD",
-        font_path="./fonts/Rain-DRM3.otf",
+        font_path="./idotmatrix/fonts/Rain-DRM3.otf",
     )
     time.sleep(5)
 

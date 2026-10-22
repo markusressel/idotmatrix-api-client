@@ -42,6 +42,7 @@
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
 * [Usage](#usage)
+* [Fonts](#fonts)
 * [Roadmap](#roadmap)
 * [Contributing](#contributing)
 * [License](#license)
@@ -132,6 +133,102 @@ The `DigitalPictureFrame` can
 * display a static list of images and/or GIFs
 * watch one or more directories for images and GIFs
 * automatically reconnect to the device in case of an error or connection loss
+
+## Fonts
+
+`text.display_text()` (and `TextModule.show_text()`) rasterize each character directly to on/off
+pixels (1-bit, no anti-aliasing) and send it to the device using one of two fixed per-character
+cell sizes:
+
+* a compact **8x16** cell, used automatically whenever every character of the string fits within
+  8px wide / 16px tall
+* the full **16x32** cell, used as a fallback for wider/taller glyphs (to avoid clipping)
+
+Because there's no anti-aliasing step, regular vector fonts (the kind designed for print/screen
+text with serifs, thin strokes, or fine curves) often render with broken strokes, gaps, or lopsided
+shapes at these tiny sizes - especially once a font's fine details get thresholded straight to
+black/white. This shows up as visual "artifacts": jagged edges, disconnected letterforms, or an
+uneven look between different characters of the same font.
+
+**Pixel/bitmap-style fonts** avoid this problem entirely, since they are designed on a fixed pixel
+grid to begin with (no fine detail to lose) and render cleanly at any size that's a clean multiple
+of their native grid.
+
+### `font_size` doesn't grow the per-character cell
+
+The 8x16/16x32 cell picked above is **fixed in pixel width** (8px or 16px) regardless of the
+`font_size` you pass in - `font_size` only changes how big the glyph is drawn *within* that fixed
+cell, it never widens the cell itself. Each character's cell bitmap is then sent back-to-back with
+no extra spacing added between characters.
+
+This means a font that isn't specifically designed to stay narrow at the `font_size` you're using
+will render a glyph that fills (or even overflows) the entire 8px/16px cell width, leaving no blank
+margin to act as letter-spacing - so consecutive characters end up touching or overlapping. This is
+why the same font can look perfectly fine at one `font_size` and become illegible at a larger one:
+a font's glyph width generally scales with `font_size`, but the cell width doesn't.
+
+The bundled default (`Rain-DRM3.otf`) works around this by being intentionally narrow relative to
+its point size, so it still leaves a gap even at larger sizes. Most other fonts need a specific,
+manually-verified `font_size` to look right - see the naming convention below.
+
+### Bundled fonts
+
+The [`idotmatrix/fonts/`](idotmatrix/fonts/) directory is part of the installed package and ships a selection of pixel/bitmap fonts (with their respective
+license files) that have been verified to render cleanly. Each filename (other than the default) is
+prefixed with the `font_size` value(s) it has been manually tested and confirmed to render with
+legible spacing between characters - always pass a matching `font_size`, since (per above) using a
+larger one than the font was designed for will make characters touch/overlap:
+
+| Font file(s) | Recommended `font_size` | Notes |
+| --- | --- | --- |
+| `16-PressStart2P-Regular.ttf` | 16 | Classic 8x8 arcade-style pixel font. Most reliable default at size 16. |
+| `16-dogica.ttf`, `16-dogicabold.ttf`, `16-dogicapixel.ttf`, `16-dogicapixelbold.ttf` | 16 | Small pixel-grid font family, regular/bold/"pixel" variants. |
+| `16-PixelOperator8.ttf`, `16-PixelOperator8-Bold.ttf` | 16 | 8px-grid pixel font family. |
+| `16-MinecraftStandard.otf`, `16-MinecraftStandardBoldOblique.otf` | 16 | Blocky pixel-grid font, good legibility at small sizes. |
+| `16-ErbosDraco1StOpenNbpRegular-l5wX.ttf` | 16 | Narrow pixel-style font (fits the compact 8x16 cell at size 16). |
+| `16-PixelifySans-Regular.ttf` | 16 | Rounded pixel-grid font. |
+| `16_32-HomeVideo-BLG6G.ttf`, `16_32-HomeVideoBold-R90Dv.ttf` | 16 or 32 | Wider retro/VHS-style font, verified to keep readable spacing at both sizes. |
+| `16_32-MayfairNbpBold-gAA4.ttf` | 16 or 32 | Bold pixel-style display font, verified to keep readable spacing at both sizes. |
+| `32-Jersey10-Regular.ttf` | 32 | Retro digital/LCD-style font, verified at size 32. |
+| `Rain-DRM3.otf` | any | Default font, used when no `font_path` is given. Narrow enough to stay legible across sizes. |
+
+Pick whichever fits your desired look, but stick to the recommended `font_size`(s) listed above (or
+your own tested size) for that font - otherwise characters may run into each other. Narrower fonts
+(that fit within 8px wide per character at the size used) will also get tighter, more compact text
+since they qualify for the 8x16 cell instead of the 16x32 one.
+
+### Font licenses
+
+Each font keeps its own license, shipped next to it in `idotmatrix/fonts/`. They do not change the
+license of this library's code.
+
+| Font(s) | License |
+| --- | --- |
+| Rain-DRM3, Dogica, Press Start 2P, Pixelify Sans, Jersey 10 | [SIL Open Font License 1.1](https://openfontlicense.org) |
+| Pixel Operator | CC0 1.0 |
+| Home Video, Minecraft Standard | Public Domain |
+| Erbos Draco 1st Open NBP ([source](https://www.fontspace.com/erbos-draco-monospaced-nbp-font-f14579)) | [CC BY-SA](idotmatrix/fonts/CC-BY-SA-4.0-License.txt) |
+| Mayfair NBP Bold ([source](https://www.fontspace.com/mayfair-nbp-font-f15853)) | [CC BY-SA](idotmatrix/fonts/CC-BY-SA-4.0-License.txt) |
+
+The two CC BY-SA fonts are redistributed unmodified. Copies of derived fonts must be shared under the
+same license, with attribution to the original authors (see the links above).
+
+### Finding more fonts
+
+When looking for additional fonts, search for:
+
+* `pixel font` / `bitmap font`
+* `8x8 font`, `5x7 font`, `dot matrix font`
+* `LED font` / `LCD font`
+* `retro pixel font` / `monospace pixel font`
+
+Good sources: [dafont.com/bitmap.php](https://www.dafont.com/bitmap.php),
+[fontspace.com's pixel-fonts tag](https://www.fontspace.com/pixel-fonts)
+
+Always test a new font at the font size you intend to use before committing to it - some
+pixel-style fonts are only pixel-perfect at their native design size and look uneven at others.
+Check each font's license before bundling/redistributing it (see the existing `*-License.txt`
+files next to each font in [`idotmatrix/fonts/`](idotmatrix/fonts/) for examples).
 
 ## Roadmap
 
