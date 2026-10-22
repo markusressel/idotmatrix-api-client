@@ -102,6 +102,15 @@ class TestConnectionManager(TestBase):
         self.assertEqual(ADDRESS, under_test.address)
         self.assertTrue(under_test.is_connected())
 
+    async def test_connect_of_one_manager_is_not_blocked_by_another(self):
+        first = ConnectionManager(address=ADDRESS)
+        second = ConnectionManager(address=ADDRESS)
+
+        async with first._lock:
+            await asyncio.wait_for(second.connect(), timeout=2)
+
+        self.assertTrue(second.is_connected())
+
     async def test_connect_by_discovery_no_devices(self):
         under_test = ConnectionManager()
         under_test.discover_devices = AsyncMock(return_value=[])

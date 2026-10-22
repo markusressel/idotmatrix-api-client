@@ -26,9 +26,6 @@ class ConnectionListener:
         self.on_disconnected = on_disconnected
 
 
-connection_manager_lock = asyncio.Lock()
-
-
 class ConnectionManager:
     logging = logging.getLogger(__name__)
 
@@ -53,6 +50,7 @@ class ConnectionManager:
             self.set_address(address)
 
         self._connected = False
+        self._lock = asyncio.Lock()
 
         self._auto_reconnect = False
         self._is_auto_reconnect_active = False
@@ -163,7 +161,7 @@ class ConnectionManager:
             return
 
         newly_connected = False
-        async with connection_manager_lock:
+        async with self._lock:
             if self._auto_reconnect:
                 self._is_auto_reconnect_active = True
 
@@ -198,7 +196,7 @@ class ConnectionManager:
         """
         # Disable auto-reconnect during active disconnection, it will be re-enabled on active connection attempt
         self._is_auto_reconnect_active = False
-        async with connection_manager_lock:
+        async with self._lock:
             if self._reconnect_loop_task:
                 self._reconnect_loop_task.cancel()
                 self._reconnect_loop_task = None
