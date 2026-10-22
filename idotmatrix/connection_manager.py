@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from asyncio import Task
 from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
@@ -32,6 +33,10 @@ UPLOAD_ACK_TIMEOUT_SECONDS = 5
 
 # the device answers normal commands within a few milliseconds
 COMMAND_ACK_TIMEOUT_SECONDS = 1
+
+# a command that the device rejects (status 0) on purpose: it changes nothing, but its answer proves that the device is alive
+HEARTBEAT_COMMAND = bytes([5, 0, 4, 128, 255])
+HEARTBEAT_ACK_TIMEOUT_SECONDS = 3
 
 RECONNECT_INITIAL_DELAY_SECONDS = 5
 RECONNECT_MAX_DELAY_SECONDS = 60
@@ -71,6 +76,12 @@ class ConnectionManager:
 
         self._connected = False
         self._lock = asyncio.Lock()
+        # commands and uploads must not be mixed, f.e. an acknowledgement belongs to the last command written
+        self._io_lock = asyncio.Lock()
+
+        self._heartbeat_interval: Optional[float] = None
+        self._heartbeat_task: Optional[Task] = None
+        self._last_activity = time.monotonic()
 
         self._auto_reconnect = False
         self._is_auto_reconnect_active = False
@@ -201,7 +212,9 @@ class ConnectionManager:
                 # the negotiated MTU can differ between connections, so it has to be detected again
                 self._ble_packet_size = None
                 self.logging.info(f"connected to {self.address}")
+                self._last_activity = time.monotonic()
                 await self._subscribe_to_notifications()
+                self._update_heartbeat()
 
                 # print service and characteristic information for debugging
                 for service in self.client.services:
@@ -225,6 +238,7 @@ class ConnectionManager:
         """
         # Disable auto-reconnect during active disconnection, it will be re-enabled on active connection attempt
         self._is_auto_reconnect_active = False
+        self._stop_heartbeat()
         async with self._lock:
             if self._reconnect_loop_task:
                 self._reconnect_loop_task.cancel()
@@ -264,29 +278,30 @@ class ConnectionManager:
         Raises:
             CommandRejectedError: If the device rejects the command.
         """
-        if not self.is_connected():
-            await self.connect()
+        async with self._io_lock:
+            if not self.is_connected():
+                await self.connect()
 
-        if wait_for_ack is None:
-            wait_for_ack = is_acknowledged_command(data)
-        wait_for_ack = wait_for_ack and self._notifications_available
-        if wait_for_ack:
-            # leftovers of earlier commands must not be taken for the acknowledgement of this one
-            self._notifications = asyncio.Queue()
+            if wait_for_ack is None:
+                wait_for_ack = is_acknowledged_command(data)
+            wait_for_ack = wait_for_ack and self._notifications_available
+            if wait_for_ack:
+                # leftovers of earlier commands must not be taken for the acknowledgement of this one
+                self._notifications = asyncio.Queue()
 
-        self.logging.debug("sending raw data to device")
-        ble_packet_size = await self.get_max_bytes_per_chunk(response)
-        chunk_count = -(-len(data) // ble_packet_size)
-        for packet in range(0, len(data), ble_packet_size):
-            self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
-            await self.client.write_gatt_char(
-                char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
-                data=data[packet:packet + ble_packet_size],
-                response=response)
+            self.logging.debug("sending raw data to device")
+            ble_packet_size = await self.get_max_bytes_per_chunk(response)
+            chunk_count = -(-len(data) // ble_packet_size)
+            for packet in range(0, len(data), ble_packet_size):
+                self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
+                await self.client.write_gatt_char(
+                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
+                    data=data[packet:packet + ble_packet_size],
+                    response=response)
 
-        return wait_for_ack and await self._wait_for_command_ack(bytes(data))
+            return wait_for_ack and await self._wait_for_command_ack(bytes(data))
 
-    async def _wait_for_command_ack(self, command: bytes) -> bool:
+    async def _wait_for_command_ack(self, command: bytes, timeout: float = None) -> bool:
         """
         Waits for the acknowledgement of a command, which has the form `05 00 <command> <subcommand> <status>`.
         Returns:
@@ -296,7 +311,7 @@ class ConnectionManager:
         """
         expected = (command[2], command[3])
         try:
-            async with asyncio.timeout(COMMAND_ACK_TIMEOUT_SECONDS):
+            async with asyncio.timeout(timeout or COMMAND_ACK_TIMEOUT_SECONDS):
                 while True:
                     notification = await self._notifications.get()
                     if len(notification) >= 5 and notification[0:2] == b"\x05\x00" and \
@@ -304,7 +319,7 @@ class ConnectionManager:
                         break
         except TimeoutError:
             self.logging.warning(
-                f"the device did not acknowledge the command {command.hex()} within {COMMAND_ACK_TIMEOUT_SECONDS} seconds")
+                f"the device did not acknowledge the command {command.hex()} within {timeout or COMMAND_ACK_TIMEOUT_SECONDS} seconds")
             return False
 
         if notification[4] == 0:
@@ -326,6 +341,7 @@ class ConnectionManager:
 
     def _on_notification(self, _characteristic, data: bytearray) -> None:
         self.logging.debug(f"received notification: {bytes(data).hex()}")
+        self._last_activity = time.monotonic()
         self._notifications.put_nowait(bytes(data))
 
     async def _wait_for_upload_status(self) -> UploadStatus:
@@ -371,47 +387,48 @@ class ConnectionManager:
         Raises:
             UploadError: If wait_for_ack is set and the device rejects a packet or does not answer in time.
         """
-        if len(packets) == 0:
-            self.logging.warning("no packets to send, skipping")
-            return
-        if not self.is_connected():
-            await self.connect()
+        async with self._io_lock:
+            if len(packets) == 0:
+                self.logging.warning("no packets to send, skipping")
+                return
+            if not self.is_connected():
+                await self.connect()
 
-        total_byte_count = 0
-        for packet in packets:
-            for ble_packet in packet:
-                total_byte_count += len(ble_packet)
+            total_byte_count = 0
+            for packet in packets:
+                for ble_packet in packet:
+                    total_byte_count += len(ble_packet)
 
-        self.logging.debug(
-            f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes"
-        )
+            self.logging.debug(
+                f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes"
+            )
 
-        # All but the last BLE packet of each packet are sent without response,
-        # so every one of them has to fit into a single write-without-response.
-        ble_packet_size = await self.get_max_bytes_per_chunk(response=False)
-        self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
-        packets = self._split_oversized_ble_packets(packets, ble_packet_size)
+            # All but the last BLE packet of each packet are sent without response,
+            # so every one of them has to fit into a single write-without-response.
+            ble_packet_size = await self.get_max_bytes_per_chunk(response=False)
+            self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
+            packets = self._split_oversized_ble_packets(packets, ble_packet_size)
 
-        wait_for_ack = wait_for_ack and self._notifications_available
-        if wait_for_ack:
-            # leftovers of earlier commands must not be taken for the acknowledgement of the first packet
-            self._notifications = asyncio.Queue()
-
-        for i, packet in enumerate(packets):
-            for j, ble_paket in enumerate(packet):
-                self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
-                wait_for_response = response if j == len(packet) - 1 else False
-                await self.client.write_gatt_char(
-                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
-                    data=ble_paket,
-                    response=wait_for_response
-                )
+            wait_for_ack = wait_for_ack and self._notifications_available
             if wait_for_ack:
-                status = await self._wait_for_upload_status()
-                if status == UploadStatus.FINISHED and i < len(packets) - 1:
-                    # f.e. the device already has the same data stored
-                    self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
-                    return
+                # leftovers of earlier commands must not be taken for the acknowledgement of the first packet
+                self._notifications = asyncio.Queue()
+
+            for i, packet in enumerate(packets):
+                for j, ble_paket in enumerate(packet):
+                    self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
+                    wait_for_response = response if j == len(packet) - 1 else False
+                    await self.client.write_gatt_char(
+                        char_specifier=UUID_CHARACTERISTIC_WRITE_DATA,
+                        data=ble_paket,
+                        response=wait_for_response
+                    )
+                if wait_for_ack:
+                    status = await self._wait_for_upload_status()
+                    if status == UploadStatus.FINISHED and i < len(packets) - 1:
+                        # f.e. the device already has the same data stored
+                        self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
+                        return
 
     @staticmethod
     def _split_oversized_ble_packets(
@@ -517,8 +534,17 @@ class ConnectionManager:
         if not self.is_connected():
             return
 
-        self._connected = False
         self.logging.info(f"disconnected from {client.address}")
+        self._handle_disconnect()
+
+    def _handle_disconnect(self):
+        """
+        Reacts to a lost connection: informs the listeners and starts to reconnect if that is enabled.
+        """
+        if not self._connected:
+            return
+        self._connected = False
+        self._stop_heartbeat()
         for listener in self._connection_listeners:
             if listener.on_disconnected:
                 asyncio.ensure_future(listener.on_disconnected())
@@ -528,6 +554,77 @@ class ConnectionManager:
             # Start the reconnect loop if not already running
             if self._reconnect_loop_task is None or self._reconnect_loop_task.done():
                 self._reconnect_loop_task = asyncio.create_task(self._reconnect_loop())
+
+    def set_heartbeat(self, interval_seconds: Optional[float]) -> None:
+        """
+        Enables or disables a heartbeat that detects a link that died without the BLE stack noticing, which can
+        happen when the device is powered off or goes out of range. While nothing was received from the device for
+        the given time, a command is sent that the device answers without changing anything. If the answer is
+        missing, the link is closed, the connection listeners are informed and, if enabled, the connection is
+        restored (see `set_auto_reconnect`).
+        Args:
+            interval_seconds (Optional[float]): How long the device may be silent before it is checked, or None to disable.
+        Raises:
+            ValueError: If the interval is not positive.
+        """
+        if interval_seconds is not None and interval_seconds <= 0:
+            raise ValueError("The heartbeat interval must be greater than 0 seconds.")
+        self._heartbeat_interval = interval_seconds
+        self._update_heartbeat()
+
+    def _update_heartbeat(self) -> None:
+        """Starts or stops the heartbeat task, depending on the settings and the state of the connection."""
+        self._stop_heartbeat()
+        if self._heartbeat_interval and self._connected and self._notifications_available:
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    def _stop_heartbeat(self) -> None:
+        if self._heartbeat_task:
+            if self._heartbeat_task is not asyncio.current_task():
+                self._heartbeat_task.cancel()
+            self._heartbeat_task = None
+
+    async def _heartbeat_loop(self):
+        interval = self._heartbeat_interval
+        while True:
+            # anything the device sends proves that it is alive, so there is no need to ask
+            silent_for = time.monotonic() - self._last_activity
+            if silent_for < interval:
+                await asyncio.sleep(interval - silent_for)
+                continue
+
+            if not await self._device_answers():
+                self.logging.warning(f"the device does not answer, closing the connection to {self.address}")
+                await self._close_dead_link()
+                return
+
+    async def _device_answers(self) -> bool:
+        try:
+            async with self._io_lock:
+                self._notifications = asyncio.Queue()
+                await self.client.write_gatt_char(
+                    char_specifier=UUID_CHARACTERISTIC_WRITE_DATA, data=HEARTBEAT_COMMAND, response=True)
+                try:
+                    return await self._wait_for_command_ack(HEARTBEAT_COMMAND, HEARTBEAT_ACK_TIMEOUT_SECONDS)
+                except CommandRejectedError:
+                    return True  # rejected on purpose
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            self.logging.warning(f"could not reach the device: {e}")
+            return False
+
+    async def _close_dead_link(self):
+        """Closes a link that does not work anymore, so that a fresh connection can be made."""
+        self._handle_disconnect()
+        try:
+            async with asyncio.timeout(HEARTBEAT_ACK_TIMEOUT_SECONDS):
+                await self.client.disconnect()
+        except Exception as e:
+            self.logging.debug(f"error while closing the dead link: {e}")
+        # the old client may still believe that it is connected, so it is not used again
+        self.client = None
+        self._create_ble_client()
 
     async def _reconnect_loop(self):
         """

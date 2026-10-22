@@ -1,13 +1,11 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
-from idotmatrix.connection_manager import CommandRejectedError, ConnectionManager, UploadError
-from idotmatrix.const import UUID_READ_DATA
+from idotmatrix.connection_manager import CommandRejectedError, UploadError
 from idotmatrix.util.command_ack import is_acknowledged_command
 from idotmatrix.util.upload_ack import UploadStatus, parse_upload_notification
 from tests import TestBase
-
-ADDRESS = "00:11:22:33:44:55"
+from tests.fake_device import FakeDeviceTestBase
 
 GIF_NEXT = bytes.fromhex("0500010001")
 GIF_FINISHED = bytes.fromhex("0500010003")
@@ -35,49 +33,6 @@ class TestParseUploadNotification(TestBase):
 
     def test_longer_notifications_are_parsed_by_their_first_bytes(self):
         self.assertEqual(UploadStatus.NEXT, parse_upload_notification(GIF_NEXT + b"\x00\x00"))
-
-
-class FakeDeviceTestBase(TestBase):
-
-    def setUp(self):
-        patcher = patch("idotmatrix.connection_manager.BleakClient")
-        bleak_client_cls = patcher.start()
-        self.addCleanup(patcher.stop)
-
-        self.client = MagicMock()
-        self.client.is_connected = False
-        self.client.mtu_size = None
-        self.client._backend = MagicMock(spec=[])
-        self.client.services = MagicMock()
-        self.client.services.__iter__.return_value = iter([])
-        self.client.services.get_characteristic.return_value.max_write_without_response_size = 514
-        self.client.disconnect = AsyncMock()
-        self.client.read_gatt_char = AsyncMock()
-        self.events = []
-        self.listener = None
-        self.replies = []
-        self.reply_to_any_write = False
-
-        async def connect():
-            self.client.is_connected = True
-
-        async def start_notify(uuid, callback):
-            self.assertEqual(UUID_READ_DATA, uuid)
-            self.listener = callback
-
-        async def write(char_specifier, data, response):
-            self.events.append(("write", bytes(data)))
-            # the device answers once a full protocol packet has been received
-            if (response or self.reply_to_any_write) and self.replies:
-                self.listener(None, bytearray(self.replies.pop(0)))
-
-        self.client.connect = AsyncMock(side_effect=connect)
-        self.client.start_notify = AsyncMock(side_effect=start_notify)
-        self.client.write_gatt_char = AsyncMock(side_effect=write)
-        bleak_client_cls.return_value = self.client
-
-        self.under_test = ConnectionManager(address=ADDRESS)
-
 
 
 class TestUploadFlowControl(FakeDeviceTestBase):
