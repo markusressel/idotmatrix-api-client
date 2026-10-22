@@ -85,10 +85,10 @@ class GifModule(IDotMatrixModule):
 
     async def clear_storage(self) -> None:
         """
-        Deletes all GIFs (and other materials) that are stored on the device.
+        Deletes all materials that are stored on the device. This is the command the official app
+        sends when the user deletes the materials on the device. Not verified on a real device yet.
 
-        The device keeps every uploaded GIF and rejects new uploads once its storage is full.
-        Uploading a GIF the device already has stored is fast, because the device skips it.
+        Uploading a GIF the device already has is fast, because the device skips the transfer.
         """
         data = bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
         await self._send_bytes(data=data, response=True)

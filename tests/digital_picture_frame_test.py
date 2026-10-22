@@ -4,7 +4,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from idotmatrix.connection_manager import UploadError
 from idotmatrix.digital_picture_frame import DigitalPictureFrame, PictureFrameGif, PictureFrameImage
 from tests import TestBase
 
@@ -253,27 +252,23 @@ class TestSlideshow(DigitalPictureFrameTestBase):
 
         self.assertEqual(2, self.client.image.upload_image_file.await_count)
 
-    async def test_full_device_storage_is_cleared_and_the_gif_uploaded_again(self):
-        self.client.gif.clear_storage = AsyncMock()
-        self.client.gif.upload_gif_file.side_effect = [UploadError("no space"), None]
-        self.frame.add_image(PictureFrameGif(Path("a.gif")))
+    async def test_gif_upload_waits_after_resetting_the_device(self):
+        events = []
+        self.client.reset.side_effect = lambda: events.append("reset")
+        self.client.gif.upload_gif_file.side_effect = lambda **kwargs: events.append("upload")
 
+        async def record_sleep(seconds):
+            events.append(f"sleep {seconds}")
+
+        self.frame.add_image(PictureFrameImage(Path("a.png")))
+        self.frame.add_image(PictureFrameGif(Path("b.gif")))
         await self.frame.next()
+        events.clear()
 
-        self.client.gif.clear_storage.assert_awaited_once()
-        self.assertEqual(2, self.client.gif.upload_gif_file.await_count)
-        self.assertEqual(Path("a.gif"), self.frame._last_set_image.file_path)
+        with patch("idotmatrix.digital_picture_frame.sleep", new=record_sleep):
+            await self.frame.next()
 
-    async def test_gif_is_skipped_if_it_is_rejected_after_clearing_the_storage(self):
-        self.client.gif.clear_storage = AsyncMock()
-        self.client.gif.upload_gif_file.side_effect = UploadError("too large")
-        self.frame.add_image(PictureFrameGif(Path("a.gif")))
-
-        await self.frame.next()
-
-        self.client.gif.clear_storage.assert_awaited_once()
-        self.assertEqual(2, self.client.gif.upload_gif_file.await_count)
-        self.assertNotEqual(PictureFrameGif(Path("a.gif")), self.frame._last_set_image)
+        self.assertEqual(["reset", "sleep 2", "upload", "sleep 3"], events)
 
     async def test_missing_file_is_removed_from_the_slideshow(self):
         self.client.image.upload_image_file.side_effect = FileNotFoundError("gone")

@@ -13,7 +13,7 @@ from watchdog.observers.inotify import InotifyObserver
 from watchdog.observers.polling import PollingObserver
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.connection_manager import ConnectionListener, UploadError
+from idotmatrix.connection_manager import ConnectionListener
 from idotmatrix.modules.image import ImageMode
 from idotmatrix.util.file_watch import ImageFileEventHandler
 from idotmatrix.util.image_utils import ResizeMode
@@ -57,6 +57,7 @@ class PictureFrameImage:
 
 
 DEFAULT_INTERVAL_SECONDS = 30
+GIF_MODE_SWITCH_DELAY_SECONDS = 2
 
 
 class FileObserverType(Enum):
@@ -459,23 +460,13 @@ class DigitalPictureFrame:
     ):
         self.logging.debug(f"Setting GIF file: {file_path} ({duration_per_frame_in_ms} ms per frame)")
         await self._switch_device_to_gif_mode()
-        try:
-            await self._upload_gif(file_path, duration_per_frame_in_ms)
-        except UploadError as e:
-            # the device keeps every GIF it received and rejects new ones when its storage is full
-            self.logging.warning(f"The device rejected the GIF ({e}), clearing its GIF storage and trying again.")
-            await self.device_client.gif.clear_storage()
-            await sleep(1)
-            await self._upload_gif(file_path, duration_per_frame_in_ms)
-        # give the device some time to process the GIF
-        await sleep(3)
-
-    async def _upload_gif(self, file_path: PathLike | str, duration_per_frame_in_ms: int = None):
         await self.device_client.gif.upload_gif_file(
             file_path=file_path,
             resize_mode=self.resize_mode,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
+        # give the device some time to process the GIF
+        await sleep(3)
 
     async def _switch_device_to_image_mode(self):
         if self._is_in_diy_mode:
@@ -490,6 +481,8 @@ class DigitalPictureFrame:
         self.logging.debug("Switching device to GIF mode")
         await self.device_client.image.set_mode(ImageMode.DisableDIY)
         await self._show_black_screen()
+        # the device rejects a GIF upload that starts right after the reset
+        await sleep(GIF_MODE_SWITCH_DELAY_SECONDS)
 
     def _add_folder_watch(
         self,

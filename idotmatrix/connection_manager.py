@@ -285,7 +285,8 @@ class ConnectionManager:
         try:
             async with asyncio.timeout(UPLOAD_ACK_TIMEOUT_SECONDS):
                 while True:
-                    status = parse_upload_notification(await self._notifications.get())
+                    notification = await self._notifications.get()
+                    status = parse_upload_notification(notification)
                     if status is not None:
                         break
         except TimeoutError:
@@ -293,7 +294,7 @@ class ConnectionManager:
                 f"the device did not acknowledge the upload within {UPLOAD_ACK_TIMEOUT_SECONDS} seconds") from None
 
         if status == UploadStatus.ERROR:
-            raise UploadError("the device rejected the upload (is there enough space left?)")
+            raise UploadError(f"the device rejected the upload (notification {notification.hex()})")
         return status
 
     async def send_packets(

@@ -145,7 +145,7 @@ class TestUploadFlowControl(TestBase):
     async def test_raises_if_the_device_rejects_the_upload(self):
         self.replies = [GIF_NEXT, bytes.fromhex("0500010002")]
 
-        with self.assertRaises(UploadError):
+        with self.assertRaisesRegex(UploadError, "0500010002"):
             await self.under_test.send_packets([[b"a"], [b"b"], [b"c"]], response=True, wait_for_ack=True)
 
         self.assertEqual(2, len(self.events))
