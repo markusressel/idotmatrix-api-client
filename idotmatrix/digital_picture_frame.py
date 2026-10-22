@@ -238,7 +238,11 @@ class DigitalPictureFrame:
             image (PictureFrameImage | PictureFrameGif | PathLike | str): The image or GIF to remove.
         """
         if image in self.images:
-            self.images.remove(image)
+            index = self.images.index(image)
+            self.images.pop(index)
+            if index <= self._current_slideshow_index:
+                # keep pointing at the same image, so that the next one is not skipped
+                self._current_slideshow_index -= 1
             self.logging.info(f"Removed image: {image}")
         else:
             self.logging.warning(f"Image not found in slideshow: {image}")
@@ -400,7 +404,6 @@ class DigitalPictureFrame:
                 if isinstance(ex, FileNotFoundError):
                     # the file is gone, so there is no point in trying it again on every round
                     self.remove_image(next_image)
-                    self._current_slideshow_index -= 1
                 return
             if len(self.images) > 1:
                 self.logging.info(f"Displaying image '{image_path}'.")

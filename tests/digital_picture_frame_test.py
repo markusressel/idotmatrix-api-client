@@ -251,6 +251,73 @@ class TestSlideshow(DigitalPictureFrameTestBase):
 
         self.assertEqual(2, self.client.image.show_image_file.await_count)
 
+    def _shown(self):
+        return [call.kwargs["file_path"].name for call in self.client.image.show_image_file.await_args_list]
+
+    def _add_pngs(self, *names):
+        for name in names:
+            self.frame.add_image(PictureFrameImage(Path(name)))
+
+    async def test_removing_an_image_before_the_current_one_does_not_skip_an_image(self):
+        self._add_pngs("a.png", "b.png", "c.png", "d.png")
+        await self.frame.next()
+        await self.frame.next()  # showing b.png
+
+        self.frame.remove_image(Path("a.png"))
+        await self.frame.next()
+
+        self.assertEqual(["a.png", "b.png", "c.png"], self._shown())
+
+    async def test_removing_the_current_image_does_not_skip_an_image(self):
+        self._add_pngs("a.png", "b.png", "c.png", "d.png")
+        await self.frame.next()
+        await self.frame.next()  # showing b.png
+
+        self.frame.remove_image(Path("b.png"))
+        await self.frame.next()
+
+        self.assertEqual(["a.png", "b.png", "c.png"], self._shown())
+
+    async def test_removing_an_image_after_the_current_one_changes_nothing(self):
+        self._add_pngs("a.png", "b.png", "c.png", "d.png")
+        await self.frame.next()
+
+        self.frame.remove_image(Path("d.png"))
+        await self.frame.next()
+        await self.frame.next()
+        await self.frame.next()
+
+        self.assertEqual(["a.png", "b.png", "c.png", "a.png"], self._shown())
+
+    async def test_removing_the_first_image_while_it_is_showing(self):
+        self._add_pngs("a.png", "b.png")
+        await self.frame.next()
+
+        self.frame.remove_image(Path("a.png"))
+        await self.frame.next()
+
+        self.assertEqual(["a.png", "b.png"], self._shown())
+
+    async def test_removing_all_images_and_adding_one_again(self):
+        self._add_pngs("a.png")
+        await self.frame.next()
+        self.frame.remove_image(Path("a.png"))
+        await self.frame.next()
+
+        self._add_pngs("b.png")
+        await self.frame.next()
+
+        self.assertEqual(["a.png", "b.png"], self._shown())
+
+    async def test_missing_file_does_not_make_the_slideshow_skip_the_next_image(self):
+        self.client.image.show_image_file.side_effect = [FileNotFoundError("gone"), None]
+        self._add_pngs("gone.png", "b.png", "c.png")
+
+        await self.frame.next()
+        await self.frame.next()
+
+        self.assertEqual(["gone.png", "b.png"], self._shown())
+
     async def test_missing_file_is_removed_from_the_slideshow(self):
         self.client.image.show_image_file.side_effect = FileNotFoundError("gone")
         self.frame.add_image(PictureFrameImage(self.root / "gone.png"))
