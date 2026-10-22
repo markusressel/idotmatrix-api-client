@@ -42,7 +42,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [x] Remove duplicate address assignment in `IDotMatrixClient.__init__`
 - [x] Stop touching `client._backend.address`
 - [x] Reconnect loop backoff
-- [ ] Cache module instances in `IDotMatrixClient`
+- [x] Cache module instances in `IDotMatrixClient`
 
 ## 4. Larger ideas (not started)
 

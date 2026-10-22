@@ -77,6 +77,13 @@ class TestIDotMatrixClient(TestBase):
                 self.assertIsInstance(module, module_cls)
                 self.assertIs(self.manager, module._connection_manager)
 
+    def test_modules_are_created_once(self):
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32)
+        for attr in ("chronograph", "clock", "common", "countdown", "eco", "effect", "color", "gif", "graffiti",
+                     "image", "music_sync", "scoreboard", "system", "text"):
+            with self.subTest(module=attr):
+                self.assertIs(getattr(client, attr), getattr(client, attr))
+
     def test_screen_size_is_passed_to_sized_modules(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_16x16)
         self.assertEqual(ScreenSize.SIZE_16x16, client.gif.screen_size)
