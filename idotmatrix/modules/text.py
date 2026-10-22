@@ -90,6 +90,7 @@ class TextModule(IDotMatrixModule):
             text_bg_color = color_utils.parse_color_rgb(text_bg_color)
 
         data = self._build_string_packet(
+            num_chars=len(text),
             text_mode=text_mode,
             speed=speed,
             text_color_mode=text_color_mode,
@@ -107,6 +108,7 @@ class TextModule(IDotMatrixModule):
     def _build_string_packet(
         self,
         text_bitmaps: bytearray,
+        num_chars: int,
         text_mode: int,
         speed: int = 95,
         text_color_mode: int = 0,
@@ -118,6 +120,7 @@ class TextModule(IDotMatrixModule):
 
         Args:
             text_bitmaps (bytearray): bitmap list of the text characters
+            num_chars (int): number of characters in text_bitmaps
             text_mode (int, optional): Text mode. 0 = replace text, 1 = marquee, 2 = reversed marquee, 3 = vertical rising marquee, 4 = vertical lowering marquee, 5 = blinking, 6 = fading, 7 = tetris, 8 = filling
             speed (int, optional): Speed of Text. Defaults to 95.
             text_color_mode (int, optional): Text Color Mode. Defaults to 0. 0 = white, 1 = use given RGB color, 2,3,4,5 = rainbow modes
@@ -128,8 +131,6 @@ class TextModule(IDotMatrixModule):
         Returns:
             bytearray: A bytearray containing the complete packet to be sent to the iDotMatrix device.
         """
-        num_chars = text_bitmaps.count(self.separator)
-
         text_metadata = bytearray(
             [
                 0,
