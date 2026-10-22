@@ -96,13 +96,15 @@ arguments are out of range silently, the acknowledgement is the only way to noti
 No acknowledgement came for `set_speed`, `set_joint`, an unknown command (`05 00 63 80 01`) and a command whose length
 byte does not match (`09 00 04 80 32`). Knocking on the display or other events do not produce notifications either.
 
-`send_bytes(wait_for_ack=True)` waits for the acknowledgement of the command (matched by command and subcommand, so
-other notifications are skipped) and raises `CommandRejectedError` for status `00`. A missing acknowledgement is only
-logged. It is used for the commands that were verified to be acknowledged: brightness, flip, screen on and off, clock,
+`send_bytes` waits for the acknowledgement of commands that are known to be acknowledged (the list is
+`ACKNOWLEDGED_COMMANDS` in `util/command_ack.py`, matched by command and subcommand, other notifications are skipped) and
+raises `CommandRejectedError` for status `00`. A missing acknowledgement is only logged. `wait_for_ack=True/False`
+forces or disables it. The list holds the commands that were verified: brightness, flip, screen on and off, clock,
 fullscreen color, effects, countdown, chronograph, scoreboard and the microphone mode. These take 25-45 ms on the 64x64
-(the clock 125 ms) and need no pause afterwards. Not used for `set_speed`, `set_joint`, `set_time`, `set_password`
-and freeze, whose answers are missing or have another meaning. Still open: a heartbeat that detects a silently dead
-link (see TODO.md).
+(the clock 125 ms), and the modules skip the 0.5 s pause they used to make after a command. `set_speed` and
+`set_joint` are never acknowledged, freeze, text and `set_time` are answered differently, so they are not in the list.
+Add a command to the list once its acknowledgement was verified on a device. Still open: a heartbeat that detects
+a silently dead link (see TODO.md).
 
 A third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
 does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked on a 32x32)

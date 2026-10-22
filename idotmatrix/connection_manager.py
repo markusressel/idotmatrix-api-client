@@ -7,6 +7,7 @@ from typing import List, Optional, Awaitable, Any
 from bleak import BleakClient, BleakScanner, AdvertisementData
 
 from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA, BLUETOOTH_DEVICE_NAME
+from .util.command_ack import is_acknowledged_command
 from .util.upload_ack import UploadStatus, parse_upload_notification
 
 
@@ -246,23 +247,28 @@ class ConnectionManager:
         self,
         data: bytearray | bytes,
         response=False,
-        wait_for_ack: bool = False,
-    ):
+        wait_for_ack: bool | None = None,
+    ) -> bool:
         """
         Sends raw data to the device.
 
         Args:
             data (bytearray | bytes): The data to send to the device.
             response (bool): If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
-            wait_for_ack (bool): If True, waits for the acknowledgement of the device (`05 00 <command> <subcommand> <status>`)
-                and raises a `CommandRejectedError` if the device rejected the arguments of the command. Only for commands the
-                device acknowledges. A missing acknowledgement is logged, but not an error.
+            wait_for_ack (bool | None): Whether to wait for the acknowledgement of the device (`05 00 <command> <subcommand> <status>`)
+                and raise a `CommandRejectedError` if the device rejected the arguments of the command. By default (None) it is
+                waited for commands the device is known to acknowledge (see `util/command_ack.py`). A missing acknowledgement
+                is logged, but not an error.
+        Returns:
+            bool: True if the device acknowledged the command, so it is done with it.
         Raises:
-            CommandRejectedError: If wait_for_ack is set and the device rejects the command.
+            CommandRejectedError: If the device rejects the command.
         """
         if not self.is_connected():
             await self.connect()
 
+        if wait_for_ack is None:
+            wait_for_ack = is_acknowledged_command(data)
         wait_for_ack = wait_for_ack and self._notifications_available
         if wait_for_ack:
             # leftovers of earlier commands must not be taken for the acknowledgement of this one
@@ -278,12 +284,13 @@ class ConnectionManager:
                 data=data[packet:packet + ble_packet_size],
                 response=response)
 
-        if wait_for_ack:
-            await self._wait_for_command_ack(bytes(data))
+        return wait_for_ack and await self._wait_for_command_ack(bytes(data))
 
-    async def _wait_for_command_ack(self, command: bytes) -> None:
+    async def _wait_for_command_ack(self, command: bytes) -> bool:
         """
         Waits for the acknowledgement of a command, which has the form `05 00 <command> <subcommand> <status>`.
+        Returns:
+            bool: True if the device acknowledged the command, False if it did not answer in time.
         Raises:
             CommandRejectedError: If the device answers with status 0.
         """
@@ -298,11 +305,12 @@ class ConnectionManager:
         except TimeoutError:
             self.logging.warning(
                 f"the device did not acknowledge the command {command.hex()} within {COMMAND_ACK_TIMEOUT_SECONDS} seconds")
-            return
+            return False
 
         if notification[4] == 0:
             raise CommandRejectedError(
                 f"the device rejected the command {command.hex()} (notification {notification.hex()})")
+        return True
 
     async def _subscribe_to_notifications(self) -> None:
         """

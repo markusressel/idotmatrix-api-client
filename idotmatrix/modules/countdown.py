@@ -60,7 +60,7 @@ class CountdownModule(IDotMatrixModule):
             minutes=minutes,
             seconds=seconds,
         )
-        await self._send_bytes(data=data, wait_for_ack=True)
+        await self._send_bytes(data=data)
 
     @staticmethod
     def _create_payload(mode: int, minutes: int, seconds: int) -> bytearray:

@@ -25,7 +25,7 @@ class TestCommonModule(TestBase):
         expected_data = bytearray(
             [5, 0, 7, 1, 1]
         )
-        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=False, wait_for_ack=True)
+        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=False)
 
     async def test_turn_off(self):
         # GIVEN
@@ -44,15 +44,14 @@ class TestCommonModule(TestBase):
         expected_data = bytearray(
             [5, 0, 7, 1, 0]
         )
-        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=True, wait_for_ack=True)
+        connection_manager.send_bytes.assert_awaited_once_with(data=expected_data, response=True)
 
     def _module(self):
         self.connection_manager = AsyncMock()
         return CommonModule(connection_manager=self.connection_manager)
 
-    def _assert_sent(self, data, response, wait_for_ack=False):
-        extra = {"wait_for_ack": True} if wait_for_ack else {}
-        self.connection_manager.send_bytes.assert_awaited_once_with(data=bytearray(data), response=response, **extra)
+    def _assert_sent(self, data, response):
+        self.connection_manager.send_bytes.assert_awaited_once_with(data=bytearray(data), response=response)
 
     async def test_freeze_screen(self):
         await self._module().freeze_screen()
@@ -60,23 +59,23 @@ class TestCommonModule(TestBase):
 
     async def test_set_screen_state(self):
         await self._module().set_screen_state(True)
-        self._assert_sent([5, 0, 7, 1, 1], False, wait_for_ack=True)
+        self._assert_sent([5, 0, 7, 1, 1], False)
 
     async def test_set_screen_state_off(self):
         await self._module().set_screen_state(False)
-        self._assert_sent([5, 0, 7, 1, 0], False, wait_for_ack=True)
+        self._assert_sent([5, 0, 7, 1, 0], False)
 
     async def test_set_screen_flipped(self):
         await self._module().set_screen_flipped()
-        self._assert_sent([5, 0, 6, 128, 1], True, wait_for_ack=True)
+        self._assert_sent([5, 0, 6, 128, 1], True)
 
     async def test_set_screen_not_flipped(self):
         await self._module().set_screen_flipped(False)
-        self._assert_sent([5, 0, 6, 128, 0], True, wait_for_ack=True)
+        self._assert_sent([5, 0, 6, 128, 0], True)
 
     async def test_set_brightness(self):
         await self._module().set_brightness(50)
-        self._assert_sent([5, 0, 4, 128, 50], True, wait_for_ack=True)
+        self._assert_sent([5, 0, 4, 128, 50], True)
 
     async def test_set_brightness_bounds(self):
         for value in (5, 100):

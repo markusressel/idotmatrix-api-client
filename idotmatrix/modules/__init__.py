@@ -20,26 +20,21 @@ class IDotMatrixModule:
         self,
         data: bytearray | bytes,
         response: bool = False,
-        sleep_after: float = None,
-        wait_for_ack: bool = False,
+        sleep_after: float = None
     ):
         """
         Sends raw data to the IDotMatrix device.
         Args:
             data (bytearray | bytes): The data to send.
             response (bool, optional): Whether to expect a response from the device. Defaults to False.
-            sleep_after (float, optional): Time to wait after sending the data. Defaults to 0 if response=True or
-                wait_for_ack=True, and 0.5 seconds otherwise.
-            wait_for_ack (bool, optional): Whether to wait for the acknowledgement of the device and raise a
-                `CommandRejectedError` if it rejects the command. Only for commands that the device acknowledges.
+            sleep_after (float, optional): Time to wait after sending the data. Defaults to 0 if response=True or the
+                device acknowledged the command, and 0.5 seconds otherwise.
         """
+        acknowledged = await self._connection_manager.send_bytes(data=data, response=response)
         if sleep_after is None:
             # the acknowledgement tells that the device is done with the command
-            sleep_after = 0 if (response or wait_for_ack) else 0.5
+            sleep_after = 0 if (response or acknowledged is True) else 0.5
 
-        # not passed otherwise, to keep the call as it was for commands that are not acknowledged
-        extra = {"wait_for_ack": True} if wait_for_ack else {}
-        await self._connection_manager.send_bytes(data=data, response=response, **extra)
         if sleep_after > 0:
             # sometimes the device needs a moment to process the command before it is able to receive the next one
             await sleep(sleep_after)

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from idotmatrix.connection_manager import CommandRejectedError, ConnectionManager, UploadError
 from idotmatrix.const import UUID_READ_DATA
+from idotmatrix.util.command_ack import is_acknowledged_command
 from idotmatrix.util.upload_ack import UploadStatus, parse_upload_notification
 from tests import TestBase
 
@@ -250,11 +251,6 @@ class TestCommandAcks(FakeDeviceTestBase):
 
         self.assertEqual(1, len(self.events))
 
-    async def test_does_not_wait_without_wait_for_ack(self):
-        self._answer_with(bytes.fromhex("0500048000"))
-
-        await self.under_test.send_bytes(self.BRIGHTNESS, response=True)
-
     async def test_does_not_wait_if_notifications_are_not_available(self):
         self.client.start_notify.side_effect = RuntimeError("no notify")
 
@@ -272,3 +268,48 @@ class TestCommandAcks(FakeDeviceTestBase):
 
         # both chunks were written, the single ack was found afterwards
         self.assertEqual(2, len(self.events))
+
+    async def test_acknowledged_commands_are_waited_for_by_default(self):
+        self._answer_with(bytes.fromhex("0500048000"))
+
+        with self.assertRaises(CommandRejectedError):
+            await self.under_test.send_bytes(self.BRIGHTNESS, response=True)
+
+    async def test_returns_whether_the_command_was_acknowledged(self):
+        self._answer_with(bytes.fromhex("0500048001"))
+
+        self.assertTrue(await self.under_test.send_bytes(self.BRIGHTNESS, response=True))
+        self.assertFalse(await self.under_test.send_bytes(bytearray([5, 0, 99, 128, 1]), response=True))
+
+    async def test_commands_that_are_not_acknowledged_are_not_waited_for(self):
+        # set_speed is never answered, waiting would cost the whole timeout and a warning every time
+        with self.assertNoLogs("idotmatrix.connection_manager", level="WARNING"):
+            await asyncio.wait_for(
+                self.under_test.send_bytes(bytearray([5, 0, 3, 128, 50]), response=True), timeout=0.5)
+
+    async def test_waiting_can_be_turned_off(self):
+        self._answer_with(bytes.fromhex("0500048000"))
+
+        await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=False)
+
+    async def test_waiting_can_be_forced(self):
+        with patch("idotmatrix.connection_manager.COMMAND_ACK_TIMEOUT_SECONDS", 0.05):
+            with self.assertLogs("idotmatrix.connection_manager", level="WARNING"):
+                await self.under_test.send_bytes(bytearray([5, 0, 99, 128, 1]), response=True, wait_for_ack=True)
+
+
+class TestIsAcknowledgedCommand(TestBase):
+
+    def test_known_commands(self):
+        for command in ([5, 0, 4, 128, 50], [8, 0, 6, 1, 0, 255, 255, 255], [5, 0, 7, 1, 1], [6, 0, 11, 128, 1, 50]):
+            with self.subTest(command=command):
+                self.assertTrue(is_acknowledged_command(bytearray(command)))
+
+    def test_unknown_commands(self):
+        for command in ([4, 0, 3, 0], [5, 0, 3, 128, 50], [5, 0, 12, 128, 0], [11, 0, 1, 128, 1, 2, 3, 4, 5, 6, 7], []):
+            with self.subTest(command=command):
+                self.assertFalse(is_acknowledged_command(bytearray(command)))
+
+    def test_text_and_upload_packets_are_not_commands(self):
+        text_packet = bytearray([30, 1, 3, 0, 0, 0, 0, 0])
+        self.assertFalse(is_acknowledged_command(text_packet))

@@ -15,17 +15,17 @@ class TestMusicSyncModule(TestBase):
         await self.under_test.set_mic_type(3)
         # the length byte (6) has to match the six bytes of the command
         self.connection_manager.send_bytes.assert_awaited_once_with(
-            data=bytearray([6, 0, 11, 128, 3, 50]), response=False, wait_for_ack=True)
+            data=bytearray([6, 0, 11, 128, 3, 50]), response=False)
 
     async def test_set_mic_type_with_sensitivity(self):
         await self.under_test.set_mic_type(2, sensitivity=80)
         self.connection_manager.send_bytes.assert_awaited_once_with(
-            data=bytearray([6, 0, 11, 128, 2, 80]), response=False, wait_for_ack=True)
+            data=bytearray([6, 0, 11, 128, 2, 80]), response=False)
 
     async def test_set_mic_type_wraps_at_256(self):
         await self.under_test.set_mic_type(257)
         self.connection_manager.send_bytes.assert_awaited_once_with(
-            data=bytearray([6, 0, 11, 128, 1, 50]), response=False, wait_for_ack=True)
+            data=bytearray([6, 0, 11, 128, 1, 50]), response=False)
 
     async def test_set_mic_type_validates_the_sensitivity(self):
         for sensitivity in (-1, 101):

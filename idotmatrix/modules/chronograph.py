@@ -53,4 +53,4 @@ class ChronographModule(IDotMatrixModule):
                 mode,
             ]
         )
-        await self._send_bytes(data=data, wait_for_ack=True)
+        await self._send_bytes(data=data)
