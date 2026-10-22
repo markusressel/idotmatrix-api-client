@@ -1,11 +1,10 @@
 # TODO
 
-Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red), then fixes (tests go green).
+Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written red), then fixes (tests go green).
 
 ## 0. Upstream
 
 - [x] Merged PR #12 (BLE MTU fragmentation, fixes #11) and PR #10 (compact fonts) upstream; this branch is rebased on top of them
-- [ ] Review / merge those PRs on GitHub (not done, local only)
 
 ## 1. Test coverage
 
@@ -24,13 +23,13 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 
 ## 2. Bugs (each has a red test first)
 
-- [ ] `connect()` without address deadlocks on `connection_manager_lock`
+- [x] `connect()` without address deadlocks on `connection_manager_lock`
 - [x] `util/file_watch.py`: missing `dulwich` dependency, wrong `Pattern` type, filter uses `dest_path`
 - [x] (fixed by PR #10) `ConnectionManager()` raises outside a running event loop; signal handler overrides user's SIGINT, breaks on Windows
-- [ ] `parse_color_rgb`: `#fff` / `0xfff` shorthand and length check, reject `bool`, bare `except`, rounding of named colours
+- [x] `parse_color_rgb`: `#fff` / `0xfff` shorthand and length check, reject `bool`, bare `except`, rounding of named colours
 - [x] `or` used instead of `|` in type hints (`clock.py`, `gif.py`)
-- [ ] `idotmatrix/__init__.py` does not export `IDotMatrixClient` / `ScreenSize` (README example fails)
-- [ ] `connect()` notifies listeners when already connected
+- [x] `idotmatrix/__init__.py` does not export `IDotMatrixClient` / `ScreenSize` (README example fails)
+- [x] `connect()` notifies listeners when already connected
 - [x] `send_bytes` chunk log off by one; `discover_devices` uses root logger
 
 ## 3. Cleanup
@@ -38,7 +37,7 @@ Baseline: 25 tests, 44% line coverage. Order: tests first (bug tests written red
 - [x] Module-level lock -> per-instance lock
 - [x] Drop `asyncio` dep (the PyPI package is a Python 3.3 backport that can shadow the stdlib module)
 - [x] Drop `matplotlib` (named colours via `PIL.ImageColor`)
-- [ ] Remove commented-out block in `send_packets`
+- [x] Remove commented-out block in `send_packets`
 - [x] Remove duplicate address assignment in `IDotMatrixClient.__init__`
 - [x] Stop touching `client._backend.address`
 - [x] Reconnect loop backoff
