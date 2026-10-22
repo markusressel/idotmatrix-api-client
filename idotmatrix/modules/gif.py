@@ -67,10 +67,8 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms=duration_per_frame_in_ms,
         )
 
-        # TODO: although the current implementation seems to _mostly_ work,
-        # some GIFs stop animating during the upload, and often times the second upload after a successful upload
-        # fails completely (previous GIF is just "stuck" and the new GIF is never displayed). So there is probably some edge case
-        # that is not handled correctly.
+        # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
+        # and skips the rest of the upload, which is why uploading the same file twice is fast.
 
         GIF_TYPE_DIY_ANIMATION = 13
         GIF_TYPE_NO_TIME_SIGNATURE = 12
