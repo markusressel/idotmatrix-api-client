@@ -10,6 +10,7 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
+from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
 from idotmatrix.util.image_utils import ResizeMode
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
@@ -70,16 +71,14 @@ class GifModule(IDotMatrixModule):
         # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
         # and skips the rest of the upload, which is why uploading the same file twice is fast.
 
-        GIF_TYPE_DIY_ANIMATION = 13
-        GIF_TYPE_NO_TIME_SIGNATURE = 12
         packets = self.create_gif_data_packets(
             gif_data=gif_data,
             # TODO: figure out what this does
             #  this might be the index that this GIF will be stored within the device's memory :think:
             #  it doesn't seem to have an effect when sending a single GIF like it is done here though
-            gif_type=GIF_TYPE_NO_TIME_SIGNATURE,
-            # TODO: figure out what this does, doesn't seem to have any effect
-            time_sign=1,
+            # shows the GIF right away, like the official app does
+            gif_type=INDEX_SHOW_NOW,
+            time_sign=0,
         )
         await self._send_packets(packets=packets, response=True, wait_for_ack=True)
 
@@ -92,26 +91,6 @@ class GifModule(IDotMatrixModule):
         """
         data = bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
         await self._send_bytes(data=data, response=True)
-
-    @staticmethod
-    def _convert_device_material_time(input_key: int) -> int:
-        """
-        Python equivalent of DeviceMaterialTimeConvert.ConvertTime(int i).
-        The input_key corresponds to the value from AppData.getInstance().getTimeSign(),
-        which originates from SharedPreferences.
-        """
-        if input_key == 1:
-            return 10
-        if input_key == 2:
-            return 30
-        # Note: Java's `if (i != 3)` followed by `return i != 4 ? 5 : 300;` else `return 60;`
-        # can be written more directly.
-        if input_key == 3:
-            return 60
-        if input_key == 4:
-            return 300
-        # Default case for any other input_key (including 0, which is the SP default)
-        return 5
 
     def _load_gif_and_adapt_to_canvas(
         self,
@@ -285,7 +264,7 @@ class GifModule(IDotMatrixModule):
             else:
                 # Java: DeviceMaterialTimeConvert.ConvertTime(AppData.getInstance().getTimeSign())
                 # 'time_sign' passed to create_gif_data_packets is the input_key
-                converted_time_value = self._convert_device_material_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
+                converted_time_value = convert_display_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
 
                 time_sign_bytes_be = bytearray(converted_time_value.to_bytes(2, byteorder='big'))
                 header[13] = time_sign_bytes_be[0]
