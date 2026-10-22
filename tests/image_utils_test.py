@@ -49,3 +49,36 @@ class TestImageUtils(TestBase):
         image = PILImage.new("RGB", (4, 4))
         result = image_utils.resize_image(image, 4, ResizeMode.FIT, NEAREST, mode="RGBA")
         self.assertEqual("RGBA", result.mode)
+
+
+class TestPadPalette(TestBase):
+
+    def test_pads_a_small_palette(self):
+        image = PILImage.new("RGB", (4, 4), (10, 20, 30)).quantize(colors=2)
+        self.assertLess(len(image.getpalette()), 256 * 3)
+
+        result = image_utils.pad_palette(image)
+
+        self.assertEqual(256 * 3, len(result.getpalette()))
+        self.assertEqual(image.convert("RGB").tobytes(), result.convert("RGB").tobytes())
+
+    def test_does_not_change_the_input(self):
+        image = PILImage.new("RGB", (4, 4), (10, 20, 30)).quantize(colors=2)
+        before = image.getpalette()
+
+        image_utils.pad_palette(image)
+
+        self.assertEqual(before, image.getpalette())
+
+    def test_palettizes_non_palettized_images(self):
+        image = PILImage.new("RGBA", (4, 4), (10, 20, 30, 255))
+
+        result = image_utils.pad_palette(image)
+
+        self.assertEqual("P", result.mode)
+        self.assertEqual(256 * 3, len(result.getpalette()))
+        self.assertEqual(image.convert("RGB").tobytes(), result.convert("RGB").tobytes())
+
+    def test_custom_size(self):
+        image = PILImage.new("RGB", (4, 4), (10, 20, 30)).quantize(colors=2)
+        self.assertEqual(16 * 3, len(image_utils.pad_palette(image, size=16).getpalette()))

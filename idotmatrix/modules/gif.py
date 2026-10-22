@@ -168,13 +168,16 @@ class GifModule(IDotMatrixModule):
             # TODO: there are still some cases where
             #  - the GIF is not animating all frames
 
+            # all frames need color tables of the same size, or the device garbles / drops frames
+            frames = [image_utils.pad_palette(frame) for frame in frames]
+
             gif_buffer = io.BytesIO()
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
             frames[0].save(
                 gif_buffer,
                 format="GIF",
                 save_all=True,
-                optimize=True,  # setting this to False fails the transfer for some reason
+                optimize=False,  # True would shrink the color tables to the number of used colors again
                 append_images=frames[1:],
                 loop=0,  # loop forever
                 duration=duration_per_frame_in_ms,

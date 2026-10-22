@@ -48,4 +48,4 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [ ] `Transport` protocol + fake device for tests
 - [ ] Opcode table / protocol layer
 - [ ] Move `digital_picture_frame.py` out of package top level
-- [ ] GIF upload reliability (see TODOs in `gif.py`): flow control done (ack per chunk), palette sizes next
+- [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)
