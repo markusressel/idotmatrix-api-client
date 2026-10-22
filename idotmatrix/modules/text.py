@@ -182,7 +182,7 @@ class TextModule(IDotMatrixModule):
         """Converts text to bitmap images suitable for iDotMatrix devices."""
         if not font_path:
             # using open source font from https://www.fontspace.com/rain-font-f22577
-            font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "fonts", "Rain-DRM3.otf")
+            font_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts", "Rain-DRM3.otf")
             font_path = os.path.normpath(font_path)
         font = ImageFont.truetype(font_path, font_size)
 

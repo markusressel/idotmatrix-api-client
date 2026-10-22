@@ -173,7 +173,7 @@ manually-verified `font_size` to look right - see the naming convention below.
 
 ### Bundled fonts
 
-The [`fonts/`](fonts/) directory ships a selection of pixel/bitmap fonts (with their respective
+The [`idotmatrix/fonts/`](idotmatrix/fonts/) directory is part of the installed package and ships a selection of pixel/bitmap fonts (with their respective
 license files) that have been verified to render cleanly. Each filename (other than the default) is
 prefixed with the `font_size` value(s) it has been manually tested and confirmed to render with
 legible spacing between characters - always pass a matching `font_size`, since (per above) using a
@@ -197,6 +197,22 @@ your own tested size) for that font - otherwise characters may run into each oth
 (that fit within 8px wide per character at the size used) will also get tighter, more compact text
 since they qualify for the 8x16 cell instead of the 16x32 one.
 
+### Font licenses
+
+Each font keeps its own license, shipped next to it in `idotmatrix/fonts/`. They do not change the
+license of this library's code.
+
+| Font(s) | License |
+| --- | --- |
+| Rain-DRM3, Dogica, Press Start 2P, Pixelify Sans, Jersey 10 | [SIL Open Font License 1.1](https://openfontlicense.org) |
+| Pixel Operator | CC0 1.0 |
+| Home Video, Minecraft Standard | Public Domain |
+| Erbos Draco 1st Open NBP ([source](https://www.fontspace.com/erbos-draco-monospaced-nbp-font-f14579)) | [CC BY-SA](idotmatrix/fonts/CC-BY-SA-4.0-License.txt) |
+| Mayfair NBP Bold ([source](https://www.fontspace.com/mayfair-nbp-font-f15853)) | [CC BY-SA](idotmatrix/fonts/CC-BY-SA-4.0-License.txt) |
+
+The two CC BY-SA fonts are redistributed unmodified. Copies of derived fonts must be shared under the
+same license, with attribution to the original authors (see the links above).
+
 ### Finding more fonts
 
 When looking for additional fonts, search for:
@@ -212,7 +228,7 @@ Good sources: [dafont.com/bitmap.php](https://www.dafont.com/bitmap.php),
 Always test a new font at the font size you intend to use before committing to it - some
 pixel-style fonts are only pixel-perfect at their native design size and look uneven at others.
 Check each font's license before bundling/redistributing it (see the existing `*-License.txt`
-files next to each font in [`fonts/`](fonts/) for examples).
+files next to each font in [`idotmatrix/fonts/`](idotmatrix/fonts/) for examples).
 
 ## Roadmap
 

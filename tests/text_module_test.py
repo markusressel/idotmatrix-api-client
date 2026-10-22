@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from idotmatrix.modules.text import TextModule, TextColorMode, TextMode
 from tests import TestBase
 
-FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "idotmatrix", "fonts")
 FONT = os.path.join(FONT_DIR, "Rain-DRM3.otf")
 
 COMPACT_SEPARATOR = bytes([0x02, 0xFF, 0xFF, 0xFF])
@@ -36,7 +36,7 @@ class TestTextModule(TestBase):
             text_color_mode=TextColorMode.WHITE,
             text_color=(255, 0, 0),
             text_bg_color=(0, 20, 0),
-            font_path="../fonts/Rain-DRM3.otf",
+            font_path="../idotmatrix/fonts/Rain-DRM3.otf",
         )
 
         # THEN
@@ -171,3 +171,27 @@ class TestTextCellSelection(TestBase):
 
         # THEN
         self.assertEqual(1, int.from_bytes(data[HEADER_SIZE:HEADER_SIZE + 2], "little"))
+
+
+class TestBundledFonts(TestBase):
+
+    def test_fonts_are_inside_the_package(self):
+        import idotmatrix
+        package_fonts = os.path.join(os.path.dirname(idotmatrix.__file__), "fonts")
+        self.assertEqual(os.path.realpath(FONT_DIR), os.path.realpath(package_fonts))
+        self.assertTrue(os.path.isfile(FONT))
+
+    def test_every_font_has_a_license_file(self):
+        files = os.listdir(FONT_DIR)
+        licenses = " ".join(f.lower() for f in files if "license" in f.lower())
+        fonts = [f for f in files if f.lower().endswith((".ttf", ".otf"))]
+        self.assertTrue(fonts)
+        for font in fonts:
+            # strip size prefix (16-, 32-, 16_32-) and the variant / download suffix
+            family = font.split("-", 1)[1] if font[0].isdigit() else font
+            family = family.split("-")[0].split(".")[0].lower()
+            for known, key in (("erbos", "erbos"), ("minecraft", "minecraft"), ("pixelify", "pixelify")):
+                if known in family:
+                    family = key
+            with self.subTest(font=font):
+                self.assertIn(family[:6], licenses)
