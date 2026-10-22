@@ -52,7 +52,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 ## 5. Verify on a device (README roadmap items without confirmation)
 
-- [ ] MusicSync: `MusicSyncModule` has two methods that the official app never uses (`set_mic_type`, `send_image_rythm`); find out what the app really sends for music sync
+- [x] MusicSync with the device microphone works (`set_mic_type`, fixed). Not done: streaming sound from the computer to the device (`06 00 00 02 <level> 01` for the image scenes, 28 frequency levels for the bar scenes, see docs/DEVICE-PROTOCOL.md), and finding out how many scenes exist
 - [ ] Bluetooth password protection: `CommonModule.set_password` exists, but nobody confirmed the whole flow (setting a password, then connecting and authenticating against a protected device)
 - [ ] Alarm & Buzzer (see issue #18): no module yet
 - [ ] Cloud-API to download / upload images: not started
@@ -64,5 +64,5 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 ## 6. Ideas to try on a device
 
 - [ ] PNG payload: the original Python library (and the Homey app) send a PNG file instead of raw RGB in the DIY image upload, and the device decodes it. That is usually much smaller than raw RGB (64x64 raw = 12 KB), so uploads could be faster. Compare upload time and reliability, and find out if the static image upload (type 2) takes PNG too.
-- [ ] Acknowledgements of normal commands (`05 00 <cmd> <subcmd> 01`, third-party claim): check on the 64x64, then consider awaiting them in `send_bytes(response=True)` and a heartbeat that detects a silently dead link.
+- [ ] Acknowledgements of normal commands (`05 00 <cmd> <subcmd> 01`, confirmed on the 64x64 for the clock and microphone commands): consider awaiting them in `send_bytes(response=True)` and a heartbeat that detects a silently dead link.
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.

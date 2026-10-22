@@ -68,13 +68,15 @@ Rules:
 - Implemented in `ConnectionManager.send_packets(wait_for_ack=True)` and `util/upload_ack.py`. A device that does
   not answer leads to an `UploadError` after 5 s.
 
-### For other commands
+### For other commands (**verified** on the 64x64)
 
-A third party reports that every command gets `05 00 <command> <subcommand> 01` within about 300 ms, for example
-`05 00 07 01 00` (screen off) is answered with `05 00 07 01 01`. (**claim**, see TODO.md)
+Normal commands are answered too: `05 00 <command> <subcommand> 01`, within a few milliseconds. For example the clock
+command (`08 00 06 01 ...`) gives `05 00 06 01 01`, and the microphone command (`06 00 0b 80 ...`) gives
+`05 00 0b 80 01`. A third party reports the same for screen off (`05 00 07 01 00` gives `05 00 07 01 01`). The library
+does not use these acknowledgements yet.
 
-The same third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
-does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked)
+A third party reports the upload acknowledgements of a 32x32 as `01 00 03 00 01` and `01 00 03 00 03`, which
+does not match the 64x64 or the app. (**claim**, probably a transcription error, to be checked on a 32x32)
 
 ## Image and GIF uploads
 
@@ -153,8 +155,21 @@ mode because the bytes of a bitmap can contain anything, and the device then sho
 
 ## Music sync
 
-- Start: `06 00 00 02 <type> 01`, stop: `06 00 00 02 00 00`. Type 1 is a dancing figure. The device reacts to its own
-  microphone, no audio is sent. (**claim**, same bytes as `MusicSyncModule.send_image_rythm`/`stop_rythm`; see TODO.md)
+Two different mechanisms exist in the official app.
+
+1. **Microphone of the device** (**verified** on the 64x64): `06 00 0b 80 <mode> <sensitivity>` with the mode starting
+   at 1 and the sensitivity from 0 to 100 (the app default is 50). The device then reacts to sound and knocks on its
+   own, no audio is sent. Modes 1 to 5 each show a different scene (a figure, a heart, two frog-like faces, ...).
+   `MusicSyncModule.set_mic_type` sends it. The library used to send it without the sensitivity and with a wrong length
+   byte, which is why it never worked.
+2. **Microphone of the phone** (**app**): the app records sound, and about every 60 ms it sends the device the
+   loudness as `06 00 00 02 <level 1-7> <variant>` (the "image" scenes), or an array of 28 frequency levels for the
+   bar scenes (`VisualizerUtil.getSendWave`). Sent once, `06 00 00 02 <level> 01` just shows a still frame of the animation
+   (**verified**: 1 shows a sitting figure, 2 a frog-like face). `send_image_rythm` sends one such packet. The bar scenes are
+   not implemented.
+
+There is no command that leaves the music sync again: `06 00 00 02 00 00` (`stop_rythm`) had no effect. Showing
+something else, f.e. the clock, does. (**verified**)
 
 ## Not understood yet
 
