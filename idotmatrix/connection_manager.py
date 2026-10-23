@@ -462,20 +462,33 @@ class ConnectionManager:
                 f"sending {len(packets)} packet(s) in chunks of size {len(packets[0][0])} bytes to device, for a total size of {total_byte_count} bytes"
             )
 
-            # All but the last BLE packet of each packet are sent without response,
+            wait_for_ack = wait_for_ack and self._notifications_available
+            # Uploads write every BLE packet with response, like the official app: each write is answered by the device,
+            # so the Bluetooth stack (f.e. an ESPHome proxy) cannot drop packets of a burst, which the device answers
+            # by never acknowledging the chunk or by rebooting.
+            every_packet_with_response = wait_for_ack and response
+
+            # Otherwise all but the last BLE packet of each packet are sent without response,
             # so every one of them has to fit into a single write-without-response.
-            ble_packet_size = await self.get_max_bytes_per_chunk(response=False)
+            ble_packet_size = await self.get_max_bytes_per_chunk(response=every_packet_with_response)
+            if every_packet_with_response:
+                ble_packet_size = min(ble_packet_size, await self.get_max_bytes_per_chunk(response=False))
             self.logging.debug(f"ble_packet_size size is {ble_packet_size} bytes")
             packets = self._split_oversized_ble_packets(packets, ble_packet_size)
 
-            wait_for_ack = wait_for_ack and self._notifications_available
             if wait_for_ack:
                 # leftovers of earlier commands must not be taken for the acknowledgement of the first packet
                 self._notifications = asyncio.Queue()
 
             for i, packet in enumerate(packets):
                 deadline = asyncio.get_running_loop().time() + UPLOAD_ACK_TIMEOUT_SECONDS
-                await self._write_chunk(packet, response, paced=wait_for_ack, label=f"{i + 1} of {len(packets)}")
+                await self._write_chunk(
+                    packet,
+                    response,
+                    all_with_response=every_packet_with_response,
+                    paced=wait_for_ack and not every_packet_with_response,
+                    label=f"{i + 1} of {len(packets)}",
+                )
                 if wait_for_ack:
                     status = await self._wait_for_upload_status(deadline)
                     if status == UploadStatus.FINISHED and i < len(packets) - 1:
@@ -483,12 +496,15 @@ class ConnectionManager:
                         self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
                         return
 
-    async def _write_chunk(self, packet: List[bytearray | bytes], response: bool, paced: bool, label: str):
+    async def _write_chunk(
+        self, packet: List[bytearray | bytes], response: bool, all_with_response: bool, paced: bool, label: str
+    ):
         """
         Writes the BLE packets of one packet. Only the last one is written with a response, if requested.
         Args:
             packet: The BLE packets to write.
             response: If True, the last BLE packet is written with response.
+            all_with_response: If True, every BLE packet is written with response.
             paced: If True, the writes are spaced `UPLOAD_WRITE_INTERVAL_SECONDS` apart.
             label: Describes the packet in the log.
         """
@@ -496,7 +512,8 @@ class ConnectionManager:
             if paced and j > 0:
                 await asyncio.sleep(UPLOAD_WRITE_INTERVAL_SECONDS)
             self.logging.debug(f"sending packet {label}.{j + 1} of {len(packet)}")
-            await self._transport.write(ble_packet, response=response if j == len(packet) - 1 else False)
+            with_response = all_with_response or (response and j == len(packet) - 1)
+            await self._transport.write(ble_packet, response=with_response)
 
     @staticmethod
     def _split_oversized_ble_packets(
