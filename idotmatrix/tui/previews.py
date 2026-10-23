@@ -141,7 +141,12 @@ class EffectPreview(Static):
         self._colors: list[Color] = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
         self._phase = 0.0
         self._random = random.Random()
-        self._grid = [[BLACK] * EFFECT_WIDTH for _ in range(EFFECT_HEIGHT)]
+        self._grid: list[list[Color]] = []
+        self._fill_grid()
+
+    def _fill_grid(self) -> None:
+        """Every pixel has a color from the start, like on the display."""
+        self._grid = [[self._random.choice(self._colors) for _ in range(EFFECT_WIDTH)] for _ in range(EFFECT_HEIGHT)]
 
     def on_mount(self) -> None:
         self.border_title = "Preview (an approximation)"
@@ -150,7 +155,10 @@ class EffectPreview(Static):
 
     def show(self, values: dict) -> None:
         self._style = values["style"]
-        self._colors = list(values["colors"])
+        colors = list(values["colors"])
+        if colors != self._colors:
+            self._colors = colors
+            self._fill_grid()  # no pixel keeps a color that was removed
         self._tick()
 
     def _tick(self) -> None:
