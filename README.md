@@ -136,6 +136,7 @@ await client.gif.upload_gif_file("animation.gif")
 
 # store files in the slots of the device, which then cycles through them on its own (no uploads during the show)
 await client.materials.store(["a.gif", "b.png", "c.gif"], slots=[1, 2, 3], display_time=30)
+# the module remembers what is in which slot: storing again only transfers what is new, in any order
 ```
 
 Both can be mixed freely, no mode switching is needed in between. They work like the official app, which waits

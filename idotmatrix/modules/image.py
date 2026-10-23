@@ -16,6 +16,7 @@ from idotmatrix.util import image_utils, color_utils
 from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
 )
+from idotmatrix.util.image_utils import validate_colors
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
@@ -96,6 +97,7 @@ class ImageModule(IDotMatrixModule):
         resize_mode: image_utils.ResizeMode,
         palletize: bool,
         background_color: Tuple[int, int, int],
+        colors: int = 256,
     ) -> bytearray:
         """
         Loads an image from a file, resizes it to fit within a square canvas of pixel_size x pixel_size,
@@ -105,6 +107,7 @@ class ImageModule(IDotMatrixModule):
             canvas_size (int): Size of the square canvas in pixels.
             palletize (bool): If True, the image will be converted to a palette-based image.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
+            colors (int): The number of colors of the palette that `palletize` reduces the image to.
         Returns:
             bytearray: A bytearray containing the raw pixel data of the processed image in RGB format.
         """
@@ -123,11 +126,12 @@ class ImageModule(IDotMatrixModule):
                 canvas_size=canvas_size,
                 resize_mode=resize_mode,
                 resample_mode=resample_mode,
+                background_color=background_color,
                 mode="RGB",  # ensure the image is in RGB mode
             )
 
             if palletize:
-                img = image_utils.palettize(img)
+                img = image_utils.palettize(img, colors=colors)
 
             # Convert to RGB if not already in that mode, to get the pixel data in RGB format
             mode = "RGB"
@@ -146,6 +150,7 @@ class ImageModule(IDotMatrixModule):
         png: bool = False,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
+        colors: int = 256,
     ) -> None:
         """
         Shows an image file on the device, the way the official app does it for photos. It is shown right away, unless
@@ -167,7 +172,12 @@ class ImageModule(IDotMatrixModule):
             slot (int, optional): If given (0 to 11), the image is stored in that slot of the device instead of being
                 shown right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
+            colors (int): The number of colors of the palette (2 to 256) that `palletize` reduces the image to. The
+                raw upload has the same size either way, with `png` fewer colors make it smaller. Less than 256 reduces
+                the colors even if `palletize` is off.
         """
+        validate_colors(colors)
+        palletize = palletize or colors < 256
         if slot is not None:
             validate_slot(slot)
             validate_display_time(display_time)
@@ -180,8 +190,10 @@ class ImageModule(IDotMatrixModule):
             resize_mode=resize_mode,
             palletize=palletize,
             background_color=background_color,
+            colors=colors,
         )
-        await self._send_static_image_data(pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time)
+        await self._send_static_image_data(
+            pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time, colors=colors)
 
     async def show_image_pixeldata(
         self,
@@ -196,7 +208,7 @@ class ImageModule(IDotMatrixModule):
         """
         await self._send_static_image_data(self._pixel_colors_to_bytes(pixel_colors), png=png)
 
-    def _encode_png(self, pixel_data: bytearray, palette: bool = False) -> bytearray:
+    def _encode_png(self, pixel_data: bytearray, palette: bool = False, colors: int = 256) -> bytearray:
         """
         Encodes raw RGB pixel data of the whole screen as a PNG file.
 
@@ -208,7 +220,7 @@ class ImageModule(IDotMatrixModule):
         size = self.screen_size.value[0]
         img = PILImage.frombytes("RGB", (size, size), bytes(pixel_data))
         if palette:
-            img = img.quantize(256, dither=PILImage.Dither.NONE)
+            img = img.quantize(colors, dither=PILImage.Dither.NONE)
         buffer = io.BytesIO()
         img.save(buffer, "PNG", optimize=True)
         return bytearray(buffer.getvalue())
@@ -220,9 +232,10 @@ class ImageModule(IDotMatrixModule):
         palette: bool = False,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
+        colors: int = 256,
     ) -> None:
         if png:
-            pixel_data = self._encode_png(pixel_data, palette=palette)
+            pixel_data = self._encode_png(pixel_data, palette=palette, colors=colors)
         packets = self._create_static_image_data_packets(
             pixel_data,
             index=INDEX_SHOW_NOW if slot is None else slot,

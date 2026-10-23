@@ -16,7 +16,7 @@ from idotmatrix.util import image_utils, color_utils
 from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
 )
-from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.image_utils import ResizeMode, validate_colors
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -51,6 +51,8 @@ class GifModule(IDotMatrixModule):
         duration_per_frame_in_ms: int = None,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
+        colors: int = 256,
+        max_size_kb: int | None = None,
     ):
         """
         Uploads a GIF file to the device. It is shown right away, unless a slot is given.
@@ -65,7 +67,19 @@ class GifModule(IDotMatrixModule):
             slot (int, optional): If given (0 to 11), the GIF is stored in that slot of the device instead of being shown
                 right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
+            colors (int): The number of colors of the palette (2 to 256). Fewer colors make the upload smaller and
+                faster (16 colors are about a third of the size of 256 for a photo-like animation), at the price of
+                rougher colors. Less than 256 reduces the colors even if `palletize` is off.
+            max_size_kb (int, optional): The most the converted GIF may have, which is what is transferred (a large
+                one takes 10 s or more). If it is bigger, quality is given up until it fits, in this order: colors
+                (down to 32), frames (every 2nd, 3rd, ... frame, the animation takes as long as before), then colors
+                down to 8 and frames again. If it still does not fit the smallest version is used and a warning is
+                logged.
         """
+        validate_colors(colors)
+        if max_size_kb is not None and (isinstance(max_size_kb, bool) or not isinstance(max_size_kb, int)
+                                        or max_size_kb < 1):
+            raise ValueError(f"max_size_kb must be a positive number, got: {max_size_kb!r}")
         if slot is not None:
             validate_slot(slot)
             validate_display_time(display_time)
@@ -81,6 +95,8 @@ class GifModule(IDotMatrixModule):
             palletize=palletize,
             background_color=background_color,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
+            colors=colors,
+            max_size_kb=max_size_kb,
         )
 
         # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
@@ -116,6 +132,8 @@ class GifModule(IDotMatrixModule):
         palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
+        colors: int = 256,
+        max_size_kb: int | None = None,
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -131,6 +149,8 @@ class GifModule(IDotMatrixModule):
             palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+            colors (int): The number of colors of the palette (2 to 256).
+            max_size_kb (int, optional): The size the GIF may have at most, see `upload_gif_file`.
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
@@ -156,8 +176,6 @@ class GifModule(IDotMatrixModule):
                             background_color=background_color,
                             mode="RGBA",
                         )
-                    if palletize:
-                        frame = image_utils.palettize(frame)
 
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
@@ -168,26 +186,87 @@ class GifModule(IDotMatrixModule):
                 img, frames, duration_per_frame_in_ms
             )
 
-            # TODO: there are still some cases where
-            #  - the GIF is not animating all frames
+        # TODO: there are still some cases where
+        #  - the GIF is not animating all frames
 
-            # all frames need color tables of the same size, or the device garbles / drops frames
-            frames = [image_utils.pad_palette(frame) for frame in frames]
+        if max_size_kb is None:
+            return self._encode_gif(frames, duration_per_frame_in_ms, colors, palletize)
+        return self._encode_gif_within(frames, duration_per_frame_in_ms, colors, palletize, max_size_kb)
 
-            gif_buffer = io.BytesIO()
-            # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
-            frames[0].save(
-                gif_buffer,
-                format="GIF",
-                save_all=True,
-                optimize=False,  # True would shrink the color tables to the number of used colors again
-                append_images=frames[1:],
-                loop=0,  # loop forever
-                duration=duration_per_frame_in_ms,
-                disposal=2,  # Restore to background color after each frame
-            )
-            gif_buffer.seek(0)
-            return gif_buffer.getvalue()
+    @staticmethod
+    def _encode_gif(
+        frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int, palletize: bool
+    ) -> bytes:
+        """Encodes the frames as a GIF whose frames all have a color table of the same size."""
+        if palletize or colors < 256:
+            frames = [image_utils.palettize(frame, colors=colors) for frame in frames]
+
+        # all frames need color tables of the same size, or the device garbles / drops frames
+        table_size = image_utils.palette_table_size(colors)
+        frames = [image_utils.pad_palette(frame, table_size) for frame in frames]
+
+        gif_buffer = io.BytesIO()
+        # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
+        frames[0].save(
+            gif_buffer,
+            format="GIF",
+            save_all=True,
+            optimize=False,  # True would shrink the color tables to the number of used colors again
+            append_images=frames[1:],
+            loop=0,  # loop forever
+            duration=duration_per_frame_in_ms,
+            disposal=2,  # Restore to background color after each frame
+        )
+        gif_buffer.seek(0)
+        return gif_buffer.getvalue()
+
+    def _encode_gif_within(
+        self,
+        frames: List[PILImage.Image],
+        duration_per_frame_in_ms: int,
+        colors: int,
+        palletize: bool,
+        max_size_kb: int,
+    ) -> bytes:
+        """
+        Encodes the frames as a GIF of at most `max_size_kb` KB if that is possible, by taking the first of
+        `_size_reductions` that fits, and the smallest one otherwise.
+        """
+        limit = max_size_kb * 1024
+        smallest = None
+        for step_colors, every in self._size_reductions(colors, len(frames)):
+            kept = frames[::every]
+            if every > 1 and frames[-1] is not kept[-1] and len(kept) > 1:
+                kept[-1] = frames[-1]  # the animation still ends where it did
+            data = self._encode_gif(kept, duration_per_frame_in_ms * every, step_colors, palletize)
+            if len(data) <= limit:
+                if (step_colors, every) != (colors, 1):
+                    self.logging.info(
+                        f"GIF reduced to {step_colors} colors and every {every}. frame to fit {max_size_kb} KB "
+                        f"({len(data) / 1024:.0f} KB)")
+                return data
+            if smallest is None or len(data) < len(smallest):
+                smallest = data
+        self.logging.warning(f"GIF does not fit {max_size_kb} KB, using the smallest version ({len(smallest) / 1024:.0f} KB)")
+        return smallest
+
+    @staticmethod
+    def _size_reductions(colors: int, frame_count: int) -> List[Tuple[int, int]]:
+        """
+        What to give up to make a GIF smaller, from the least to the most visible: first colors down to 32, then every
+        second, third, ... frame (the duration of the animation stays the same), then fewer colors with all frames
+        again. Returns (colors, keep every n-th frame), starting with what was asked for.
+        """
+        steps = [(c, 1) for c in (256, 128, 64, 32) if c <= colors]
+        if not steps or steps[0][0] != colors:
+            steps.insert(0, (colors, 1))
+        floor = min(colors, 32)
+        every_steps = [n for n in (2, 3, 4, 6, 8) if frame_count // n >= 2]
+        steps += [(floor, n) for n in every_steps]
+        for fewer in (16, 8):
+            if fewer < floor:
+                steps += [(fewer, 1)] + [(fewer, n) for n in every_steps]
+        return steps
 
     def _int_to_bytes_le(self, value: int, length: int = 4) -> bytearray:
         """Converts an integer to a little-endian bytearray of specified length."""

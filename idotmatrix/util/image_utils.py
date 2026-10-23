@@ -28,6 +28,20 @@ def palettize(
     )
 
 
+def validate_colors(colors: int) -> int:
+    """Raises a ValueError for a number of palette colors that cannot be used (2 to 256)."""
+    if isinstance(colors, bool) or not isinstance(colors, int) or not 2 <= colors <= 256:
+        raise ValueError(f"colors must be between 2 and 256, got: {colors!r}")
+    return colors
+
+
+def palette_table_size(colors: int) -> int:
+    """
+    The size of the color table of a GIF for that many colors: a power of 2 entries, and PIL writes at least 4.
+    """
+    return max(4, 1 << (validate_colors(colors) - 1).bit_length())
+
+
 def pad_palette(image: PILImage.Image, size: int = 256) -> PILImage.Image:
     """
     Makes sure an image is palettized and its palette has exactly `size` entries.
@@ -83,7 +97,11 @@ def resize_image(
         # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
         # and adding a black background if necessary.
         ratio = min(canvas_size / image.width, canvas_size / image.height)
-        new_size = (int(image.width * ratio), int(image.height * ratio))
+        # at least one pixel, a very wide or tall picture would be 0 pixels high on a small screen
+        new_size = (
+            min(canvas_size, max(1, round(image.width * ratio))),
+            min(canvas_size, max(1, round(image.height * ratio))),
+        )
         image = image.resize(
             size=new_size,
             resample=resample_mode,
@@ -92,7 +110,11 @@ def resize_image(
         # if the dimensions of the frame are not equal to the pixel size, resize it to fill the canvas
         # this might crop the image, but maintains aspect ratio
         ratio = max(canvas_size / image.width, canvas_size / image.height)
-        new_size = (int(image.width * ratio), int(image.height * ratio))
+        # never smaller than the canvas, rounding down would leave a stripe of background
+        new_size = (
+            max(canvas_size, round(image.width * ratio)),
+            max(canvas_size, round(image.height * ratio)),
+        )
         image = image.resize(
             size=new_size,
             resample=resample_mode,
