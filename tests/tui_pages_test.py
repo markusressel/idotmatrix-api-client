@@ -409,3 +409,29 @@ class TestDrawKeys(AppHelpers, TestBase):
             widget.update_rows()
 
             self.assertIs(kept, widget._strips.get(0))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestCanvasPointer(AppHelpers, TestBase):
+
+    def setUp(self):
+        super().setUp()
+        _device_client(self.client)
+
+    async def test_every_row_is_reachable_with_the_mouse_in_half_blocks(self):
+        from types import SimpleNamespace
+        app = self._app()
+        async with app.run_test(size=(100, 40)) as pilot:  # too small for wide pixels of a 64x64 canvas
+            await self._settle(pilot)
+            await pilot.press("f3")
+            await pilot.pause()
+            widget = app.screen._widget
+            self.assertFalse(widget.wide)
+
+            # a terminal that reports whole cells: both pixels of the cell
+            self.assertEqual(((5, 6), (5, 7)), widget._pixels(SimpleNamespace(x=5, y=3, pointer_y=3.0)))
+            # a terminal that reports pixels: the half of the cell that was hit
+            self.assertEqual(((5, 6),), widget._pixels(SimpleNamespace(x=5, y=3, pointer_y=3.25)))
+            self.assertEqual(((5, 7),), widget._pixels(SimpleNamespace(x=5, y=3, pointer_y=3.75)))
+            # and it stays exact once such a terminal was seen
+            self.assertEqual(((5, 6),), widget._pixels(SimpleNamespace(x=5, y=3, pointer_y=3.0)))

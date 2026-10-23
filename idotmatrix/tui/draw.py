@@ -60,7 +60,7 @@ def cell_style(top: Color, bottom: Color) -> Style:
 class CanvasWidget(Widget):
     """
     The picture. If it fits, a pixel is two columns wide and one row high (square, and the mouse hits it exactly),
-    otherwise two pixels share a cell with a half block (then the mouse paints the upper pixel, with Shift the lower).
+    otherwise two pixels share a cell with a half block (see `_pixels` for the mouse).
     """
 
     DEFAULT_CSS = "CanvasWidget { width: auto; height: auto; }"
@@ -75,7 +75,8 @@ class CanvasWidget(Widget):
         self.wide = False
         self.on_pointer = None  # called with (x, y, button, started)
         self._pointer_down = False
-        self._last_pixel: tuple[int, int] | None = None
+        self._last_pixels: tuple[tuple[int, int], ...] = ()
+        self._precise = False  # the terminal reported a position between two rows of cells
         self._strips: dict[int, Strip] = {}
         self._shown_marks: set[int] = set()
 
@@ -139,24 +140,36 @@ class CanvasWidget(Widget):
 
     # the mouse
 
-    def _pixel(self, event: events.MouseEvent) -> tuple[int, int]:
+    def _pixels(self, event: events.MouseEvent) -> tuple[tuple[int, int], ...]:
+        """
+        The pixels under the pointer. Wide pixels are exact. With half blocks a terminal that reports the position in
+        pixels (kitty, ...) tells which half of the cell it is, then it is exact as well. Otherwise the pointer is
+        only known to the cell, and both of its pixels are painted, so no row is out of reach.
+        """
         if self.wide:
-            return event.x // 2, event.y
-        return event.x, event.y * 2 + (1 if event.shift else 0)
+            return ((event.x // 2, event.y),)
+        row = event.pointer_y
+        if row != int(row):
+            self._precise = True
+        if self._precise:
+            return ((event.x, int(row * 2)),)
+        return ((event.x, event.y * 2), (event.x, event.y * 2 + 1))
 
     def on_mouse_down(self, event: events.MouseDown) -> None:
         self._pointer_down = True
         self.capture_mouse()
         if self.on_pointer:
-            self._last_pixel = self._pixel(event)
-            self.on_pointer(*self._last_pixel, event.button, True)
+            self._last_pixels = self._pixels(event)
+            for number, (x, y) in enumerate(self._last_pixels):
+                self.on_pointer(x, y, event.button, number == 0)  # one undo step for the click
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
         if self._pointer_down and self.on_pointer:
-            pixel = self._pixel(event)
-            if pixel != self._last_pixel:  # many events arrive for one pixel
-                self._last_pixel = pixel
-                self.on_pointer(*pixel, event.button, False)
+            pixels = self._pixels(event)
+            if pixels != self._last_pixels:  # many events arrive for one pixel
+                self._last_pixels = pixels
+                for x, y in pixels:
+                    self.on_pointer(x, y, event.button, False)
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
         self._pointer_down = False
@@ -354,8 +367,8 @@ class DrawScreen(PageScreen):
             state.append(f"{self.tool.capitalize()} from the yellow pixel: move, then press {self.tool[0].upper()}\n",
                          style="bold yellow")
         if not self._widget.wide:
-            state.append("Mouse: left paints the upper pixel, Shift the lower, right erases, middle picks\n",
-                         style="dim")
+            state.append("Mouse: left paints, right erases, middle picks. If the terminal does not report the position "
+                         "in pixels a click paints both pixels of a cell, the arrows and Space are exact\n", style="dim")
         self.query_one("#state", Static).update(state)
 
     def _paint(self, x: int, y: int, color: Color | None = None) -> None:
