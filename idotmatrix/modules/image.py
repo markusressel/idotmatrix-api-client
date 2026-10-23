@@ -153,7 +153,7 @@ class ImageModule(IDotMatrixModule):
         resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
         palletize: bool = False,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
-        png: bool = False,
+        png: bool = True,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
         colors: int = 256,
@@ -174,8 +174,9 @@ class ImageModule(IDotMatrixModule):
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
                 image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
             png (bool): If True, the image is sent as a PNG file instead of raw RGB data. That is smaller (about 25-45%
-                for photos, more for pixel-art, and a palette PNG with `palletize`), which saves a little upload time.
-                Experimental: tested on a 64x64 device only, the official app sends raw RGB. Defaults to False.
+                for photos, more for pixel-art, and a palette PNG with `palletize`), which saves a little upload time,
+                and it avoids a stray dark red pixel in the top row that the device draws after a raw upload. Tested
+                on a 64x64 device only, the official app sends raw RGB. Defaults to True.
             slot (int, optional): If given (0 to 11), the image is stored in that slot of the device instead of being
                 shown right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
@@ -207,13 +208,13 @@ class ImageModule(IDotMatrixModule):
     async def show_image_pixeldata(
         self,
         pixel_colors: List[Tuple[int, int, int] | int | str],
-        png: bool = False,
+        png: bool = True,
     ) -> None:
         """
         Shows pixel data on the device, the way the official app does it for photos. See `show_image_file`.
         Args:
             pixel_colors: One color for each pixel of the screen, row by row.
-            png (bool): If True, the pixels are sent as a PNG file. See `show_image_file`.
+            png (bool): If True (the default), the pixels are sent as a PNG file. See `show_image_file`.
         """
         await self._send_static_image_data(self._pixel_colors_to_bytes(pixel_colors), png=png)
 
@@ -237,7 +238,7 @@ class ImageModule(IDotMatrixModule):
     async def _send_static_image_data(
         self,
         pixel_data: bytearray,
-        png: bool = False,
+        png: bool = True,
         palette: bool = False,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,

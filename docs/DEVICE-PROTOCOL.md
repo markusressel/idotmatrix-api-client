@@ -189,7 +189,11 @@ The official app shows photos with a static image upload (type 2, index 13) cont
 The data of a static image (type 2) and of a DIY image (type 0) can also be a PNG file instead of raw RGB, the device
 decodes it. The header is the same, the length and CRC32 refer to the PNG bytes. (**verified** on a 64x64 for RGB and
 palette PNGs; the original Python library and the Homey app do this for DIY images, the official app sends raw RGB.)
-Not tested on 16x16 and 32x32 devices. `show_image_file(png=True)` does this.
+Not tested on 16x16 and 32x32 devices. `show_image_file(png=True)` does this, and it is the default since a raw upload
+leaves a stray dark red pixel at the second LED of the first row on a 64x64 (**verified**: on black and gray images and
+on photos, with any header time or index, with a single chunk or several; a PNG of the same picture, DIY mode and GIFs
+do not do it; the app sends raw RGB with the same header, so it probably shows it too: **guess**). The pixel is drawn by
+the device, the data has the right color there.
 
 Measured on a 64x64 (raw RGB is 12288 bytes, 3 chunks): photos shrink to 6.6-10 KB as RGB PNG and 4.6-4.8 KB as palette
 PNG, pixel-art to 4.7 KB / 1.8 KB. Upload time dropped from 0.8-1.1 s (raw) to 0.7-0.85 s (RGB PNG) and 0.5-0.6 s

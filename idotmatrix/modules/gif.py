@@ -18,11 +18,15 @@ from idotmatrix.util.device_material import (
 )
 from idotmatrix.util.image_utils import ResizeMode, validate_colors
 from idotmatrix.util.overlay import TextOverlay
+from idotmatrix.util.quality import DEFAULT_MAX_COLOR_ERROR, color_error, color_score
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
 ANIMATION_TOTAL_DURATION_LIMIT_MS = 2000
 DEFAULT_ANIMATION_TOTAL_DURATION_MS = ANIMATION_TOTAL_DURATION_LIMIT_MS
+
+AUTO_COLORS = "auto"
+AUTO_COLOR_STEPS = (256, 128, 64, 32, 16)
 
 # --- Constants based on the Java code ---
 CHUNK_SIZE_4096 = 4096
@@ -52,9 +56,11 @@ class GifModule(IDotMatrixModule):
         duration_per_frame_in_ms: int = None,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
-        colors: int = 256,
+        colors: int | str = 256,
         max_size_kb: int | None = None,
         overlay: TextOverlay | None = None,
+        shared_palette: bool = False,
+        max_color_error: float = DEFAULT_MAX_COLOR_ERROR,
     ):
         """
         Uploads a GIF file to the device. It is shown right away, unless a slot is given.
@@ -69,7 +75,8 @@ class GifModule(IDotMatrixModule):
             slot (int, optional): If given (0 to 11), the GIF is stored in that slot of the device instead of being shown
                 right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
-            colors (int): The number of colors of the palette (2 to 256). Fewer colors make the upload smaller and
+            colors (int | str): The number of colors of the palette (2 to 256), or "auto". Fewer colors make the
+                upload smaller and
                 faster (16 colors are about a third of the size of 256 for a photo-like animation), at the price of
                 rougher colors. Less than 256 reduces the colors even if `palletize` is off.
             max_size_kb (int, optional): The most the converted GIF may have, which is what is transferred (a large
@@ -78,8 +85,16 @@ class GifModule(IDotMatrixModule):
                 down to 8 and frames again. If it still does not fit the smallest version is used and a warning is
                 logged.
             overlay (TextOverlay, optional): A text that is drawn on top of every frame, f.e. to label it.
+            shared_palette (bool): One palette for all frames instead of one for each, which can flicker when the
+                colors differ from frame to frame (it also changes the colors a little more). Not for "auto".
+            max_color_error (float): With colors="auto": the GIF with the fewest bytes whose color error is at most
+                this is used. The error is the mean color difference to the GIF with 256 colors (delta E) plus 8 times the
+                flicker. On a 64x64 up to 5 looks good, up to 9 is still acceptable but duller, more looks broken
+                (about 3 is nearly lossless). The palette sizes 256 to 16 are tried, with a palette for each frame
+                and with a shared one.
         """
-        validate_colors(colors)
+        if colors != AUTO_COLORS:
+            validate_colors(colors)
         if max_size_kb is not None and (isinstance(max_size_kb, bool) or not isinstance(max_size_kb, int)
                                         or max_size_kb < 1):
             raise ValueError(f"max_size_kb must be a positive number, got: {max_size_kb!r}")
@@ -101,6 +116,8 @@ class GifModule(IDotMatrixModule):
             colors=colors,
             max_size_kb=max_size_kb,
             overlay=overlay,
+            shared_palette=shared_palette,
+            max_color_error=max_color_error,
         )
 
         # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
@@ -136,9 +153,11 @@ class GifModule(IDotMatrixModule):
         palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
-        colors: int = 256,
+        colors: int | str = 256,
         max_size_kb: int | None = None,
         overlay: TextOverlay | None = None,
+        shared_palette: bool = False,
+        max_color_error: float = DEFAULT_MAX_COLOR_ERROR,
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -157,6 +176,8 @@ class GifModule(IDotMatrixModule):
             colors (int): The number of colors of the palette (2 to 256).
             max_size_kb (int, optional): The size the GIF may have at most, see `upload_gif_file`.
             overlay (TextOverlay, optional): A text that is drawn on top of every frame.
+            shared_palette (bool): One palette for all frames.
+            max_color_error (float): The limit for colors="auto", see `upload_gif_file`.
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
@@ -197,18 +218,30 @@ class GifModule(IDotMatrixModule):
         # TODO: there are still some cases where
         #  - the GIF is not animating all frames
 
+        shared = shared_palette
+        if colors == AUTO_COLORS:
+            data, colors, shared = self._encode_gif_auto(frames, duration_per_frame_in_ms, max_color_error)
+            if max_size_kb is None or len(data) <= max_size_kb * 1024:
+                return data
+            palletize = True
         if max_size_kb is None:
-            return self._encode_gif(frames, duration_per_frame_in_ms, colors, palletize)
-        return self._encode_gif_within(frames, duration_per_frame_in_ms, colors, palletize, max_size_kb)
+            return self._encode_gif(frames, duration_per_frame_in_ms, colors, palletize, shared)
+        return self._encode_gif_within(frames, duration_per_frame_in_ms, colors, palletize, max_size_kb, shared)
 
     @staticmethod
-    def _encode_gif(
-        frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int, palletize: bool
-    ) -> bytes:
-        """Encodes the frames as a GIF whose frames all have a color table of the same size."""
+    def _reduce_colors(
+        frames: List[PILImage.Image], colors: int, palletize: bool, shared: bool = False
+    ) -> List[PILImage.Image]:
+        """Gives the frames a palette of `colors` colors, one for each frame or a shared one."""
+        if shared:
+            return image_utils.palettize_together(frames, colors=colors)
         if palletize or colors < 256:
-            frames = [image_utils.palettize(frame, colors=colors) for frame in frames]
+            return [image_utils.palettize(frame, colors=colors) for frame in frames]
+        return frames
 
+    @staticmethod
+    def _save_gif(frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int) -> bytes:
+        """Writes the frames as a GIF whose frames all have a color table of the same size."""
         # all frames need color tables of the same size, or the device garbles / drops frames
         table_size = image_utils.palette_table_size(colors)
         frames = [image_utils.pad_palette(frame, table_size) for frame in frames]
@@ -228,6 +261,44 @@ class GifModule(IDotMatrixModule):
         gif_buffer.seek(0)
         return gif_buffer.getvalue()
 
+    def _encode_gif(
+        self, frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int, palletize: bool,
+        shared: bool = False
+    ) -> bytes:
+        """Encodes the frames as a GIF whose frames all have a color table of the same size."""
+        return self._save_gif(self._reduce_colors(frames, colors, palletize, shared), duration_per_frame_in_ms, colors)
+
+    def _encode_gif_auto(
+        self, frames: List[PILImage.Image], duration_per_frame_in_ms: int, max_color_error: float
+    ) -> Tuple[bytes, int, bool]:
+        """
+        Finds the GIF with the fewest bytes whose color error (compared to the same GIF with 256 colors for each
+        frame) is at most `max_color_error`, among palettes of 256 to 16 colors, for each frame or shared. If none is
+        good enough the one with the lowest error is used.
+        Returns the GIF, its number of colors and whether the palette is shared.
+        """
+        # compared to the GIF with all colors, which is what the limit was calibrated on
+        reference = [frame.convert("RGB") for frame in self._reduce_colors(frames, 256, True)]
+        best = None  # (size, data, colors, shared) of the smallest that is good enough
+        closest = None  # (score, data, colors, shared)
+        for colors in AUTO_COLOR_STEPS:
+            for shared in (False, True):
+                reduced = self._reduce_colors(frames, colors, True, shared)
+                data = self._save_gif(reduced, duration_per_frame_in_ms, colors)
+                score = color_score(*color_error(reference, [frame.convert("RGB") for frame in reduced]))
+                if score <= max_color_error and (best is None or len(data) < best[0]):
+                    best = (len(data), data, colors, shared)
+                if closest is None or score < closest[0]:
+                    closest = (score, data, colors, shared)
+        if best is not None:
+            _, data, colors, shared = best
+        else:
+            score, data, colors, shared = closest
+            self.logging.warning(
+                f"no palette is within the color error {max_color_error}, using the best ({score:.1f})")
+        self.logging.info(f"{colors} colors{', shared palette' if shared else ''} ({len(data) / 1024:.0f} KB)")
+        return data, colors, shared
+
     def _encode_gif_within(
         self,
         frames: List[PILImage.Image],
@@ -235,6 +306,7 @@ class GifModule(IDotMatrixModule):
         colors: int,
         palletize: bool,
         max_size_kb: int,
+        shared: bool = False,
     ) -> bytes:
         """
         Encodes the frames as a GIF of at most `max_size_kb` KB if that is possible, by taking the first of
@@ -246,7 +318,7 @@ class GifModule(IDotMatrixModule):
             kept = frames[::every]
             if every > 1 and frames[-1] is not kept[-1] and len(kept) > 1:
                 kept[-1] = frames[-1]  # the animation still ends where it did
-            data = self._encode_gif(kept, duration_per_frame_in_ms * every, step_colors, palletize)
+            data = self._encode_gif(kept, duration_per_frame_in_ms * every, step_colors, palletize, shared)
             if len(data) <= limit:
                 if (step_colors, every) != (colors, 1):
                     self.logging.info(

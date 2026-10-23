@@ -65,7 +65,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 ## 6. Ideas to try on a device
 
-- [x] PNG payload: works on a 64x64 (static and DIY), saves 0.2-0.4 s per upload, opt-in via `show_image_file(png=True)`. Still to check: 16x16 and 32x32 devices, whether it is worth making it the default
+- [x] PNG payload: works on a 64x64 (static and DIY), saves 0.2-0.4 s per upload, the default of `show_image_file` since raw uploads leave a stray dark red pixel at the second LED of the first row. Still to check: 16x16 and 32x32 devices (assumed to behave the same), whether the official app shows the pixel as well
 - [x] Acknowledgements of normal commands: `send_bytes` waits for them by default for the commands in `util/command_ack.py`
 - [x] Heartbeat that detects a silently dead link (`set_heartbeat`, enabled by `DigitalPictureFrame`). Its own dead-link detection is only tested with mocks, BlueZ noticed the power loss first; try it on another platform or with a device that is out of range instead of switched off
 - [ ] Add more commands to `util/command_ack.py` once their acknowledgements are verified (eco, graffiti, ...; text, time, speed, joint, freeze behave differently)
