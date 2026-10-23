@@ -144,6 +144,8 @@ pixel by pixel and has to be left again before a GIF can be shown.
 
 #### Home Assistant and other Bluetooth stacks
 
+A Home Assistant integration that is built on this library is in development: [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix).
+
 By default the library connects with `bleak` itself. If something else owns the Bluetooth stack, like the scanner and
 the Bluetooth proxies of Home Assistant, hand over what it found or how to connect:
 
