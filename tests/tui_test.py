@@ -212,7 +212,7 @@ class FakeClient:
         self.screen_size = ScreenSize.SIZE_64x64
         self.connect = AsyncMock(side_effect=RuntimeError("no display found") if fail else None)
         self.disconnect = AsyncMock()
-        self.set_brightness = AsyncMock()
+        self.common = MagicMock(set_brightness=AsyncMock(), turn_on=AsyncMock(), turn_off=AsyncMock())
         self.gif = MagicMock(upload_gif_file=AsyncMock())
         self.image = MagicMock(show_image_file=AsyncMock())
         self.clock = MagicMock(show=AsyncMock())
@@ -297,7 +297,8 @@ class TestApp(AppHelpers, TestBase):
 
     async def test_connecting_is_retried_while_bluez_is_still_busy(self):
         client = FakeClient()
-        client.connect = AsyncMock(side_effect=[RuntimeError("[org.bluez.Error.InProgress] Operation already in progress"), None])
+        busy = RuntimeError("[org.bluez.Error.InProgress] Operation already in progress")
+        client.connect = AsyncMock(side_effect=[busy, None])
         app = self._app(client)
         with patch("idotmatrix.tui.app.CONNECT_RETRY_SECONDS", 0):
             async with app.run_test(size=(120, 40)) as pilot:
@@ -458,12 +459,9 @@ class TestApp(AppHelpers, TestBase):
             await self._settle(pilot)
             self.client.clock.show.assert_awaited_once()
 
-            await pilot.press("b")
-            await pilot.pause()
-            app.screen.query_one("#number").value = "40"
-            await pilot.click("#ok")
-            await self._settle(pilot)
-            self.client.set_brightness.assert_awaited_once_with(40)
+            await pilot.press("f5")
+            await self._until(pilot, lambda: self.client.common.set_brightness.await_count)
+            self.client.common.set_brightness.assert_awaited_once_with(95)
 
             await pilot.press("x")
             await pilot.pause()

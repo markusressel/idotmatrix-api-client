@@ -37,7 +37,8 @@ class ControlsScreen(PageScreen):
                 forms.border_title = "Controls"
                 for feature in FEATURES:
                     saved = self.app.session.controls.get(feature.id)
-                    yield FeatureForm(feature, feature.restore(saved), id=feature.id)
+                    values = feature.restore(saved)
+                    yield (feature.form or FeatureForm)(feature, values, id=feature.id)
 
     def on_mount(self) -> None:
         features = self.query_one("#features", OptionList)

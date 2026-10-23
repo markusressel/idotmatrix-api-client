@@ -1,10 +1,14 @@
 """The features of the display that the controls page shows: what to ask for and which calls of the library to make."""
 from datetime import datetime
 
+from rich.text import Text
+
 from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.tui.forms import Action, Feature, Field
+from idotmatrix.tui.scoreboard import ScoreboardForm
+from idotmatrix.tui.widgets import rainbow
 
 
 CLOCK_STYLES = {
@@ -38,24 +42,17 @@ async def _effect(client, v: dict):
     await client.effect.show(v["style"], v["colors"])
 
 
-async def _brightness(client, v: dict):
-    await client.common.set_brightness(v["brightness"])
+async def _normal(client, v: dict):
+    await client.common.set_screen_flipped(False)
 
 
-async def _screen_on(client, v: dict):
-    await client.common.turn_on()
-
-
-async def _screen_off(client, v: dict):
-    await client.common.turn_off()
-
-
-async def _flip(client, v: dict):
-    await client.common.set_screen_flipped(v["flipped"])
+async def _flipped(client, v: dict):
+    await client.common.set_screen_flipped(True)
 
 
 async def _count_start(client, v: dict):
-    await client.countdown.start(v["minutes"], v["seconds"])
+    minutes, seconds = v["time"]
+    await client.countdown.start(minutes, seconds)
 
 
 async def _count_pause(client, v: dict):
@@ -84,10 +81,6 @@ async def _chrono_resume(client, v: dict):
 
 async def _chrono_reset(client, v: dict):
     await client.chronograph.reset()
-
-
-async def _score(client, v: dict):
-    await client.scoreboard.show(v["first"], v["second"])
 
 
 async def _eco(client, v: dict):
@@ -124,6 +117,11 @@ async def _delete_data(client, v: dict):
 
 COLOR_HINT = "#rrggbb or a name"
 
+def _color_modes() -> tuple:
+    labels = {TextColorMode.WHITE: Text("White", style="bold white"), TextColorMode.RGB: Text("The color below")}
+    return tuple((labels.get(mode) or rainbow(f"Rainbow {mode.value - 1}"), mode.value) for mode in TextColorMode)
+
+
 FEATURES = (
     Feature(
         "clock", "Clock", "Shows the time on the display.",
@@ -133,26 +131,27 @@ FEATURES = (
             Field("hour24", "24 hour format", "bool", True),
             Field("color", "Color", "color", "#ffffff", placeholder=COLOR_HINT),
         ),
-        actions=(Action("Show the clock", _clock, "primary"),),
+        actions=(Action("Show the clock", _clock, "primary", icon="▶"),),
         live=True,
     ),
     Feature(
-        "text", "Text", "Scrolls or shows a text. Enter in a field shows it too.",
+        "text", "Text", "Scrolls or shows a text. Enter in any field, or Ctrl+J, shows it.",
         fields=(
             Field("text", "Text", "text", "Hello"),
             Field("font_size", "Font size", "int", 16, low=6, high=64),
             Field("mode", "Mode", "choice", TextMode.MARQUEE.value, choices=_choices(TextMode)),
             Field("speed", "Speed (higher is slower)", "int", 95, low=0, high=255),
-            Field("color_mode", "Color", "choice", TextColorMode.WHITE.value, choices=_choices(TextColorMode)),
-            Field("color", "Color for the mode RGB", "color", "#ffffff", placeholder=COLOR_HINT),
+            Field("color_mode", "Color mode", "choice", TextColorMode.WHITE.value, choices=_color_modes()),
+            Field("color", "Color", "color", "#ffffff", placeholder=COLOR_HINT),
             Field("background", "Background (empty: black)", "color", "", placeholder=COLOR_HINT, required=False),
         ),
-        actions=(Action("Show the text", _text, "primary"),),
+        actions=(Action("Show the text", _text, "primary", icon="▶"),),
+        preview="text",
     ),
     Feature(
         "color", "Color", "Fills the display with one color.",
         fields=(Field("color", "Color", "color", "#ff0000", placeholder=COLOR_HINT),),
-        actions=(Action("Show the color", _color, "primary"),),
+        actions=(Action("Show the color", _color, "primary", icon="▶"),),
         live=True,
     ),
     Feature(
@@ -160,54 +159,37 @@ FEATURES = (
         fields=(
             Field("style", "Style", "choice", EffectStyle.GRADIENT_HORIZONTAL_RAINBOW.value,
                   choices=_choices(EffectStyle)),
-            Field("colors", "Colors, separated by commas", "colors", "#ff0000, #00ff00, #0000ff"),
+            Field("colors", "Colors", "colors", ["#ff0000", "#00ff00", "#0000ff"]),
         ),
-        actions=(Action("Show the effect", _effect, "primary"),),
+        actions=(Action("Show the effect", _effect, "primary", icon="▶"),),
         live=True,
-    ),
-    Feature(
-        "screen", "Screen", "Brightness, power and rotation.",
-        fields=(
-            Field("brightness", "Brightness in percent", "int", 100, low=5, high=100),
-            Field("flipped", "Rotate by 180°", "bool", False),
-        ),
-        actions=(
-            Action("Set the brightness", _brightness, "primary"),
-            Action("Apply the rotation", _flip),
-            Action("Turn on", _screen_on),
-            Action("Turn off", _screen_off),
-        ),
+        preview="effect",
     ),
     Feature(
         "countdown", "Countdown", "Counts down on the display.",
-        fields=(
-            Field("minutes", "Minutes", "int", 5, low=0, high=59),
-            Field("seconds", "Seconds", "int", 0, low=0, high=59),
-        ),
+        fields=(Field("time", "Time (minutes:seconds)", "duration", "05:00", placeholder="12:34"),),
         actions=(
-            Action("Start", _count_start, "primary"),
-            Action("Pause", _count_pause),
-            Action("Restart", _count_restart),
-            Action("Stop", _count_stop),
+            Action("Start", _count_start, "primary", icon="▶"),
+            Action("Pause", _count_pause, icon="⏸"),
+            Action("Restart", _count_restart, icon="↻"),
+            Action("Stop", _count_stop, icon="■"),
         ),
     ),
     Feature(
         "chronograph", "Stopwatch", "Counts up from zero.",
         actions=(
-            Action("Start", _chrono_start, "primary"),
-            Action("Pause", _chrono_pause),
-            Action("Resume", _chrono_resume),
-            Action("Reset", _chrono_reset),
+            Action("Start", _chrono_start, "primary", icon="▶"),
+            Action("Pause", _chrono_pause, icon="⏸"),
+            Action("Resume", _chrono_resume, icon="⏵"),
+            Action("Reset", _chrono_reset, icon="■"),
         ),
     ),
     Feature(
-        "scoreboard", "Scoreboard", "Two counters, 0 to 999. Enter in a field shows them.",
-        fields=(
-            Field("first", "First counter", "int", 0, low=0, high=999),
-            Field("second", "Second counter", "int", 0, low=0, high=999),
-        ),
-        actions=(Action("Show the scoreboard", _score, "primary"),),
+        "scoreboard", "Scoreboard", "Two counters, 0 to 999, sent as you count. Up and Down count, Left and Right "
+                                    "pick the side, or click and use the wheel.",
+        fields=(Field("first", "Home", "int", 0, low=0, high=999), Field("second", "Guest", "int", 0, low=0, high=999)),
         live=True,
+        form=ScoreboardForm,
     ),
     Feature(
         "eco", "Eco mode", "Lowers the brightness between two times of the day.",
@@ -229,14 +211,17 @@ FEATURES = (
         actions=(Action("Start", _music, "primary"),),
     ),
     Feature(
-        "device", "Device", "The time, what the display knows about itself, and resets.",
+        "device", "Device", "Rotation, the time, what the display knows about itself, and resets. Brightness and "
+                            "power are at the bottom of every page.",
         actions=(
-            Action("Set the time", _sync_time, "primary"),
-            Action("Info", _info),
+            Action("Normal", _normal, "primary", icon="⟲"),
+            Action("Upside down", _flipped, icon="⟳"),
+            Action("Set the time", _sync_time, icon="◷"),
+            Action("Info", _info, icon="ⓘ"),
             Action("Reset", _reset, "warning", "Reset the display and its internals? It can fix issues that appear "
-                                                "over time."),
+                                                "over time.", icon="⚠"),
             Action("Delete data", _delete_data, "error", "Delete the data of the display and reset it to defaults? "
-                                                         "The stored pictures are gone."),
+                                                         "The stored pictures are gone.", icon="✖"),
         ),
     ),
 )

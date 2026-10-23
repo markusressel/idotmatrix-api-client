@@ -85,7 +85,7 @@ class TestFeatures(TestBase):
 
         values = feature.restore({"n": 7, "c": 3})
 
-        self.assertEqual({"n": 7, "c": 1}, values)
+        self.assertEqual({"n": "7", "c": 1}, values)
 
     def test_wrong_input_is_explained(self):
         feature = Feature("f", "F", "", fields=(
@@ -203,15 +203,16 @@ class TestPages(AppHelpers, TestBase):
         app = self._app()
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("f2", "down", "down", "down", "down", "down")  # countdown
+            await pilot.press("f2", "down", "down", "down", "down")  # countdown
             await pilot.pause()
-            app.screen.query_one("#countdown-minutes").value = "99"
+            app.screen.query_one("#countdown").query_one("Input").value = "99:99"
 
             await pilot.click("#countdown-action0")
             await pilot.pause()
 
             self.client.countdown.start.assert_not_awaited()
-            self.assertIn("from 0 to 59", str(app.message_text))
+            from idotmatrix.tui.widgets import ErrorLabel
+            self.assertIn("minutes:seconds", str(app.screen.query_one("#countdown").query_one(ErrorLabel).render()))
 
     async def test_drawing_sends_the_pixels_to_the_display_in_the_draw_mode(self):
         app = self._app()
@@ -229,3 +230,94 @@ class TestPages(AppHelpers, TestBase):
                 sent.setdefault(call.args[0], []).extend(call.args[1])
             self.assertIn((32, 32), sent[(255, 0, 0)])  # the cursor starts in the middle
             self.assertEqual(64 * 64 - 1, len(sent[(0, 0, 0)]))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestWidgets(AppHelpers, TestBase):
+
+    def setUp(self):
+        super().setUp()
+        _device_client(self.client)
+
+    async def _open_feature(self, pilot, app, downs: int):
+        await self._settle(pilot)
+        await pilot.press("f2", *["down"] * downs, "enter")
+        await pilot.pause()
+
+    async def test_arrows_change_a_number_and_up_down_move_between_fields(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._open_feature(pilot, app, 1)  # text: the text field has the focus
+
+            await pilot.press("down", "right", "right", "pageup")  # the font size: 16 + 2 + 10
+
+            from idotmatrix.tui.widgets import NumberField
+            self.assertEqual("28", app.screen.query_one("#text").query_one(NumberField).raw)
+            await pilot.press("5")
+            self.assertEqual("5", app.screen.query_one("#text").query_one(NumberField).raw)
+
+    async def test_enter_in_the_text_shows_it_on_the_display(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._open_feature(pilot, app, 1)
+
+            await pilot.press("enter")
+            await self._until(pilot, lambda: self.client.text.show_text.await_count)
+
+            self.assertEqual("Hello", self.client.text.show_text.await_args.args[0])
+
+    async def test_a_toggle_applies_the_clock_at_once(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._open_feature(pilot, app, 0)
+
+            await pilot.press("down", "space")  # the date
+            await self._until(pilot, lambda: self.client.clock.show.await_count)
+
+            self.assertFalse(self.client.clock.show.await_args.kwargs["show_date"])
+
+    async def test_the_color_names_of_html_are_accepted(self):
+        from idotmatrix.tui.widgets import try_color
+        self.assertEqual((255, 99, 71), try_color("tomato"))
+        self.assertEqual((255, 99, 71), try_color("#ff6347"))
+        self.assertIsNone(try_color("nonsense"))
+
+    async def test_the_scoreboard_counts_and_sends(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._open_feature(pilot, app, 6)  # scoreboard
+
+            await pilot.press("up", "up", "right", "up")
+            await self._until(pilot, lambda: self.client.scoreboard.show.await_args
+                              and self.client.scoreboard.show.await_args.args == (2, 1))
+
+    async def test_the_brightness_and_the_power_are_on_every_page(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f3", "f5", "f5")
+            await self._until(pilot, lambda: self.client.common.set_brightness.await_count)
+            await pilot.press("f7")
+            await self._until(pilot, lambda: self.client.common.turn_off.await_count)
+
+            self.assertEqual(90, self.client.common.set_brightness.await_args.args[0])
+
+    async def test_a_click_on_a_page_in_the_title_shows_it(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.click("#tab-controls")
+
+            self.assertEqual("controls", app.screen.page_id)
+
+    async def test_a_click_on_a_color_of_the_palette_uses_it(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f3")
+            await pilot.pause()
+
+            await pilot.click("#palette", offset=(7, 0))  # the third color
+
+            self.assertEqual((255, 255, 0), app.screen.color)

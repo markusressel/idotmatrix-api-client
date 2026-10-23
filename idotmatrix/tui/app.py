@@ -20,8 +20,9 @@ from idotmatrix.screensize import ScreenSize
 from idotmatrix.tui import convert
 from idotmatrix.tui.convert import Preview
 from idotmatrix.tui.devices import DevicesScreen
-from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, PathDialog, OptionsDialog, SlideshowDialog
+from idotmatrix.tui.dialogs import ConfirmDialog, PathDialog, OptionsDialog, SlideshowDialog
 from idotmatrix.tui.files import Entry, files_in, fit_name, format_size, is_supported, list_folder, restore_index
+from idotmatrix.tui.devicebar import MAX_BRIGHTNESS, MIN_BRIGHTNESS, DeviceBar
 from idotmatrix.tui.pages import PageScreen, StatusBar
 from idotmatrix.tui.preview import Fitted, PixelPreviewWidget, PreviewWidget
 from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
@@ -111,7 +112,6 @@ class IDotMatrixApp(App):
         Binding("a", "mark_all", "Mark all"),
         Binding("s", "store", "Slots"),
         Binding("o", "options", "Options"),
-        Binding("b", "brightness", "Brightness"),
         Binding("c", "clock", "Clock"),
         Binding("x", "clear_slots", "Clear slots"),
         Binding("d", "devices", "Displays"),
@@ -125,10 +125,13 @@ class IDotMatrixApp(App):
         Binding("f1", "page('files')", "Files", show=False),
         Binding("f2", "page('controls')", "Controls", show=False),
         Binding("f3", "page('draw')", "Draw", show=False),
+        Binding("f5", "dim(-5)", "Dimmer", show=False),
+        Binding("f6", "dim(5)", "Brighter", show=False),
+        Binding("f7", "power", "Power", show=False),
     ]
 
     # what only makes sense on the page with the files
-    FILE_ACTIONS = {"mark", "mark_all", "store", "options", "brightness", "clock", "clear_slots", "filter", "goto",
+    FILE_ACTIONS = {"mark", "mark_all", "store", "options", "clock", "clear_slots", "filter", "goto",
                     "parent", "enter", "extend"}
 
     def __init__(
@@ -165,6 +168,9 @@ class IDotMatrixApp(App):
         self._loading = False
         self._table_width = 0
         self._message_id = 0
+        self.screen_on = True
+        self._quick_pending: dict[str, Callable[[], object]] = {}
+        self._quick_worker: Worker | None = None
         self.device_generation = 0  # counts the operations on the display, f.e. to know the draw mode ended
         self._installed_pages: dict[str, Screen] = {}
         self.status_text = Text()
@@ -214,6 +220,7 @@ class IDotMatrixApp(App):
         with Horizontal(id="activity"):
             yield Label("", id="activity-text")
             yield ProgressBar(id="progress", show_eta=False, total=100)
+        yield DeviceBar()
         yield Footer()
 
     def on_mount(self) -> None:
@@ -252,7 +259,9 @@ class IDotMatrixApp(App):
         yield SystemCommand("Store in slots", "Store the marked files, or all files of the folder", self.action_store)
         yield SystemCommand("Store folder and subfolders", "Store all files below this folder", self.action_store_all)
         yield SystemCommand("Clear slots", "Delete everything stored on the display", self.action_clear_slots)
-        yield SystemCommand("Brightness", "Set the brightness of the display", self.action_brightness)
+        yield SystemCommand("Dimmer", "Lower the brightness of the display (F5)", lambda: self.action_dim(-5))
+        yield SystemCommand("Brighter", "Raise the brightness of the display (F6)", lambda: self.action_dim(5))
+        yield SystemCommand("Power", "Turn the display on or off (F7)", self.action_power)
         yield SystemCommand("Show the clock", "Switch the display to the clock", self.action_clock)
         yield SystemCommand("Displays", "Search for displays and choose one", self.action_devices)
         yield SystemCommand("Reconnect", "Connect to the display again", self.action_reconnect)
@@ -814,15 +823,61 @@ class IDotMatrixApp(App):
 
         self.push_screen(OptionsDialog(self.session.options), chosen)
 
-    def action_brightness(self) -> None:
-        def chosen(value: int | None) -> None:
-            if value is not None:
-                self.session.brightness = value
-                self.session.save(self._session_path)
-                self.run_device("Setting the brightness", lambda: self.client.set_brightness(value))
+    def set_brightness(self, value: int) -> None:
+        """Dims or brightens the display, once the value stopped changing for a moment."""
+        value = min(max(value, MIN_BRIGHTNESS), MAX_BRIGHTNESS)
+        self.session.brightness = value
+        self.session.save(self._session_path)
+        self._refresh_device_bars()
+        self.quick("brightness", lambda: self.client.common.set_brightness(value))
 
-        self.push_screen(
-            NumberDialog("Brightness", "Percent (5 to 100)", self.session.brightness, 5, 100), chosen)
+    def action_dim(self, step: int) -> None:
+        self.set_brightness(self.session.brightness + step)
+
+    def toggle_power(self) -> None:
+        self.screen_on = not self.screen_on
+        self._refresh_device_bars()
+        common = self.client.common if self.client is not None else None
+        self.quick("power", lambda: common.turn_on() if self.screen_on else common.turn_off())
+
+    def action_power(self) -> None:
+        self.toggle_power()
+
+    def _refresh_device_bars(self) -> None:
+        for screen in self.screen_stack:
+            for bar in screen.query(DeviceBar):
+                bar.refresh_state()
+
+    @property
+    def brightness(self) -> int:
+        return self.session.brightness
+
+    def quick(self, key: str, operation: Callable[[], object]) -> None:
+        """
+        Runs a small command on the display without the activity bar, f.e. for a slider that is dragged: only the
+        latest operation of a key is sent, and it waits while an upload runs.
+        """
+        if self.connection != "connected" or self.client is None:
+            self.show_message("Not connected, press r to try again", "warning")
+            return
+        self._quick_pending[key] = operation
+        if self._quick_worker is None or self._quick_worker.is_finished:
+            self._quick_worker = self.run_worker(self._quick_loop(), group="quick")
+
+    async def _quick_loop(self) -> None:
+        while self._quick_pending:
+            if self._busy is not None:
+                await asyncio.sleep(0.2)
+                continue
+            key = next(iter(self._quick_pending))
+            operation = self._quick_pending.pop(key)
+            try:
+                await operation()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logging.exception(key)
+                self.show_message(f"{key} failed: {e}", "error")
 
     def action_clock(self) -> None:
         self.run_device("Showing the clock", self._clock)

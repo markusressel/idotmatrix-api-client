@@ -53,6 +53,7 @@ class CanvasWidget(Widget):
     """
 
     DEFAULT_CSS = "CanvasWidget { width: auto; height: auto; }"
+    ALLOW_SELECT = False  # dragging paints, it must not select text
 
     def __init__(self, canvas: PixelCanvas, **kwargs):
         super().__init__(**kwargs)
@@ -62,6 +63,7 @@ class CanvasWidget(Widget):
         self.wide = False
         self.on_pointer = None  # called with (x, y, button, started)
         self._pointer_down = False
+        self._last_pixel: tuple[int, int] | None = None
 
     def get_content_width(self, container: Size, viewport: Size) -> int:
         return self.canvas.size * (2 if self.wide else 1)
@@ -110,21 +112,39 @@ class CanvasWidget(Widget):
         self._pointer_down = True
         self.capture_mouse()
         if self.on_pointer:
-            self.on_pointer(*self._pixel(event), event.button, True)
+            self._last_pixel = self._pixel(event)
+            self.on_pointer(*self._last_pixel, event.button, True)
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
         if self._pointer_down and self.on_pointer:
-            self.on_pointer(*self._pixel(event), event.button, False)
+            pixel = self._pixel(event)
+            if pixel != self._last_pixel:  # many events arrive for one pixel
+                self._last_pixel = pixel
+                self.on_pointer(*pixel, event.button, False)
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
         self._pointer_down = False
         self.release_mouse()
 
 
+class Palette(Static):
+    """The colors to pick from: a click on one uses it."""
+
+    ALLOW_SELECT = False
+    CELL_WIDTH = 3
+    PER_ROW = 5
+
+    def on_click(self, event: events.Click) -> None:
+        index = event.y * self.PER_ROW + event.x // self.CELL_WIDTH
+        if 0 <= index < len(PALETTE) and event.x // self.CELL_WIDTH < self.PER_ROW:
+            self.screen.action_palette(index)
+
+
 class DrawScreen(PageScreen):
     """Draws pixels by hand, on the display as you go (the DIY mode) or all at once."""
 
     page_id = "draw"
+    ALLOW_SELECT = False
     BINDINGS = [
         Binding("up", "move(0,-1)", "Move", show=False),
         Binding("down", "move(0,1)", "Move", show=False),
@@ -192,7 +212,7 @@ class DrawScreen(PageScreen):
             with Vertical(id="side"):
                 with Vertical(id="palette-box") as palette:
                     palette.border_title = "Colors"
-                    yield Static("", id="palette")
+                    yield Palette("", id="palette")
                 with Vertical(id="state-box") as state:
                     state.border_title = "State"
                     yield Static("", id="state")
@@ -212,6 +232,7 @@ class DrawScreen(PageScreen):
         self._wake = asyncio.Event()
         self.run_worker(self._sender(), name="draw", group="draw", exclusive=True)
         self._fit()
+        self._update_palette()
         self._update()
 
     def on_screen_resume(self) -> None:
@@ -223,6 +244,7 @@ class DrawScreen(PageScreen):
             self.query_one("#canvas-box").border_title = f"Canvas {self.canvas.size}x{self.canvas.size}"
         self._diy_active = False
         self._fit()
+        self._update_palette()
         self._update()
 
     def on_screen_suspend(self) -> None:
@@ -258,10 +280,7 @@ class DrawScreen(PageScreen):
         if self.live and self._wake is not None:
             self._wake.set()
 
-    def _update(self) -> None:
-        if self._widget is None:
-            return
-        x, y = self._widget.cursor
+    def _update_palette(self) -> None:
         palette = Text()
         for index, value in enumerate(PALETTE):
             color = parse_color_rgb(value)
@@ -269,9 +288,14 @@ class DrawScreen(PageScreen):
             selected = color == self.color
             palette.append(f" {label} ", Style(color=style_of(contrast(color)), bgcolor=style_of(color),
                                               bold=selected, underline=selected))
-            if index % 5 == 4:
+            if index % Palette.PER_ROW == Palette.PER_ROW - 1:
                 palette.append("\n")
         self.query_one("#palette", Static).update(palette)
+
+    def _update(self) -> None:
+        if self._widget is None:
+            return
+        x, y = self._widget.cursor
         state = Text()
         state.append("Color  ")
         state.append("   ", Style(bgcolor=style_of(self.color)))
@@ -350,6 +374,7 @@ class DrawScreen(PageScreen):
         self.color = color
         self.app.session.draw_color = hex_of(color)
         self.app.session.save(self.app.session_path)
+        self._update_palette()
         self._update()
 
     def action_palette(self, index: int) -> None:
@@ -483,7 +508,8 @@ class DrawScreen(PageScreen):
         by_color: dict[Color, list[tuple[int, int]]] = {}
         for xy, color in pixels.items():
             by_color.setdefault(color, []).append(xy)
-        for color, xys in by_color.items():
+        # the black that clears the rest of the display goes last, what was drawn shows first
+        for color, xys in sorted(by_color.items(), key=lambda item: item[0] == BLACK):
             iterator = iter(xys)
             while chunk := list(islice(iterator, MAX_PIXEL_LIST_LENGTH)):
                 await app.client.graffiti.set_pixels(color, chunk)
