@@ -899,3 +899,41 @@ class TestGoTo(AppHelpers, TestBase):
 
             self.assertEqual(self.folder, app.folder)
             self.assertIsNotNone(app.screen.query("#path").first())
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestListKeys(AppHelpers, TestBase):
+
+    async def test_home_and_end_select_the_first_and_last_entry(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("end")
+            self.assertEqual(self.folder / "b10.jpg", app.selected_path())
+            await pilot.press("home")
+            self.assertEqual(self.folder / "a.gif", app.selected_path())
+
+    async def test_page_keys_move_by_the_rows_shown_and_stop_at_the_ends(self):
+        from textual.widgets import DataTable
+        for number in range(40):
+            Image.new("RGB", (4, 4)).save(self.folder / f"x{number:02}.png")
+        app = self._app()
+        async with app.run_test(size=(120, 20)) as pilot:
+            await self._settle(pilot)
+            table = app.query_one("#files", DataTable)
+            page = table.scrollable_content_region.height - 1
+
+            await pilot.press("pagedown")
+            self.assertEqual(page, table.cursor_row)
+            await pilot.press("pageup", "pageup")
+            self.assertEqual(0, table.cursor_row)
+
+    async def test_the_circle_of_the_connection_is_colored(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            text = app.query_one("#status").render()
+            circle = next(span for span in text.spans if text.plain[span.start:span.end] == "●")
+            self.assertIn("green", str(circle.style))

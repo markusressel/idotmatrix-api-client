@@ -36,6 +36,7 @@ DEFAULT_TABLE_WIDTH = 60
 MESSAGE_SECONDS = {"information": 5, "warning": 8, "error": 12}
 # a key press dismisses the message, but not before it could be read (a held key would dismiss it at once)
 MESSAGE_MIN_SECONDS = 1.0
+STATUS_COLORS = {"connected": "bold green", "connecting": "bold yellow", "failed": "bold red"}
 MESSAGE_STYLES = {"information": "", "warning": "bold yellow", "error": "bold red"}
 
 
@@ -48,7 +49,22 @@ class FileTable(DataTable):
         Binding("alt+up", "app.parent", "Up", show=False),
         Binding("shift+up", "app.extend(-1)", "Extend marks", show=False),
         Binding("shift+down", "app.extend(1)", "Extend marks", show=False),
+        Binding("home", "first", "First", show=False),
+        Binding("end", "last", "Last", show=False),
+        Binding("pageup", "page(-1)", "Page up", show=False),
+        Binding("pagedown", "page(1)", "Page down", show=False),
     ]
+
+    def action_first(self) -> None:
+        self.move_cursor(row=0)
+
+    def action_last(self) -> None:
+        self.move_cursor(row=max(self.row_count - 1, 0))
+
+    def action_page(self, direction: int) -> None:
+        """Moves the cursor by the rows shown, less one, so the row at the edge stays in view."""
+        rows = max(self.scrollable_content_region.height - 1, 1)
+        self.move_cursor(row=min(max(self.cursor_row + direction * rows, 0), max(self.row_count - 1, 0)))
 
     def on_resize(self, event: Resize) -> None:
         self.app.table_resized(event.size.width)
@@ -502,7 +518,8 @@ class IDotMatrixApp(App):
     def _update_status(self) -> None:
         symbols = {"connected": "●", "connecting": "…", "failed": "✗"}
         text = Text(" iDotMatrix ", style="bold")
-        text.append(f"{symbols.get(self.connection, '○')} {self.connection}")
+        text.append(symbols.get(self.connection, "○"), style=STATUS_COLORS.get(self.connection, "grey62"))
+        text.append(f" {self.connection}")
         if self.connection == "connected":
             text.append(f" {self.canvas_size}x{self.canvas_size}")
         if self.session.address:
