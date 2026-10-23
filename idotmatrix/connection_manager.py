@@ -62,6 +62,7 @@ class ConnectionManager:
         address: Optional[str] = None,
         max_ble_packet_size: Optional[int] = None,
         transport_factory: Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]] = None,
+        install_signal_handlers: bool = True,
     ) -> None:
         """
         Initializes the ConnectionManager with an optional Bluetooth address.
@@ -74,6 +75,8 @@ class ConnectionManager:
             `Transport` for an address (or a `BLEDevice`, see `set_device`). It gets a callback that has to be called when
             the connection was lost. By default, a `BleakTransport` is used. Use it to connect in a different way, f.e. with
             the client that Home Assistant provides, or to test code against a fake device.
+            install_signal_handlers (bool): Whether to close the connection on SIGINT and SIGTERM, which replaces the
+            handlers of these signals of the event loop. Turn it off if the application handles them itself.
         """
         self._max_ble_packet_size_override = max_ble_packet_size
         self.address: Optional[str] = None
@@ -105,7 +108,8 @@ class ConnectionManager:
 
         self._connection_listeners: List[ConnectionListener] = []
 
-        self._setup_signal_handlers()
+        if install_signal_handlers:
+            self._setup_signal_handlers()
 
     @staticmethod
     async def discover_devices() -> List[str]:

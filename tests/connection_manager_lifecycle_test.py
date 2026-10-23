@@ -418,3 +418,21 @@ class TestConnectionManagerConstruction(unittest.TestCase):
         thread.join()
 
         self.assertEqual([], errors)
+
+
+class TestSignalHandlers(unittest.IsolatedAsyncioTestCase):
+
+    async def test_installed_by_default(self):
+        loop = asyncio.get_running_loop()
+        with patch.object(loop, "add_signal_handler") as add_signal_handler:
+            ConnectionManager(transport_factory=lambda address, on_disconnected: FakeTransport())
+
+        self.assertEqual(2, add_signal_handler.call_count)
+
+    async def test_can_be_turned_off(self):
+        loop = asyncio.get_running_loop()
+        with patch.object(loop, "add_signal_handler") as add_signal_handler:
+            ConnectionManager(
+                transport_factory=lambda address, on_disconnected: FakeTransport(), install_signal_handlers=False)
+
+        add_signal_handler.assert_not_called()

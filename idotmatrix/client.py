@@ -35,6 +35,7 @@ class IDotMatrixClient:
         max_ble_packet_size: Optional[int] = None,
         ble_device: Optional[BLEDevice] = None,
         transport_factory: Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]] = None,
+        install_signal_handlers: bool = True,
     ):
         """
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
@@ -50,11 +51,14 @@ class IDotMatrixClient:
                                               f.e. for the scanner of Home Assistant. See `ConnectionManager.set_device`.
             transport_factory (Optional[Callable]): Creates the `Transport` that talks to the device, to connect in a
                                                     different way than `bleak` does by default. See `ConnectionManager`.
+            install_signal_handlers (bool): Whether to close the connection on SIGINT and SIGTERM. Turn it off if the
+                                            application handles these signals itself (f.e. Home Assistant).
         """
         self._connection_manager = ConnectionManager(
             address=mac_address,
             max_ble_packet_size=max_ble_packet_size,
             transport_factory=transport_factory,
+            install_signal_handlers=install_signal_handlers,
         )
         if ble_device is not None:
             mac_address = ble_device.address

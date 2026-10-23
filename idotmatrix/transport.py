@@ -1,6 +1,6 @@
 import logging
-from collections.abc import Callable
-from typing import Protocol
+from collections.abc import Awaitable, Callable
+from typing import Optional, Protocol
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
@@ -47,25 +47,41 @@ class BleakTransport:
 
     logging = logging.getLogger(__name__)
 
-    def __init__(self, address_or_device: str | BLEDevice, on_disconnected: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        address_or_device: str | BLEDevice,
+        on_disconnected: Callable[[], None],
+        connector: Optional[Callable[[str | BLEDevice, Callable[[BleakClient], None]], Awaitable[BleakClient]]] = None,
+    ) -> None:
         """
         Args:
             address_or_device: The Bluetooth address (MAC) of the device, or a `BLEDevice` that a scanner found. The
                 latter is what Home Assistant provides, it knows how to reach the device (f.e. over a Bluetooth proxy).
             on_disconnected: Called when the connection was lost.
+            connector: Connects in a different way than `BleakClient.connect()`. It gets the address or device and a
+                callback for the disconnect, and returns a connected `BleakClient`, f.e. `establish_connection` of
+                `bleak-retry-connector`, which Home Assistant integrations use to connect over Bluetooth proxies.
         """
         self.address = address_or_device if isinstance(address_or_device, str) else address_or_device.address
-        self._client = BleakClient(
-            address_or_ble_device=address_or_device,
-            disconnected_callback=lambda _client: on_disconnected(),
-        )
+        self._address_or_device = address_or_device
+        self._on_disconnected = on_disconnected
+        self._connector = connector
+        self._client: Optional[BleakClient] = None
+        if connector is None:
+            self._client = BleakClient(
+                address_or_ble_device=address_or_device,
+                disconnected_callback=lambda _client: on_disconnected(),
+            )
 
     @property
     def is_connected(self) -> bool:
-        return self._client.is_connected
+        return self._client is not None and self._client.is_connected
 
     async def connect(self) -> None:
-        await self._client.connect()
+        if self._connector is not None:
+            self._client = await self._connector(self._address_or_device, lambda _client: self._on_disconnected())
+        else:
+            await self._client.connect()
         # print service and characteristic information for debugging
         for service in self._client.services:
             self.logging.debug(f"Service: {service.uuid} ({service.handle})")
@@ -77,7 +93,8 @@ class BleakTransport:
                     f"    Max Write Without Response Size: {characteristic.max_write_without_response_size}")
 
     async def disconnect(self) -> None:
-        await self._client.disconnect()
+        if self._client is not None:
+            await self._client.disconnect()
 
     async def write(self, data: bytes | bytearray, response: bool) -> None:
         await self._client.write_gatt_char(

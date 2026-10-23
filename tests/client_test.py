@@ -61,6 +61,11 @@ class TestIDotMatrixClient(TestBase):
         self.manager.set_device.assert_called_once_with(device)
         self.assertEqual(ADDRESS, client.mac_address)
 
+    def test_install_signal_handlers_is_passed_to_the_connection_manager(self):
+        IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS, install_signal_handlers=False)
+
+        self.assertFalse(self.manager_cls.call_args.kwargs["install_signal_handlers"])
+
     def test_transport_factory_is_passed_to_the_connection_manager(self):
         factory = MagicMock()
 
