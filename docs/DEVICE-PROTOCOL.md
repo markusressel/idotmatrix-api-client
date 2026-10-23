@@ -286,6 +286,10 @@ Two different mechanisms exist in the official app.
    (**verified**: 1 shows a sitting figure, 2 a frog-like face). `send_image_rythm` sends one such packet. The bar scenes are
    not implemented.
 
+Effect styles: `GRADIENT_HORIZONTAL_RAINBOW` (0) shows vertical stripes (the colors change along the width), the name
+of the member is misleading. The other styles were not looked at; the TUI assumes `VERTICAL_RAINBOW` (3) draws
+horizontal stripes. (**verified** for 0, **guess** for 3)
+
 There is no command that leaves the music sync again: `06 00 00 02 00 00` (`stop_rythm`) had no effect. Showing
 something else, f.e. the clock, does. (**verified**)
 

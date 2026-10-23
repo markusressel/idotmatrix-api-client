@@ -18,6 +18,14 @@ CLOCK_STYLES = {
 }
 
 
+# the names of the library say "horizontal" for the style whose colors change along the width, which draws vertical
+# stripes (verified on a 64x64 for the first one; the vertical one is assumed to be the other way around)
+EFFECT_STYLES = {
+    EffectStyle.GRADIENT_HORIZONTAL_RAINBOW: "Rainbow in vertical stripes",
+    EffectStyle.VERTICAL_RAINBOW: "Rainbow in horizontal stripes",
+}
+
+
 def _choices(enum, names: dict | None = None) -> tuple:
     """The members of an enum as (label, value) for a list."""
     return tuple(((names or {}).get(member) or member.name.replace("_", " ").capitalize(), member.value)
@@ -158,7 +166,7 @@ FEATURES = (
         "effect", "Effects", "Animated backgrounds, with 2 to 7 colors.",
         fields=(
             Field("style", "Style", "choice", EffectStyle.GRADIENT_HORIZONTAL_RAINBOW.value,
-                  choices=_choices(EffectStyle)),
+                  choices=_choices(EffectStyle, EFFECT_STYLES)),
             Field("colors", "Colors", "colors", ["#ff0000", "#00ff00", "#0000ff"]),
         ),
         actions=(Action("Show the effect", _effect, "primary", icon="▶"),),
