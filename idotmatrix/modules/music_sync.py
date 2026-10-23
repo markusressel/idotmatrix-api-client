@@ -1,6 +1,8 @@
 import logging
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class MusicSyncModule(IDotMatrixModule):
@@ -21,16 +23,7 @@ class MusicSyncModule(IDotMatrixModule):
         """
         if not 0 <= sensitivity <= 100:
             raise ValueError("sensitivity must be between 0 and 100")
-        data = bytearray(
-            [
-                6,
-                0,
-                11,
-                128,
-                type % 256,
-                sensitivity,
-            ]
-        )
+        data = build_command(protocol.MICROPHONE_MODE, type % 256, sensitivity)
         await self._send_bytes(data=data)
 
     async def send_image_rythm(self, value1: int):
@@ -43,16 +36,7 @@ class MusicSyncModule(IDotMatrixModule):
         Args:
             value1 (int): The loudness, 1 to 7 in the App. Larger values were tested up to 10 and show other frames.
         """
-        data = bytearray(
-            [
-                6,
-                0,
-                0,
-                2,
-                value1 % 256,
-                1,
-            ]
-        )
+        data = build_command(protocol.IMAGE_RHYTHM, value1 % 256, 1)
         await self._send_bytes(data=data)
 
     async def send_rhythm(
@@ -79,14 +63,5 @@ class MusicSyncModule(IDotMatrixModule):
         Returns:
             bytearray: Byte array of the command which needs to be sent to the device.
         """
-        data = bytearray(
-            [
-                6,
-                0,
-                0,
-                2,
-                0,
-                0,
-            ]
-        )
+        data = build_command(protocol.IMAGE_RHYTHM, 0, 0)
         await self._send_bytes(data=data)

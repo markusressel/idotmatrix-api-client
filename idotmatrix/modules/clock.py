@@ -3,7 +3,9 @@ from asyncio import sleep
 from enum import Enum
 from typing import Tuple
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 from idotmatrix.util import color_utils
 
 
@@ -74,15 +76,7 @@ class ClockModule(IDotMatrixModule):
         Args:
             enabled (bool, optional): Whether to show the time indicator of the clock. Defaults to True.
         """
-        data: bytearray = bytearray(
-            [
-                5,
-                0,
-                7,
-                128,
-                1 if enabled else 0,
-            ]
-        )
+        data: bytearray = build_command(protocol.CLOCK_TIME_INDICATOR, 1 if enabled else 0)
         await self._send_bytes(data=data)
 
     @staticmethod
@@ -102,16 +96,6 @@ class ClockModule(IDotMatrixModule):
             g (int): Color green.
             b (int): Color blue.
         """
-        data: bytearray = bytearray(
-            [
-                8,
-                0,
-                6,
-                1,
-                (style | (128 if show_date else 0)) | (64 if hour24 else 0),
-                r % 256,
-                g % 256,
-                b % 256,
-            ]
-        )
+        data: bytearray = build_command(
+            protocol.CLOCK, (style | (128 if show_date else 0)) | (64 if hour24 else 0), r % 256, g % 256, b % 256)
         return data

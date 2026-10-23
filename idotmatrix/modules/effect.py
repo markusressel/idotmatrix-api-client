@@ -2,7 +2,9 @@ import logging
 from enum import Enum
 from typing import List, Tuple
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 from idotmatrix.util import color_utils
 
 
@@ -64,16 +66,14 @@ class EffectModule(IDotMatrixModule):
             for r, g, b in [rgb + (255,) * (3 - len(rgb))]
         ]
 
-        data = bytearray(
-            [
-                6 + len(processed_rgb_values),
-                0,
-                3,
-                2,
-                style % 256,
-                90,
-                len(processed_rgb_values) % 256,
-            ] + [component for rgb in processed_rgb_values for component in rgb]
+        data = build_command(
+            protocol.EFFECT,
+            style % 256,
+            90,
+            len(processed_rgb_values) % 256,
+            *[component for rgb in processed_rgb_values for component in rgb],
+            # the length byte is not the length of the message, but the app does it that way and the device accepts it
+            length=6 + len(processed_rgb_values),
         )
 
         return data

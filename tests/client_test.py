@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.connection_manager import ConnectionListener
@@ -52,6 +52,21 @@ class TestIDotMatrixClient(TestBase):
         IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)
 
         self.assertIsNone(self.manager_cls.call_args.kwargs["max_ble_packet_size"])
+
+    def test_ble_device_is_passed_to_the_connection_manager(self):
+        device = MagicMock(address=ADDRESS)
+
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, ble_device=device)
+
+        self.manager.set_device.assert_called_once_with(device)
+        self.assertEqual(ADDRESS, client.mac_address)
+
+    def test_transport_factory_is_passed_to_the_connection_manager(self):
+        factory = MagicMock()
+
+        IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS, transport_factory=factory)
+
+        self.assertIs(factory, self.manager_cls.call_args.kwargs["transport_factory"])
 
     def test_modules_are_wired_to_the_connection_manager(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)

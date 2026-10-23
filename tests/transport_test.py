@@ -106,3 +106,14 @@ class TestBleakTransport(TestBase):
     async def test_packet_size_without_mtu_size(self):
         under_test = _create_under_test(max_write_without_response_size=20, mtu_size=None)
         assert await under_test.max_write_without_response_size() == 514
+
+
+class TestBleakTransportWithDevice(TestBase):
+
+    async def test_connects_with_a_ble_device(self):
+        device = MagicMock(address=ADDRESS)
+        with patch("idotmatrix.transport.BleakClient") as client_cls:
+            under_test = BleakTransport(device, on_disconnected=MagicMock())
+
+        self.assertIs(device, client_cls.call_args.kwargs["address_or_ble_device"])
+        self.assertEqual(ADDRESS, under_test.address)

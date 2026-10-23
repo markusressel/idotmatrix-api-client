@@ -1,7 +1,9 @@
 import logging
 from typing import Tuple
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 from idotmatrix.util import color_utils
 
 
@@ -49,15 +51,5 @@ class FullscreenColorModule(IDotMatrixModule):
 
     @staticmethod
     def _create_payload(r, g, b) -> bytearray:
-        data = bytearray(
-            [
-                7,
-                0,
-                2,
-                2,
-                int(r) % 256,
-                int(g) % 256,
-                int(b) % 256,
-            ]
-        )
+        data = build_command(protocol.FULLSCREEN_COLOR, int(r) % 256, int(g) % 256, int(b) % 256)
         return data
