@@ -1,7 +1,6 @@
 """What the text and the effects of the controls page look like, drawn with half blocks."""
 import colorsys
 import logging
-import math
 import random
 
 from rich.style import Style
