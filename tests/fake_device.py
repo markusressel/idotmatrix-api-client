@@ -1,59 +1,34 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from idotmatrix.connection_manager import ConnectionManager
-from idotmatrix.const import UUID_READ_DATA
 from tests import TestBase
+from tests.fake_transport import FakeTransport
 
 ADDRESS = "00:11:22:33:44:55"
 
 
 class FakeDeviceTestBase(TestBase):
+    """Tests a `ConnectionManager` against a simulated device (`self.transport`)."""
 
     def setUp(self):
-        patcher = patch("idotmatrix.connection_manager.BleakClient")
-        bleak_client_cls = patcher.start()
-        self.addCleanup(patcher.stop)
+        self.transport = FakeTransport(address=ADDRESS)
+        self.transports = []
 
-        self.client = MagicMock()
-        self.client.is_connected = False
-        self.client.mtu_size = None
-        self.client._backend = MagicMock(spec=[])
-        self.client.services = MagicMock()
-        self.client.services.__iter__.return_value = iter([])
-        self.client.services.get_characteristic.return_value.max_write_without_response_size = 514
-        self.client.disconnect = AsyncMock()
-        self.client.read_gatt_char = AsyncMock()
-        self.events = []
-        self.listener = None
-        self.replies = []
-        self.reply_to_any_write = False
-        self.auto_reply = None  # called with the written data, returns a notification or None
+        def factory(address, on_disconnected):
+            self.transport.address = address
+            self.transport.on_disconnected = on_disconnected
+            self.transports.append(self.transport)
+            return self.transport
 
-        async def connect():
-            self.client.is_connected = True
+        self.transport_factory = factory
+        self.under_test = ConnectionManager(address=ADDRESS, transport_factory=factory)
 
-        async def start_notify(uuid, callback):
-            self.assertEqual(UUID_READ_DATA, uuid)
-            self.listener = callback
+    @property
+    def events(self):
+        return self.transport.events
 
-        async def write(char_specifier, data, response):
-            self.events.append(("write", bytes(data)))
-            await asyncio.sleep(0)  # let other tasks run, like a real BLE write does
-            # the device answers once a full protocol packet has been received
-            if (response or self.reply_to_any_write) and self.replies:
-                self.listener(None, bytearray(self.replies.pop(0)))
-            elif self.auto_reply is not None:
-                reply = self.auto_reply(bytes(data))
-                if reply is not None:
-                    self.listener(None, bytearray(reply))
+    @property
+    def replies(self):
+        return self.transport.replies
 
-        self.client.connect = AsyncMock(side_effect=connect)
-        self.client.start_notify = AsyncMock(side_effect=start_notify)
-        self.client.write_gatt_char = AsyncMock(side_effect=write)
-        self.bleak_client_cls = bleak_client_cls
-        bleak_client_cls.return_value = self.client
-
-        self.under_test = ConnectionManager(address=ADDRESS)
-
-
+    @replies.setter
+    def replies(self, value):
+        self.transport.replies = value

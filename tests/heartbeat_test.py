@@ -13,7 +13,7 @@ class TestHeartbeat(FakeDeviceTestBase):
 
     def setUp(self):
         super().setUp()
-        self.auto_reply = lambda data: ALIVE if data == PING else None
+        self.transport.auto_reply = lambda data: ALIVE if data == PING else None
         patcher = patch("idotmatrix.connection_manager.HEARTBEAT_ACK_TIMEOUT_SECONDS", 0.1)
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -51,7 +51,7 @@ class TestHeartbeat(FakeDeviceTestBase):
 
         await asyncio.sleep(0.45)
 
-        self.client.disconnect.assert_not_awaited()
+        self.transport.disconnect.assert_not_awaited()
         self.assertTrue(self.under_test.is_connected())
 
     async def test_notifications_count_as_activity(self):
@@ -59,13 +59,13 @@ class TestHeartbeat(FakeDeviceTestBase):
         await self.under_test.connect()
 
         for _ in range(8):
-            self.listener(None, bytearray(b"\x05\x00\x06\x01\x01"))
+            self.transport.notify(b"\x05\x00\x06\x01\x01")
             await asyncio.sleep(0.05)
 
         self.assertEqual([], self._pings())
 
     async def test_a_dead_link_is_closed_and_reported(self):
-        self.auto_reply = None
+        self.transport.auto_reply = None
         on_disconnected = AsyncMock()
         self.under_test.add_connection_listener(ConnectionListener(on_connected=None, on_disconnected=on_disconnected))
         self.under_test.set_heartbeat(0.1)
@@ -73,49 +73,49 @@ class TestHeartbeat(FakeDeviceTestBase):
 
         await asyncio.sleep(0.6)
 
-        self.client.disconnect.assert_awaited_once()
+        self.transport.disconnect.assert_awaited_once()
         on_disconnected.assert_awaited_once()
         self.assertFalse(self.under_test._connected)
         self.assertEqual(1, len(self._pings()))  # no more pings once the link is closed
 
     async def test_a_dead_link_is_replaced_by_a_new_client_when_reconnecting(self):
         answers = {"alive": False}
-        self.auto_reply = lambda data: ALIVE if data == PING and answers["alive"] else None
+        self.transport.auto_reply = lambda data: ALIVE if data == PING and answers["alive"] else None
         self.under_test.set_auto_reconnect(True)
         self.under_test.set_heartbeat(0.1)
         with patch("idotmatrix.connection_manager.RECONNECT_INITIAL_DELAY_SECONDS", 0.05):
             await self.under_test.connect()
             # the old client keeps claiming to be connected, as the link died silently, until it is told to disconnect
-            self.client.is_connected = True
+            self.transport.is_connected = True
 
             async def disconnect():
-                self.client.is_connected = False
+                self.transport.is_connected = False
 
-            self.client.disconnect.side_effect = disconnect
-            clients_before = self.bleak_client_cls.call_count
+            self.transport.disconnect.side_effect = disconnect
+            clients_before = len(self.transports)
 
             await asyncio.sleep(0.45)
             answers["alive"] = True
             await asyncio.sleep(0.5)
 
-        self.assertGreater(self.bleak_client_cls.call_count, clients_before)
-        self.assertGreaterEqual(self.client.connect.await_count, 2)
+        self.assertGreater(len(self.transports), clients_before)
+        self.assertGreaterEqual(self.transport.connect.await_count, 2)
 
     async def test_a_failing_write_means_that_the_link_is_dead(self):
-        write = self.client.write_gatt_char.side_effect
+        write = self.transport.write.side_effect
 
         async def failing_write(char_specifier, data, response):
             if bytes(data) == PING:
                 raise OSError("link lost")
             await write(char_specifier=char_specifier, data=data, response=response)
 
-        self.client.write_gatt_char.side_effect = failing_write
+        self.transport.write.side_effect = failing_write
         self.under_test.set_heartbeat(0.1)
         await self.under_test.connect()
 
         await asyncio.sleep(0.4)
 
-        self.client.disconnect.assert_awaited_once()
+        self.transport.disconnect.assert_awaited_once()
 
     async def test_stops_when_disconnecting(self):
         self.under_test.set_heartbeat(0.1)
@@ -154,7 +154,7 @@ class TestHeartbeat(FakeDeviceTestBase):
 
     async def test_is_not_started_without_notifications(self):
         # without acknowledgements there is nothing to wait for
-        self.client.start_notify.side_effect = RuntimeError("no notify")
+        self.transport.start_notify.side_effect = RuntimeError("no notify")
         self.under_test.set_heartbeat(0.1)
 
         await self.under_test.connect()

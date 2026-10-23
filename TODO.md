@@ -45,7 +45,8 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 ## 4. Larger ideas (not started)
 
-- [ ] `Transport` protocol + fake device for tests
+- [x] `Transport` protocol + fake device for tests (`idotmatrix/transport.py`, `tests/fake_transport.py`)
+- [ ] Home Assistant support: HA owns the Bluetooth stack (scanner, ESPHome proxies, `bleak-retry-connector`), so the library has to work with a client that HA connects. Let `BleakTransport` (and `ConnectionManager`) accept a `BLEDevice` instead of only an address string, and document how to pass a custom `Transport` via `transport_factory` that wraps HA's connected client. Check the address-less discovery and the auto-reconnect against HA's own reconnect handling
 - [ ] Opcode table / protocol layer
 - [ ] Move `digital_picture_frame.py` out of package top level
 - [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)

@@ -40,16 +40,16 @@ class TestUploadFlowControl(FakeDeviceTestBase):
     async def test_subscribes_to_notifications_on_connect(self):
         await self.under_test.connect()
 
-        self.client.start_notify.assert_awaited_once()
+        self.transport.start_notify.assert_awaited_once()
 
     async def test_subscribes_again_after_reconnecting(self):
         await self.under_test.connect()
         await self.under_test.disconnect()
-        self.client.is_connected = False
+        self.transport.is_connected = False
 
         await self.under_test.connect()
 
-        self.assertEqual(2, self.client.start_notify.await_count)
+        self.assertEqual(2, self.transport.start_notify.await_count)
 
     async def test_waits_for_the_ack_of_each_packet_before_sending_the_next(self):
         self.replies = [GIF_NEXT, GIF_NEXT, GIF_FINISHED]
@@ -61,32 +61,32 @@ class TestUploadFlowControl(FakeDeviceTestBase):
             return await original_wait()
 
         self.under_test._wait_for_upload_status = spy
-        self.client.write_gatt_char.side_effect = self._recording_write(order)
+        self.transport.write.side_effect = self._recording_write(order)
 
         await self.under_test.send_packets([[b"a"], [b"b"], [b"c"]], response=True, wait_for_ack=True)
 
         self.assertEqual(["write:a", "wait", "write:b", "wait", "write:c", "wait"], order)
 
     def _recording_write(self, order):
-        original = self.client.write_gatt_char.side_effect
+        original = self.transport._write
 
-        async def write(char_specifier, data, response):
+        async def write(data, response):
             order.append(f"write:{bytes(data).decode()}")
-            await original(char_specifier=char_specifier, data=data, response=response)
+            await original(data=data, response=response)
 
         return write
 
     async def test_without_wait_for_ack_nothing_is_awaited(self):
         await self.under_test.send_packets([[b"a"], [b"b"]], response=True)
 
-        self.assertEqual(2, self.client.write_gatt_char.await_count)
+        self.assertEqual(2, self.transport.write.await_count)
 
     async def test_never_reads_the_notification_characteristic(self):
         self.replies = [GIF_NEXT, GIF_FINISHED]
 
         await self.under_test.send_packets([[b"a"], [b"b"]], response=True, wait_for_ack=True)
 
-        self.client.read_gatt_char.assert_not_awaited()
+        self.transport.read.assert_not_awaited()
 
     async def test_stops_when_the_device_reports_that_it_is_finished(self):
         # the device answers "finished" right away if it already has the same file stored
@@ -120,20 +120,20 @@ class TestUploadFlowControl(FakeDeviceTestBase):
 
     async def test_unrelated_notifications_are_skipped_while_waiting(self):
         self.replies = [GIF_FINISHED]
-        write = self.client.write_gatt_char.side_effect
+        write = self.transport._write
 
-        async def write_with_noise(char_specifier, data, response):
-            self.listener(None, bytearray(bytes.fromhex("0500040101")))
-            await write(char_specifier=char_specifier, data=data, response=response)
+        async def write_with_noise(data, response):
+            self.transport.notify(bytes.fromhex("0500040101"))
+            await write(data=data, response=response)
 
-        self.client.write_gatt_char.side_effect = write_with_noise
+        self.transport.write.side_effect = write_with_noise
 
         await self.under_test.send_packets([[b"a"]], response=True, wait_for_ack=True)
 
     async def test_stale_notifications_are_discarded_before_an_upload(self):
         await self.under_test.connect()
         # a leftover from an earlier upload, which would be taken for the ack of the first packet
-        self.listener(None, bytearray(GIF_FINISHED))
+        self.transport.notify(GIF_FINISHED)
         self.replies = [GIF_NEXT, GIF_NEXT]
 
         await self.under_test.send_packets([[b"a"], [b"b"]], response=True, wait_for_ack=True)
@@ -141,7 +141,7 @@ class TestUploadFlowControl(FakeDeviceTestBase):
         self.assertEqual(2, len(self.events))
 
     async def test_does_not_wait_if_notifications_are_not_available(self):
-        self.client.start_notify.side_effect = RuntimeError("no notify")
+        self.transport.start_notify.side_effect = RuntimeError("no notify")
 
         with patch("idotmatrix.connection_manager.UPLOAD_ACK_TIMEOUT_SECONDS", 0.05):
             await asyncio.wait_for(
@@ -180,21 +180,21 @@ class TestCommandAcks(FakeDeviceTestBase):
             await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
 
     async def test_acks_of_other_commands_are_skipped(self):
-        write = self.client.write_gatt_char.side_effect
+        write = self.transport._write
 
-        async def write_with_noise(char_specifier, data, response):
-            self.listener(None, bytearray(bytes.fromhex("0500060100")))  # a rejection of ANOTHER command
-            self.listener(None, bytearray(bytes.fromhex("0900018005090104")))  # something else entirely
-            self.listener(None, bytearray(bytes.fromhex("0500048001")))
-            await write(char_specifier=char_specifier, data=data, response=response)
+        async def write_with_noise(data, response):
+            self.transport.notify(bytes.fromhex("0500060100"))  # a rejection of ANOTHER command
+            self.transport.notify(bytes.fromhex("0900018005090104"))  # something else entirely
+            self.transport.notify(bytes.fromhex("0500048001"))
+            await write(data=data, response=response)
 
-        self.client.write_gatt_char.side_effect = write_with_noise
+        self.transport.write.side_effect = write_with_noise
 
         await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
 
     async def test_stale_acks_are_discarded(self):
         await self.under_test.connect()
-        self.listener(None, bytearray(bytes.fromhex("0500048000")))  # rejection of an earlier command
+        self.transport.notify(bytes.fromhex("0500048000"))  # rejection of an earlier command
         self._answer_with(bytes.fromhex("0500048001"))
 
         await self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True)
@@ -207,7 +207,7 @@ class TestCommandAcks(FakeDeviceTestBase):
         self.assertEqual(1, len(self.events))
 
     async def test_does_not_wait_if_notifications_are_not_available(self):
-        self.client.start_notify.side_effect = RuntimeError("no notify")
+        self.transport.start_notify.side_effect = RuntimeError("no notify")
 
         await asyncio.wait_for(
             self.under_test.send_bytes(self.BRIGHTNESS, response=True, wait_for_ack=True), timeout=2)
@@ -216,7 +216,7 @@ class TestCommandAcks(FakeDeviceTestBase):
 
     async def test_large_commands_are_written_completely_before_waiting_for_the_ack(self):
         self.under_test._max_ble_packet_size_override = 3
-        self.reply_to_any_write = True
+        self.transport.reply_to_any_write = True
         self._answer_with(bytes.fromhex("0500048001"))
 
         await self.under_test.send_bytes(self.BRIGHTNESS, response=False, wait_for_ack=True)
