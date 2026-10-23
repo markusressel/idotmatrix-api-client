@@ -321,3 +321,26 @@ class TestWidgets(AppHelpers, TestBase):
             await pilot.click("#palette", offset=(7, 0))  # the third color
 
             self.assertEqual((255, 255, 0), app.screen.color)
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestScoreboardMouse(AppHelpers, TestBase):
+
+    def setUp(self):
+        super().setUp()
+        _device_client(self.client)
+
+    async def test_the_right_button_resets_the_counter_that_is_clicked(self):
+        from idotmatrix.tui.scoreboard import Counter
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f2", *["down"] * 6, "enter", "up", "up", "right", "up", "up", "up")
+            counters = list(app.screen.query(Counter))
+            self.assertEqual([2, 3], [counter.count for counter in counters])
+
+            await pilot.click(counters[1], button=3)
+
+            self.assertEqual([2, 0], [counter.count for counter in counters])
+            await self._until(pilot, lambda: self.client.scoreboard.show.await_args
+                              and self.client.scoreboard.show.await_args.args == (2, 0))

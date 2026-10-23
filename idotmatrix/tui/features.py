@@ -194,7 +194,7 @@ FEATURES = (
     ),
     Feature(
         "scoreboard", "Scoreboard", "Two counters, 0 to 999, sent as you count. Up and Down count, Left and Right "
-                                    "pick the side, or click and use the wheel.",
+                                    "pick the side, or click and use the wheel. The right mouse button resets a counter.",
         fields=(Field("first", "Home", "int", 0, low=0, high=999), Field("second", "Guest", "int", 0, low=0, high=999)),
         live=True,
         form=ScoreboardForm,

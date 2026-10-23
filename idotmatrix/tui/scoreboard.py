@@ -36,7 +36,7 @@ def big_number(number: int, style: str) -> Text:
 
 
 class Counter(Static):
-    """One side of the scoreboard: a click selects it, the arrows and the wheel count."""
+    """One side of the scoreboard: a click selects it, the arrows and the wheel count, the right button resets it."""
 
     ALLOW_SELECT = False
     DEFAULT_CSS = """
@@ -66,6 +66,9 @@ class Counter(Static):
     def on_click(self, event: events.Click) -> None:
         board = self.parent.parent
         board.select(self.index)
+        if event.button == 3:  # the right button resets the counter that was clicked
+            board.action_reset()
+            return
         # the buttons are in the last line of the counter
         if event.y >= self.size.height - 3:
             middle = self.size.width // 2
