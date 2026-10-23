@@ -7,6 +7,7 @@ from pathlib import Path
 
 from idotmatrix.util.device_material import SLOTS
 from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.color_utils import parse_color_rgb
 from idotmatrix.util.overlay import POSITIONS, TextOverlay
 
 logging = logging.getLogger(__name__)
@@ -14,6 +15,9 @@ logging = logging.getLogger(__name__)
 COLOR_CHOICES = ("auto", "256", "128", "64", "32", "16")
 RESIZE_CHOICES = ("fit", "fill", "stretch", "crop")
 LABEL_CHOICES = ("none", "name", "text")
+FORMAT_CHOICES = ("png", "raw")
+PALETTE_CHOICES = ("auto", "on", "off")
+DEFAULT_MAX_COLOR_ERROR = 5.0
 DEFAULT_SLIDESHOW_TIME_SECONDS = 10
 DEFAULT_THEME = "nord"
 MAX_REMEMBERED_SELECTIONS = 200
@@ -28,6 +32,12 @@ class Options:
     label: str = "none"
     label_text: str = ""
     label_position: str = "bottom-left"
+    # how pictures are processed and sent
+    image_format: str = "png"  # still pictures as PNG files or raw RGB data
+    palette: str = "auto"  # reduce to a palette: auto is "yes" for animations and "no" for pictures
+    shared_palette: bool = False  # one palette for all frames of an animation, avoids flicker, may band
+    max_color_error: float = DEFAULT_MAX_COLOR_ERROR  # what "auto" colors may lose
+    background: str = "#000000"  # fills transparency and the bars around a picture that does not fill the display
 
     def __post_init__(self):
         # a session file may come from another version or be edited by hand
@@ -41,10 +51,32 @@ class Options:
             self.label_position = "bottom-left"
         if not isinstance(self.max_size_kb, int) or isinstance(self.max_size_kb, bool) or self.max_size_kb < 1:
             self.max_size_kb = None
+        if self.image_format not in FORMAT_CHOICES:
+            self.image_format = "png"
+        if self.palette not in PALETTE_CHOICES:
+            self.palette = "auto"
+        self.shared_palette = self.shared_palette is True
+        if (not isinstance(self.max_color_error, (int, float)) or isinstance(self.max_color_error, bool)
+                or not 0 <= self.max_color_error <= 100):
+            self.max_color_error = DEFAULT_MAX_COLOR_ERROR
+        if not _is_color(self.background):
+            self.background = "#000000"
 
     @property
     def colors_value(self) -> int | str:
         return self.colors if self.colors == "auto" else int(self.colors)
+
+    @property
+    def png(self) -> bool:
+        return self.image_format == "png"
+
+    @property
+    def background_rgb(self) -> tuple[int, int, int]:
+        return parse_color_rgb(self.background)
+
+    def palletize_for(self, animated: bool) -> bool:
+        """Whether to reduce to a palette. The same defaults as the library: yes for animations, no for pictures."""
+        return animated if self.palette == "auto" else self.palette == "on"
 
     @property
     def resize(self) -> ResizeMode:
@@ -62,6 +94,8 @@ class Options:
         parts = [f"colors {self.colors}", f"{self.resize_mode}"]
         if self.max_size_kb:
             parts.append(f"max {self.max_size_kb} KB")
+        if self.image_format != "png":
+            parts.append("raw images")
         if self.label != "none":
             parts.append("label: " + ("file name" if self.label == "name" else repr(self.label_text)))
         return ", ".join(parts)
@@ -92,6 +126,9 @@ class Session:
     theme: str = DEFAULT_THEME
     # the selected name and its row of the folders that were browsed, the most recent last
     selections: dict[str, dict] = field(default_factory=dict)
+    # what was entered on the control pages, by feature and field
+    controls: dict[str, dict] = field(default_factory=dict)
+    draw_color: str = "#ff0000"
 
     def remember_selection(self, folder: str | Path, name: str, index: int) -> None:
         key = str(folder)
@@ -144,6 +181,8 @@ class Session:
                 brightness=_int_in(raw.get("brightness"), 5, 100, 100),
                 devices=_devices(raw.get("devices")),
                 selections=_selections(raw.get("selections")),
+                controls=_controls(raw.get("controls")),
+                draw_color=_color_or(raw.get("draw_color"), "#ff0000"),
                 theme=raw["theme"] if isinstance(raw.get("theme"), str) and raw["theme"] else DEFAULT_THEME,
             )
         except FileNotFoundError:
@@ -180,6 +219,22 @@ def _selections(raw) -> dict[str, dict]:
         if isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("index"), int):
             selections[str(folder)] = {"name": item["name"], "index": max(item["index"], 0)}
     return dict(list(selections.items())[-MAX_REMEMBERED_SELECTIONS:])
+
+
+def _controls(raw) -> dict[str, dict]:
+    return {str(feature): dict(values) for feature, values in (raw if isinstance(raw, dict) else {}).items()
+            if isinstance(values, dict)}
+
+
+def _color_or(value, default: str) -> str:
+    return value if _is_color(value) else default
+
+
+def _is_color(value) -> bool:
+    try:
+        return isinstance(value, str) and parse_color_rgb(value) is not None
+    except (ValueError, TypeError):
+        return False
 
 
 def _int_in(value, low: int, high: int, default: int) -> int:
