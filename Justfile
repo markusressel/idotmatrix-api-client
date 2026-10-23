@@ -1,15 +1,15 @@
-uv_test := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-mock --with mock --with asyncmock --with textual --with textual-image"
+uv_test := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-xdist --with pytest-mock --with mock --with asyncmock --with textual --with textual-image"
 
 [default]
 default:
     @just --list
 
-# run tests (from tests/, like CI); extra args go to pytest
+# run tests in parallel (from tests/, like CI); extra args go to pytest and run them in one process
 test *args:
     #!/usr/bin/env bash
     set -euxo pipefail
     cd tests
-    {{uv_test}} python -m pytest {{args}}
+    {{uv_test}} python -m pytest {{ if args == "" { "-n auto" } else { "" } }} {{args}}
 
 # run the terminal UI, extra args go to it, f.e. `just tui ~/pictures --choose`
 tui *args:
@@ -19,7 +19,7 @@ coverage:
     #!/usr/bin/env bash
     set -euxo pipefail
     cd tests
-    {{uv_test}} python -m pytest --cov=../idotmatrix --cov-report=term-missing:skip-covered
+    {{uv_test}} python -m pytest -n auto --cov=../idotmatrix --cov-report=term-missing:skip-covered
 
 lint:
     #!/usr/bin/env bash

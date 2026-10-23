@@ -198,7 +198,7 @@ class FakeScanner:
 
     async def scan(self, seconds):
         self.scans += 1
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)
         if self.error:
             raise self.error
         return list(self.found)
@@ -229,6 +229,12 @@ class AppHelpers:
         _make_pictures(self.folder)
         self.session_path = Path(self._tmp.name) / "session.json"
         self.client = FakeClient()
+        # no waiting for debounces and the next search
+        for target, seconds in (("idotmatrix.tui.app.PREVIEW_DELAY_SECONDS", 0.01),
+                                ("idotmatrix.tui.devices.RESCAN_PAUSE_SECONDS", 0.2)):
+            patcher = patch(target, seconds)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -251,6 +257,23 @@ class AppHelpers:
         pending = [worker for worker in pilot.app.workers if worker.group != "scan" and not worker.is_finished]
         await asyncio.gather(*[worker.wait() for worker in pending], return_exceptions=True)
         await pilot.pause()
+
+    async def _until(self, pilot, condition, timeout=5.0):
+        """Waits for a condition instead of a fixed time."""
+        waited = 0.0
+        while not condition():
+            if waited >= timeout:
+                raise AssertionError("timed out waiting for the condition")
+            await pilot.pause(0.02)
+            waited += 0.02
+
+    async def _scanned(self, pilot, app):
+        """Waits until the list of displays is open and searched once."""
+        await self._until(pilot, lambda: type(app.screen).__name__ == "DevicesScreen" and app.screen.scan_count >= 1)
+
+    async def _previewed(self, pilot, app):
+        await self._until(pilot, lambda: app._preview is not None)
+        await self._settle(pilot)
 
     def _rows(self, app):
         from textual.widgets import DataTable
@@ -511,8 +534,7 @@ class TestApp(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
 
-            await pilot.pause(0.5)
-            await self._settle(pilot)
+            await self._previewed(pilot, app)
 
             self.assertEqual(4, len(app._preview.frames))
             self.assertGreater(len(app.query_one(PreviewWidget)._frames), 1)
@@ -570,7 +592,7 @@ class TestDevices(AppHelpers, TestBase):
         app = self._app(address=None, scanner=scanner)
         app.session.address = None
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             self.assertEqual("DevicesScreen", type(app.screen).__name__)
             self.assertEqual([["● online -40 dBm", "IDM-strong", "AA:02", "new"],
@@ -595,7 +617,7 @@ class TestDevices(AppHelpers, TestBase):
             await self._settle(pilot)
 
             await pilot.press("d")
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             rows = self._shown_rows(app)
             self.assertEqual(["● connected", "IDM-1", "AA:01"], rows[0][:3])
@@ -609,7 +631,7 @@ class TestDevices(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
             await pilot.press("d")
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             await pilot.press("down", "enter")  # the connected one is first
             await self._settle(pilot)
@@ -620,14 +642,14 @@ class TestDevices(AppHelpers, TestBase):
     async def test_a_failed_connection_opens_the_list_of_displays(self):
         app = self._app(client=FakeClient(fail=True), scanner=FakeScanner())
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             self.assertEqual("DevicesScreen", type(app.screen).__name__)
 
     async def test_choose_opens_the_list_instead_of_connecting(self):
         app = self._app(address="AA:01", scanner=FakeScanner(), choose_device=True)
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             self.assertEqual("DevicesScreen", type(app.screen).__name__)
             self.assertEqual([], self.addresses)
@@ -639,7 +661,7 @@ class TestDevices(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
             await pilot.press("d")
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
             await pilot.press("down", "f")  # AA:01 is connected, AA:05 is offline
 
             self.assertEqual([], [d.address for d in app.session.devices if d.address == "AA:05"])
@@ -649,7 +671,7 @@ class TestDevices(AppHelpers, TestBase):
         app = self._app(address=None, scanner=FakeScanner())
         app.session.address = None
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             await pilot.press("a", *"11:22:33:44:55:66", "enter")
             await self._settle(pilot)
@@ -661,7 +683,7 @@ class TestDevices(AppHelpers, TestBase):
         app = self._app(address=None, scanner=FakeScanner(error=RuntimeError("bluetooth is off")))
         app.session.address = None
         async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.pause(0.3)
+            await self._scanned(pilot, app)
 
             self.assertIn("bluetooth is off", str(app.screen.query_one("#scan-state", Label).render()))
 
@@ -780,8 +802,7 @@ class TestBrowsing(AppHelpers, TestBase):
         Image.new("RGB", (8, 8)).save(self.folder / long_name)
         app = self._app()
         async with app.run_test(size=(70, 30)) as pilot:
-            await self._settle(pilot)
-            await pilot.pause(0.2)
+            await self._previewed(pilot, app)
 
             table = app.query_one("#files", DataTable)
             self.assertEqual(0, table.max_scroll_x)
@@ -946,9 +967,7 @@ class TestPreviewWarning(AppHelpers, TestBase):
     async def _warning(self, size):
         app = self._app()
         async with app.run_test(size=size) as pilot:
-            await self._settle(pilot)
-            await pilot.pause(0.5)
-            await self._settle(pilot)
+            await self._previewed(pilot, app)
             warning = app.query_one("#preview-warning")
             return warning.has_class("visible"), str(warning.render())
 
@@ -984,9 +1003,7 @@ class TestPixelPreview(AppHelpers, TestBase):
         cell = SimpleNamespace(width=10, height=22)
         with patch("textual_image.widget.get_cell_size", return_value=cell):
             async with app.run_test(size=(120, 50)) as pilot:
-                await self._settle(pilot)
-                await pilot.pause(0.5)
-                await self._settle(pilot)
+                await self._previewed(pilot, app)
 
                 widget = app.query_one(PixelPreviewWidget)
                 image = widget._pixels.image
@@ -1001,9 +1018,7 @@ class TestPixelPreview(AppHelpers, TestBase):
         cell = SimpleNamespace(width=3, height=6)
         with patch("textual_image.widget.get_cell_size", return_value=cell):
             async with app.run_test(size=(40, 20)) as pilot:
-                await self._settle(pilot)
-                await pilot.pause(0.5)
-                await self._settle(pilot)
+                await self._previewed(pilot, app)
 
                 self.assertTrue(app.query_one("#preview-warning").has_class("visible"))
 

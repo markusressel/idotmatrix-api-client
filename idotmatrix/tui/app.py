@@ -162,6 +162,13 @@ class IDotMatrixApp(App):
         self._message_id = 0
         self._message_shown_at = 0.0
 
+    @property
+    def main_screen(self) -> Screen:
+        """The screen with the files; `query_one` of the app would look at the one on top, f.e. the list of displays."""
+        if not self.screen_stack:
+            raise NoMatches("the app is closing")
+        return self.screen_stack[0]
+
     # layout
 
     def compose(self) -> ComposeResult:
@@ -193,8 +200,8 @@ class IDotMatrixApp(App):
         if self.session.theme in self.available_themes:
             self.theme = self.session.theme
         self.theme_changed_signal.subscribe(self, self._theme_changed)
-        table = self.query_one("#files", DataTable)
-        self.query_one("#progress", ProgressBar).display = False
+        table = self.main_screen.query_one("#files", DataTable)
+        self.main_screen.query_one("#progress", ProgressBar).display = False
         self.reload(restore=True)
         self._update_status()
         table.focus()
@@ -243,7 +250,7 @@ class IDotMatrixApp(App):
         message_id = self._message_id
         self._message_shown_at = time.monotonic()
         try:
-            self.query_one("#message", Static).update(Text(text, style=MESSAGE_STYLES.get(severity, "")))
+            self.main_screen.query_one("#message", Static).update(Text(text, style=MESSAGE_STYLES.get(severity, "")))
         except NoMatches:
             return
         self.set_timer(timeout or MESSAGE_SECONDS.get(severity, 5), lambda: self._clear_message(message_id))
@@ -252,7 +259,7 @@ class IDotMatrixApp(App):
         if message_id is not None and message_id != self._message_id:
             return
         try:
-            self.query_one("#message", Static).update("")
+            self.main_screen.query_one("#message", Static).update("")
         except NoMatches:
             pass
 
@@ -266,7 +273,7 @@ class IDotMatrixApp(App):
     def reload(self, restore: bool = False) -> None:
         """Fills the list with the folder. The cursor stays on the same name if it can, or goes to the one that was
         selected last time in this folder (restore)."""
-        table = self.query_one("#files", DataTable)
+        table = self.main_screen.query_one("#files", DataTable)
         width = table.size.width - table.scrollbar_size_vertical or DEFAULT_TABLE_WIDTH
         name_width = max(width - TABLE_FIXED_WIDTH, NAME_COLUMN_MIN_WIDTH)
         selected = self._selected_key()
@@ -289,7 +296,7 @@ class IDotMatrixApp(App):
         if names:
             table.move_cursor(row=row)
         self._loading = False
-        self.query_one("#left").border_subtitle = self._folder_title(width)
+        self.main_screen.query_one("#left").border_subtitle = self._folder_title(width)
         self._schedule_preview()
 
     def _folder_title(self, width: int) -> str:
@@ -301,13 +308,19 @@ class IDotMatrixApp(App):
         # the names are shortened to the width of the list, so the list never scrolls sideways
         if width != self._table_width:
             self._table_width = width
-            self.call_after_refresh(self.reload)
+            self.call_after_refresh(self._reload_if_shown)
+
+    def _reload_if_shown(self) -> None:
+        try:
+            self.reload()
+        except NoMatches:  # a dialog or the list of displays is on top, or the app closes
+            pass
 
     def _mark(self, path: Path) -> str:
         return "✓" if path in self.marked else ""
 
     def _selected_key(self) -> str | None:
-        table = self.query_one("#files", DataTable)
+        table = self.main_screen.query_one("#files", DataTable)
         if table.row_count == 0:
             return None
         return table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
@@ -349,7 +362,7 @@ class IDotMatrixApp(App):
             self.session.remember_selection(folder, select.name, 0)
         self.folder = folder
         self.text_filter = ""
-        self.query_one("#filter", Input).value = ""
+        self.main_screen.query_one("#filter", Input).value = ""
         self.reload(restore=True)
 
     @on(DataTable.RowSelected)
@@ -363,9 +376,13 @@ class IDotMatrixApp(App):
     @on(DataTable.RowHighlighted)
     def _row_highlighted(self) -> None:
         # not the row of the event: the events of a reload arrive when the cursor is already where it belongs
-        path = self.selected_path()
-        if path is not None and not self._loading and not self.text_filter:
-            self.session.remember_selection(self.folder, path.name, self.query_one("#files", DataTable).cursor_row)
+        try:
+            path = self.selected_path()
+            if path is not None and not self._loading and not self.text_filter:
+                row = self.main_screen.query_one("#files", DataTable).cursor_row
+                self.session.remember_selection(self.folder, path.name, row)
+        except NoMatches:  # the app is closing
+            return
         self._schedule_preview()
 
     # marking
@@ -378,7 +395,7 @@ class IDotMatrixApp(App):
             self.marked.remove(path)
         else:
             self.marked.append(path)
-        table = self.query_one("#files", DataTable)
+        table = self.main_screen.query_one("#files", DataTable)
         table.update_cell(str(path), "mark", self._mark(path))
         if table.cursor_row + 1 < table.row_count:
             table.move_cursor(row=table.cursor_row + 1)
@@ -386,7 +403,7 @@ class IDotMatrixApp(App):
 
     def action_extend(self, delta: int) -> None:
         """Marks the selected file and the one the cursor moves to (Shift+↑/↓)."""
-        table = self.query_one("#files", DataTable)
+        table = self.main_screen.query_one("#files", DataTable)
         for _ in range(2):
             path = self.selected_path()
             if path is not None and not path.is_dir() and path not in self.marked:
@@ -414,15 +431,15 @@ class IDotMatrixApp(App):
     # the filter
 
     def action_filter(self) -> None:
-        field = self.query_one("#filter", Input)
+        field = self.main_screen.query_one("#filter", Input)
         field.add_class("visible")
         field.focus()
 
     def _filter_key(self, event: Key) -> None:
-        field = self.query_one("#filter", Input)
+        field = self.main_screen.query_one("#filter", Input)
         if not field.has_focus:
             return
-        table = self.query_one("#files", DataTable)
+        table = self.main_screen.query_one("#files", DataTable)
         moves = {"up": table.action_cursor_up, "down": table.action_cursor_down,
                  "pageup": table.action_page_up, "pagedown": table.action_page_down}
         if event.key in moves:
@@ -439,14 +456,14 @@ class IDotMatrixApp(App):
 
     @on(Input.Submitted, "#filter")
     def _filter_submitted(self) -> None:
-        self.query_one("#files", DataTable).focus()
+        self.main_screen.query_one("#files", DataTable).focus()
 
     def action_escape(self) -> None:
-        field = self.query_one("#filter", Input)
+        field = self.main_screen.query_one("#filter", Input)
         if field.has_class("visible"):
             field.value = ""
             field.remove_class("visible")
-            self.query_one("#files", DataTable).focus()
+            self.main_screen.query_one("#files", DataTable).focus()
         elif self._busy is not None:
             self._busy.cancel()
         elif self.marked:
@@ -462,7 +479,7 @@ class IDotMatrixApp(App):
     def _start_preview(self) -> None:
         try:
             path = self.selected_path()
-            widget = self.query_one("#preview")
+            widget = self.main_screen.query_one("#preview")
         except NoMatches:  # the timer fired while the app was closing
             return
         self._previewed = path
@@ -494,7 +511,7 @@ class IDotMatrixApp(App):
             return
         self._preview = preview
         try:
-            self.query_one("#preview").show_frames(preview.frames, preview.durations)
+            self.main_screen.query_one("#preview").show_frames(preview.frames, preview.durations)
             self._update_info()
         except NoMatches:  # the app closed while the file was converted
             return
@@ -502,14 +519,14 @@ class IDotMatrixApp(App):
     def _show_preview_error(self, path: Path, error: Exception) -> None:
         if path == self._previewed:
             try:
-                self.query_one("#preview").show_message(f"cannot be shown: {error}")
+                self.main_screen.query_one("#preview").show_message(f"cannot be shown: {error}")
             except NoMatches:
                 return
 
     @on(Fitted)
     def _preview_fitted(self, event: Fitted) -> None:
         try:
-            warning = self.query_one("#preview-warning", Static)
+            warning = self.main_screen.query_one("#preview-warning", Static)
         except NoMatches:  # the app is closing
             return
         too_small = event.actual > event.shown > 0
@@ -531,7 +548,7 @@ class IDotMatrixApp(App):
         lines.append(f"options: {self.session.options.summary()}")
         if self.marked:
             lines.append(f"{len(self.marked)} marked")
-        self.query_one("#info", Static).update("\n".join(lines))
+        self.main_screen.query_one("#info", Static).update("\n".join(lines))
 
     # the connection and the device
 
@@ -548,7 +565,7 @@ class IDotMatrixApp(App):
             text.append(f"  {name + ' ' if name else ''}{self.session.address}", style="dim")
         elif self.connection != "connecting":
             text.append("  no display chosen, press d", style="dim")
-        self.query_one("#status", Static).update(text)
+        self.main_screen.query_one("#status", Static).update(text)
 
     async def _connect(self) -> None:
         self.connection = "connecting"
@@ -638,8 +655,8 @@ class IDotMatrixApp(App):
             self._set_activity("")
 
     def _set_activity(self, text: str, done: int | None = None, total: int | None = None) -> None:
-        self.query_one("#activity-text", Label).update(text)
-        bar = self.query_one("#progress", ProgressBar)
+        self.main_screen.query_one("#activity-text", Label).update(text)
+        bar = self.main_screen.query_one("#progress", ProgressBar)
         bar.display = bool(text)
         if done is None or not total:
             bar.update(total=None)

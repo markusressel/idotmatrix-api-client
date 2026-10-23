@@ -194,6 +194,8 @@ The `DigitalPictureFrame` can
 
 ### Terminal UI
 
+![The terminal UI: the files of a folder, the preview as it looks on the display and the details](docs/images/tui.png)
+
 A terminal UI to browse a folder, see what a picture or animation will look like on the display (with your color,
 size and label options, and how long the upload takes) and send it:
 

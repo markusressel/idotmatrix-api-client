@@ -40,6 +40,7 @@ pytest_asyncio = "^1.0.0"
 asyncmock = "*"
 pytest-mock = "*"
 pytest-cov = "*"
+pytest-xdist = "*"
 mock = "*"
 
 [tool.poetry]

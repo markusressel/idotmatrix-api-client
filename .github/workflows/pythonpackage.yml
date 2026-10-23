@@ -39,9 +39,9 @@ jobs:
           poetry build
       - name: Test with pytest
         run: |
-          pip install pytest
+          pip install pytest pytest-xdist
           cd tests
-          pytest --cov=../idotmatrix --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml
+          pytest -n auto --cov=../idotmatrix --cov-report=term-missing:skip-covered --cov-report=xml:coverage.xml
       - name: Coverage summary
         if: matrix.python-version == '3.13'
         run: |

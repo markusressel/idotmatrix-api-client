@@ -18,6 +18,7 @@ from idotmatrix.tui.settings import KnownDevice
 logging = logging.getLogger(__name__)
 
 SCAN_SECONDS = 4.0
+RESCAN_PAUSE_SECONDS = 0.5
 # a display that did not advertise in the last scans is shown as offline
 ONLINE_FOR_SECONDS = 12.0
 ADDRESS_PATTERN = re.compile(r"^\S{6,}$")
@@ -80,6 +81,7 @@ class DevicesScreen(ModalScreen[str | None]):
         self._clock = clock
         self._seen: dict[str, tuple[Found, float]] = {}
         self._scanning = False
+        self.scan_count = 0  # finished searches
         self._scan_error: str | None = None
         self.names: dict[str, str] = {}
 
@@ -110,17 +112,17 @@ class DevicesScreen(ModalScreen[str | None]):
     async def _scan_loop(self) -> None:
         while True:
             await self.scan_once()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(RESCAN_PAUSE_SECONDS)
 
     async def scan_once(self) -> None:
         self._scanning = True
-        self._scan_error = None
         try:
             self._update_state()
         except NoMatches:
             return
         try:
             found = await self._scanner.scan(SCAN_SECONDS)
+            self._scan_error = None
             now = self._clock()
             for item in found:
                 self._seen[item.address] = (item, now)
@@ -133,6 +135,7 @@ class DevicesScreen(ModalScreen[str | None]):
             self._scan_error = str(e) or type(e).__name__
         finally:
             self._scanning = False
+            self.scan_count += 1
         try:
             self.refresh_rows()
             self._update_state()
