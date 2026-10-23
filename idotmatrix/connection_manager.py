@@ -146,15 +146,16 @@ class ConnectionManager:
         """
         Sets the device to connect to as a `BLEDevice`, f.e. one that a scanner of Home Assistant found, which knows
         how to reach the device (f.e. over a Bluetooth proxy). Call it again with the newer `BLEDevice` when the
-        scanner found the device again. An established connection is not interrupted, the new device is used for
-        the next connection.
+        scanner found the device again (which happens all the time). The transport is never replaced for the same
+        device here, so a connection or a connection attempt is not disturbed, the new device is used for the next
+        connection.
         Args:
             device (BLEDevice): The iDotMatrix device.
         """
         same_device = self.address == device.address
         self.address = device.address
         self._transport_target = device
-        if not (same_device and self.is_connected()):
+        if self._transport is None or not same_device:
             self._create_transport()
 
     def _create_transport(self) -> Transport:
@@ -230,15 +231,16 @@ class ConnectionManager:
 
             if not self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
-                self._create_transport()  # a newer device may have been set while connected
-                await self._transport.connect()
+                # a newer device may have been set since the last connection
+                transport = self._create_transport()
+                await transport.connect()
                 self._connected = True
                 newly_connected = True
                 # the negotiated MTU can differ between connections, so it has to be detected again
                 self._ble_packet_size = None
                 self.logging.info(f"connected to {self.address}")
                 self._last_activity = time.monotonic()
-                await self._subscribe_to_notifications()
+                await self._subscribe_to_notifications(transport)
                 self._update_heartbeat()
             else:
                 self.logging.info(f"already connected to {self.address}")
@@ -378,13 +380,13 @@ class ConnectionManager:
                 f"the device rejected the command {command.hex()} (notification {notification.hex()})")
         return True
 
-    async def _subscribe_to_notifications(self) -> None:
+    async def _subscribe_to_notifications(self, transport: Transport) -> None:
         """
         Subscribes to the notifications of the device, which acknowledge the chunks of an upload.
         """
         self._notifications = asyncio.Queue()
         try:
-            await self._transport.start_notify(self._on_notification)
+            await transport.start_notify(self._on_notification)
             self._notifications_available = True
         except Exception as e:
             self._notifications_available = False
