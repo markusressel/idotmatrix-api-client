@@ -16,6 +16,12 @@ dependencies = [
     "watchdog>=6.0.0"
 ]
 
+[project.optional-dependencies]
+tui = ["textual>=8.0.0", "textual-image>=0.14.0"]
+
+[project.scripts]
+idotmatrix-tui = "idotmatrix.tui.__main__:main"
+
 [project.urls]
 homepage = "https://github.com/markusressel/idotmatrix-api-client"
 repository = "https://github.com/markusressel/idotmatrix-api-client"
@@ -34,6 +40,7 @@ pytest_asyncio = "^1.0.0"
 asyncmock = "*"
 pytest-mock = "*"
 pytest-cov = "*"
+pytest-xdist = "*"
 mock = "*"
 
 [tool.poetry]

@@ -42,6 +42,7 @@
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
 * [Usage](#usage)
+  * [Terminal UI](#terminal-ui)
 * [Fonts](#fonts)
 * [Roadmap](#roadmap)
 * [Contributing](#contributing)
@@ -190,6 +191,35 @@ The `DigitalPictureFrame` can
 * display a static list of images and/or GIFs
 * watch one or more directories for images and GIFs
 * automatically reconnect to the device in case of an error or connection loss
+
+### Terminal UI
+
+![The terminal UI: the files of a folder, the preview as it looks on the display and the details](docs/images/tui.png)
+
+A terminal UI to browse a folder, see what a picture or animation will look like on the display (with your color,
+size and label options, and how long the upload takes) and send it:
+
+```shell
+pip install 'idotmatrix-api-client[tui]'
+idotmatrix-tui /path/to/pictures
+```
+
+It works without any argument: it connects to the display it used last, and opens the list of displays (`d`) if there is
+none or it cannot connect. The list searches while it is open and shows every display it knows with its state
+(connected, online with the signal strength, offline); Enter connects, `a` takes an address, `f` forgets a display.
+`--address AA:BB:CC:DD:EE:FF` connects to that one, `--choose` opens the list at the start.
+
+`Enter` shows the file on the display, `Space` marks files and `s` stores the marked ones (or the whole folder) in the
+slots of the display, which then cycles through them on its own. `o` sets the colors (auto), the largest GIF, the
+scale and a label, `b` the brightness, `c` shows the clock, `x` clears the slots, `/` filters, `Esc` cancels an upload
+and `:` lists all commands (and the themes). The folder, the displays, the options and the theme are remembered
+(`~/.config/idotmatrix-tui/session.json`).
+
+The preview draws real pixels, exactly square and sharp, in terminals that support the Kitty graphics protocol or
+Sixel (kitty, WezTerm, foot, Ghostty, iTerm2, ...). Elsewhere it uses half blocks, which are only exact if a cell is
+twice as high as wide. A warning under the preview says when it is too small to show every pixel.
+`IDOTMATRIX_TUI_PIXELS=off` always uses half blocks, `IDOTMATRIX_TUI_CELL_ASPECT` (cell height / width) tells the half
+block preview the shape of your cells if the terminal does not report it.
 
 ## Fonts
 
