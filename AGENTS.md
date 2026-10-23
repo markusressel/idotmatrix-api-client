@@ -4,6 +4,11 @@ Async Python library for controlling iDotMatrix BLE pixel displays (16x16, 32x32
 `derkalle4/python3-idotmatrix-library`, reverse engineered from the iDotMatrix Android app (`BleProtocolN.java`).
 Not API-compatible with the original.
 
+The Home Assistant integration built on this library lives in its own repository,
+[ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix). It depends on the public API of this library
+(`IDotMatrixClient`, `BleakTransport`, `transport_factory`, `set_ble_device`, `install_signal_handlers`), so check that
+it keeps working when you change those, and keep the library free of anything that blocks the event loop.
+
 ## Setup
 
 - Python `>=3.12,<3.15`, packaging via Poetry (`poetry-core`).
