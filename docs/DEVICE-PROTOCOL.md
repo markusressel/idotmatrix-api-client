@@ -289,6 +289,8 @@ Two different mechanisms exist in the official app.
 Effect styles: `GRADIENT_HORIZONTAL_RAINBOW` (0) shows vertical stripes (the colors change along the width), the name
 of the member is misleading. The other styles were not looked at; the TUI assumes `VERTICAL_RAINBOW` (3) draws
 horizontal stripes. (**verified** for 0, **guess** for 3)
+`DIAGONAL_RIGHT_RAINBOW` (4) draws hard stripes of the given colors without blending, running from the bottom left to
+the top right. (**verified**)
 
 There is no command that leaves the music sync again: `06 00 00 02 00 00` (`stop_rythm`) had no effect. Showing
 something else, f.e. the clock, does. (**verified**)
