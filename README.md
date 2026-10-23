@@ -199,13 +199,18 @@ size and label options, and how long the upload takes) and send it:
 
 ```shell
 pip install 'idotmatrix-api-client[tui]'
-idotmatrix-tui /path/to/pictures --address AA:BB:CC:DD:EE:FF
+idotmatrix-tui /path/to/pictures
 ```
+
+It works without any argument: it connects to the display it used last, and opens the list of displays (`d`) if there is
+none or it cannot connect. The list searches while it is open and shows every display it knows with its state
+(connected, online with the signal strength, offline); Enter connects, `a` takes an address, `f` forgets a display.
+`--address AA:BB:CC:DD:EE:FF` connects to that one, `--choose` opens the list at the start.
 
 `Enter` shows the file on the display, `Space` marks files and `s` stores the marked ones (or the whole folder) in the
 slots of the display, which then cycles through them on its own. `o` sets the colors (auto), the largest GIF, the
 scale and a label, `b` the brightness, `c` shows the clock, `x` clears the slots, `/` filters, `Esc` cancels an upload
-and `:` lists all commands. The folder, the address and the options are remembered
+and `:` lists all commands (and the themes). The folder, the displays, the options and the theme are remembered
 (`~/.config/idotmatrix-tui/session.json`).
 
 ## Fonts

@@ -17,9 +17,11 @@ from idotmatrix.client import IDotMatrixClient
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.tui import convert
 from idotmatrix.tui.convert import Preview
+from idotmatrix.tui.devices import DevicesScreen
 from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, OptionsDialog, SlideshowDialog
 from idotmatrix.tui.files import Entry, files_in, format_size, is_supported, list_folder
 from idotmatrix.tui.preview import PreviewWidget
+from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
 from idotmatrix.tui.settings import Options, Session
 
 logging = logging.getLogger(__name__)
@@ -38,18 +40,25 @@ class IDotMatrixApp(App):
 
     TITLE = "iDotMatrix"
     CSS = """
-    #status { height: 1; padding: 0 1; background: $boost; }
-    #main { height: 1fr; }
-    #left { width: 50%; }
-    #right { width: 50%; border-left: solid $primary; }
-    #path { height: 1; padding: 0 1; text-style: bold; }
-    #filter { display: none; }
+    Screen { background: $background; }
+    #status { height: 1; padding: 0 1; background: $panel; color: $text; }
+    #main { height: 1fr; padding: 0 1; }
+    #left { width: 1fr; border: round $primary; border-title-color: $primary; border-title-style: bold;
+            border-subtitle-color: $text-muted; padding: 0 1; }
+    #right { width: 1fr; }
+    #preview-box { height: 1fr; border: round $primary; border-title-color: $primary; border-title-style: bold;
+                   padding: 0 1; }
+    #info-box { height: auto; max-height: 12; border: round $primary-darken-1; border-title-color: $primary;
+                border-title-style: bold; padding: 0 1; }
+    #left:focus-within, #preview-box:focus-within { border: round $accent; }
+    #filter { display: none; margin-bottom: 1; }
     #filter.visible { display: block; }
-    #files { height: 1fr; }
+    #files { height: 1fr; background: transparent; }
+    #files > .datatable--header { background: transparent; text-style: bold; color: $text-muted; }
     #preview { height: 1fr; min-height: 8; }
-    #info { height: auto; max-height: 12; padding: 0 1; border-top: solid $primary; }
-    #activity { height: 1; padding: 0 1; }
-    #activity Label { width: 1fr; }
+    #info { height: auto; }
+    #activity { height: 1; padding: 0 2; }
+    #activity Label { width: 1fr; color: $text-muted; }
     #progress { width: 40; }
     """
     BINDINGS = [
@@ -60,6 +69,7 @@ class IDotMatrixApp(App):
         Binding("b", "brightness", "Brightness"),
         Binding("c", "clock", "Clock"),
         Binding("x", "clear_slots", "Clear slots"),
+        Binding("d", "devices", "Displays"),
         Binding("r", "reconnect", "Reconnect"),
         Binding("backspace,left,h", "parent", "Up", show=False),
         Binding("slash", "filter", "Filter"),
@@ -74,8 +84,13 @@ class IDotMatrixApp(App):
         address: str | None = None,
         client_factory: Callable[[str | None], IDotMatrixClient] = default_client_factory,
         session_path: Path | None = None,
+        scanner: DeviceScanner | None = None,
+        choose_device: bool = False,
     ):
         super().__init__()
+        self._scanner = scanner or BleakDeviceScanner()
+        self._choose_device = choose_device
+        self._device_names: dict[str, str] = {}
         self._session_path = session_path
         self.session = Session.load(session_path)
         if address:
@@ -98,19 +113,26 @@ class IDotMatrixApp(App):
     def compose(self) -> ComposeResult:
         yield Static("", id="status")
         with Horizontal(id="main"):
-            with Vertical(id="left"):
-                yield Static("", id="path")
+            with Vertical(id="left") as left:
+                left.border_title = "Files"
                 yield Input(placeholder="filter", id="filter")
-                yield DataTable(id="files", cursor_type="row", zebra_stripes=True)
+                yield DataTable(id="files", cursor_type="row")
             with Vertical(id="right"):
-                yield PreviewWidget(id="preview")
-                yield Static("", id="info")
+                with Vertical(id="preview-box") as box:
+                    box.border_title = "On the display"
+                    yield PreviewWidget(id="preview")
+                with Vertical(id="info-box") as info:
+                    info.border_title = "Details"
+                    yield Static("", id="info")
         with Horizontal(id="activity"):
             yield Label("", id="activity-text")
             yield ProgressBar(id="progress", show_eta=False, total=100)
         yield Footer()
 
     def on_mount(self) -> None:
+        if self.session.theme in self.available_themes:
+            self.theme = self.session.theme
+        self.theme_changed_signal.subscribe(self, self._theme_changed)
         table = self.query_one("#files", DataTable)
         table.add_column("", width=1, key="mark")
         table.add_column("Name", key="name")
@@ -119,7 +141,14 @@ class IDotMatrixApp(App):
         self.reload()
         self._update_status()
         table.focus()
-        self.run_worker(self._connect(), name="connect", exclusive=True, group="connect")
+        if self._choose_device or not self.session.address:
+            self.action_devices()
+        else:
+            self.run_worker(self._connect(), name="connect", exclusive=True, group="connect")
+
+    def _theme_changed(self, theme) -> None:
+        self.session.theme = theme.name
+        self.session.save(self._session_path)
 
     async def on_unmount(self) -> None:
         if self._preview_timer is not None:
@@ -140,6 +169,7 @@ class IDotMatrixApp(App):
         yield SystemCommand("Clear slots", "Delete everything stored on the display", self.action_clear_slots)
         yield SystemCommand("Brightness", "Set the brightness of the display", self.action_brightness)
         yield SystemCommand("Show the clock", "Switch the display to the clock", self.action_clock)
+        yield SystemCommand("Displays", "Search for displays and choose one", self.action_devices)
         yield SystemCommand("Reconnect", "Connect to the display again", self.action_reconnect)
         yield SystemCommand("Mark all", "Mark all files of the folder", self.action_mark_all)
         yield SystemCommand("Unmark all", "Forget the marked files", self.action_unmark_all)
@@ -158,7 +188,7 @@ class IDotMatrixApp(App):
                           key=str(entry.path))
         if selected is not None and selected in {key.value for key in table.rows}:
             table.move_cursor(row=table.get_row_index(selected))
-        self.query_one("#path", Static).update(str(self.folder))
+        self.query_one("#left").border_subtitle = str(self.folder)
         self._schedule_preview()
 
     def _mark(self, path: Path) -> str:
@@ -339,7 +369,11 @@ class IDotMatrixApp(App):
         if self.connection == "connected":
             text.append(f" {self.canvas_size}x{self.canvas_size}")
         if self.session.address:
-            text.append(f"  {self.session.address}", style="dim")
+            known = self.session.device(self.session.address)
+            name = self._device_names.get(self.session.address) or (known.name if known else "")
+            text.append(f"  {name + ' ' if name else ''}{self.session.address}", style="dim")
+        elif self.connection != "connecting":
+            text.append("  no display chosen, press d", style="dim")
         self.query_one("#status", Static).update(text)
 
     async def _connect(self) -> None:
@@ -356,10 +390,39 @@ class IDotMatrixApp(App):
             size = self.client.screen_size
             self.canvas_size = size.value[0] if isinstance(size, ScreenSize) else DEFAULT_CANVAS_SIZE
             self.connection = "connected"
+            address = self.session.address
+            if address:
+                self.session.remember(address, self._device_names.get(address, ""))
+                self.session.save(self._session_path)
         except Exception as e:
             logging.exception("could not connect")
             self.connection = "failed"
             self.notify(f"Could not connect: {e}", severity="error", timeout=10)
+            if not self.screen_stack[1:]:
+                self.action_devices()
+        self._update_status()
+
+    def action_devices(self) -> None:
+        if self._busy is not None:
+            self.notify("Wait for the running upload, or cancel it with Escape", severity="warning")
+            return
+        if isinstance(self.screen, DevicesScreen):
+            return
+        connected = self.session.address if self.connection == "connected" else None
+        screen = DevicesScreen(self._scanner, self.session.devices, connected=connected, forget=self._forget_device)
+
+        def chosen(address: str | None) -> None:
+            self._device_names.update(screen.names)
+            if address is None or (address == connected):
+                return
+            self.session.address = address
+            self.action_reconnect()
+
+        self.push_screen(screen, chosen)
+
+    def _forget_device(self, address: str) -> None:
+        self.session.forget(address)
+        self.session.save(self._session_path)
         self._update_status()
 
     def action_reconnect(self) -> None:

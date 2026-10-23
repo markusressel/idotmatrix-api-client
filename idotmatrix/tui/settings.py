@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -14,6 +15,7 @@ COLOR_CHOICES = ("auto", "256", "128", "64", "32", "16")
 RESIZE_CHOICES = ("fit", "fill", "stretch", "crop")
 LABEL_CHOICES = ("none", "name", "text")
 DEFAULT_SLIDESHOW_TIME_SECONDS = 10
+DEFAULT_THEME = "nord"
 
 
 @dataclass
@@ -65,6 +67,18 @@ class Options:
 
 
 @dataclass
+class KnownDevice:
+    """A display that was connected to before."""
+    address: str
+    name: str = ""
+    last_connected: float | None = None  # seconds since the epoch
+
+    @property
+    def title(self) -> str:
+        return self.name or "iDotMatrix"
+
+
+@dataclass
 class Session:
     """What is remembered between runs."""
     folder: str = ""
@@ -73,6 +87,26 @@ class Session:
     slots: list[int] = field(default_factory=lambda: list(SLOTS))
     display_time: int = DEFAULT_SLIDESHOW_TIME_SECONDS
     brightness: int = 100
+    devices: list[KnownDevice] = field(default_factory=list)
+    theme: str = DEFAULT_THEME
+
+    def remember(self, address: str, name: str = "", now: float | None = None) -> None:
+        """Adds a device that was connected, or updates it, and makes it the one to connect to next time."""
+        known = self.device(address)
+        if known is None:
+            known = KnownDevice(address)
+            self.devices.append(known)
+        known.name = name or known.name
+        known.last_connected = time.time() if now is None else now
+        self.address = address
+
+    def forget(self, address: str) -> None:
+        self.devices = [device for device in self.devices if device.address != address]
+        if self.address == address:
+            self.address = None
+
+    def device(self, address: str | None) -> KnownDevice | None:
+        return next((device for device in self.devices if device.address == address), None)
 
     @staticmethod
     def default_path() -> Path:
@@ -94,6 +128,8 @@ class Session:
                 slots=sorted(set(slots)) or list(SLOTS),
                 display_time=_int_in(raw.get("display_time"), 1, 65535, DEFAULT_SLIDESHOW_TIME_SECONDS),
                 brightness=_int_in(raw.get("brightness"), 5, 100, 100),
+                devices=_devices(raw.get("devices")),
+                theme=raw["theme"] if isinstance(raw.get("theme"), str) and raw["theme"] else DEFAULT_THEME,
             )
         except FileNotFoundError:
             return cls()
@@ -108,6 +144,19 @@ class Session:
             path.write_text(json.dumps(asdict(self), indent=2))
         except OSError as e:
             logging.warning(f"could not save the session to {path}: {e}")
+
+
+def _devices(raw) -> list[KnownDevice]:
+    devices = []
+    for item in raw if isinstance(raw, list) else []:
+        if isinstance(item, dict) and isinstance(item.get("address"), str) and item["address"]:
+            last = item.get("last_connected")
+            devices.append(KnownDevice(
+                address=item["address"],
+                name=item["name"] if isinstance(item.get("name"), str) else "",
+                last_connected=float(last) if isinstance(last, (int, float)) and not isinstance(last, bool) else None,
+            ))
+    return devices
 
 
 def _int_in(value, low: int, high: int, default: int) -> int:

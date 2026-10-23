@@ -18,7 +18,8 @@ except ImportError:
 
 from idotmatrix.tui import convert
 from idotmatrix.tui.files import files_in, list_folder, natural_key
-from idotmatrix.tui.settings import Options, Session
+from idotmatrix.tui.scanner import Found
+from idotmatrix.tui.settings import KnownDevice, Options, Session
 
 
 def _make_pictures(folder: Path) -> None:
@@ -177,6 +178,22 @@ class TestRender(TestBase):
         self.assertEqual(10, len(lines[0]))
 
 
+class FakeScanner:
+    """Finds the given displays, right away."""
+
+    def __init__(self, found=None, error=None):
+        self.found = found or []
+        self.error = error
+        self.scans = 0
+
+    async def scan(self, seconds):
+        self.scans += 1
+        await asyncio.sleep(0.01)
+        if self.error:
+            raise self.error
+        return list(self.found)
+
+
 class FakeClient:
     """Stands in for `IDotMatrixClient`, the modules record what is called."""
 
@@ -192,8 +209,8 @@ class FakeClient:
         self.materials = MagicMock(store=AsyncMock(return_value=[0, 1]), clear=AsyncMock())
 
 
-@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
-class TestApp(TestBase):
+class AppHelpers:
+    """What the tests of the app share."""
 
     def setUp(self):
         super().setUp()
@@ -206,20 +223,32 @@ class TestApp(TestBase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def _app(self, client=None):
+    def _app(self, client=None, address="AA:BB:CC:DD:EE:FF", scanner=None, **kwargs):
         from idotmatrix.tui.app import IDotMatrixApp
         client = client or self.client
-        return IDotMatrixApp(folder=self.folder, address="AA:BB:CC:DD:EE:FF", client_factory=lambda address: client,
-                             session_path=self.session_path)
+        self.addresses = []
+
+        def factory(address):
+            self.addresses.append(address)
+            return client
+
+        return IDotMatrixApp(folder=self.folder, address=address, client_factory=factory,
+                             session_path=self.session_path, scanner=scanner or FakeScanner(), **kwargs)
 
     async def _settle(self, pilot):
         await pilot.pause()
-        await pilot.app.workers.wait_for_complete()
+        # the search of the displays screen never ends
+        pending = [worker for worker in pilot.app.workers if worker.group != "scan" and not worker.is_finished]
+        await asyncio.gather(*[worker.wait() for worker in pending], return_exceptions=True)
         await pilot.pause()
 
     def _rows(self, app):
         from textual.widgets import DataTable
         return [key.value for key in app.query_one("#files", DataTable).rows]
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestApp(AppHelpers, TestBase):
 
     async def test_lists_the_folder_and_connects(self):
         app = self._app()
@@ -468,3 +497,161 @@ class TestApp(TestBase):
             self.assertEqual(4, len(app._preview.frames))
             self.assertGreater(len(app.query_one(PreviewWidget)._frames), 1)
             self.assertIn("4 frames", str(app.query_one("#info").render()))
+
+
+class TestSessionDevices(TestBase):
+
+    def test_remembering_a_device_makes_it_the_next_one(self):
+        session = Session()
+
+        session.remember("AA:01", "IDM-1", now=100.0)
+        session.remember("AA:02", "IDM-2", now=200.0)
+        session.remember("AA:01", now=300.0)
+
+        self.assertEqual("AA:01", session.address)
+        self.assertEqual([("AA:01", "IDM-1", 300.0), ("AA:02", "IDM-2", 200.0)],
+                         [(d.address, d.name, d.last_connected) for d in session.devices])
+
+    def test_forgetting_the_current_device_clears_the_address(self):
+        session = Session()
+        session.remember("AA:01")
+        session.remember("AA:02")
+
+        session.forget("AA:02")
+
+        self.assertIsNone(session.address)
+        self.assertEqual(["AA:01"], [d.address for d in session.devices])
+
+    def test_devices_survive_saving_and_broken_entries_are_dropped(self):
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "session.json"
+            session = Session()
+            session.remember("AA:01", "IDM-1", now=5.0)
+            session.save(path)
+            raw = json.loads(path.read_text())
+            raw["devices"] += [{"address": 5}, "x", {"address": "", "name": "a"}, {"address": "AA:03", "name": 4}]
+            path.write_text(json.dumps(raw))
+
+            loaded = Session.load(path)
+
+            self.assertEqual([KnownDevice("AA:01", "IDM-1", 5.0), KnownDevice("AA:03", "", None)], loaded.devices)
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestDevices(AppHelpers, TestBase):
+
+    def _shown_rows(self, app):
+        from textual.widgets import DataTable
+        table = app.screen.query_one("#devices", DataTable)
+        return [[str(cell) for cell in table.get_row(key.value)] for key in table.rows]
+
+    async def test_without_an_address_the_displays_are_searched_and_the_chosen_one_is_connected_and_remembered(self):
+        scanner = FakeScanner([Found("AA:01", "IDM-weak", -80), Found("AA:02", "IDM-strong", -40)])
+        app = self._app(address=None, scanner=scanner)
+        app.session.address = None
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause(0.3)
+
+            self.assertEqual("DevicesScreen", type(app.screen).__name__)
+            self.assertEqual([["● online -40 dBm", "IDM-strong", "AA:02", "new"],
+                              ["● online -80 dBm", "IDM-weak", "AA:01", "new"]], self._shown_rows(app))
+            self.assertEqual([], self.addresses)
+
+            await pilot.press("enter")  # the strongest
+            await self._settle(pilot)
+
+            self.assertEqual(["AA:02"], self.addresses)
+            self.assertEqual("connected", app.connection)
+            self.assertEqual("AA:02", app.session.address)
+            self.assertEqual(["IDM-strong"], [d.name for d in app.session.devices])
+        self.assertEqual("AA:02", json.loads(self.session_path.read_text())["address"])
+
+    async def test_known_displays_that_do_not_advertise_are_offline(self):
+        app = self._app(address="AA:01", scanner=FakeScanner([Found("AA:02", "IDM-2", -50)]))
+        app.session.remember("AA:01", "IDM-1", now=1.0)
+        app.session.remember("AA:03", "IDM-3", now=2.0)
+        app.session.address = "AA:01"
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("d")
+            await pilot.pause(0.3)
+
+            rows = self._shown_rows(app)
+            self.assertEqual(["● connected", "IDM-1", "AA:01"], rows[0][:3])
+            self.assertEqual(["● online -50 dBm", "IDM-2", "AA:02", "new"], rows[1])
+            self.assertEqual({"○ offline"}, {row[0] for row in rows[2:]})
+            self.assertEqual(["AA:03"], [row[2] for row in rows[2:]])
+
+    async def test_choosing_another_display_connects_to_it(self):
+        scanner = FakeScanner([Found("AA:02", "IDM-2", -50)])
+        app = self._app(address="AA:01", scanner=scanner)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("d")
+            await pilot.pause(0.3)
+
+            await pilot.press("down", "enter")  # the connected one is first
+            await self._settle(pilot)
+
+            self.assertEqual(["AA:01", "AA:02"], self.addresses)
+            self.assertEqual("AA:02", app.session.address)
+
+    async def test_a_failed_connection_opens_the_list_of_displays(self):
+        app = self._app(client=FakeClient(fail=True), scanner=FakeScanner())
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause(0.3)
+
+            self.assertEqual("DevicesScreen", type(app.screen).__name__)
+
+    async def test_choose_opens_the_list_instead_of_connecting(self):
+        app = self._app(address="AA:01", scanner=FakeScanner(), choose_device=True)
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause(0.3)
+
+            self.assertEqual("DevicesScreen", type(app.screen).__name__)
+            self.assertEqual([], self.addresses)
+
+    async def test_a_display_can_be_forgotten(self):
+        app = self._app(address="AA:01", scanner=FakeScanner())
+        app.session.remember("AA:05", "IDM-5", now=1.0)
+        app.session.address = "AA:01"
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("d")
+            await pilot.pause(0.3)
+            await pilot.press("down", "f")  # AA:01 is connected, AA:05 is offline
+
+            self.assertEqual([], [d.address for d in app.session.devices if d.address == "AA:05"])
+            self.assertEqual(["AA:01"], [row[2] for row in self._shown_rows(app)])
+
+    async def test_an_address_can_be_typed(self):
+        app = self._app(address=None, scanner=FakeScanner())
+        app.session.address = None
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause(0.3)
+
+            await pilot.press("a", *"11:22:33:44:55:66", "enter")
+            await self._settle(pilot)
+
+            self.assertEqual(["11:22:33:44:55:66"], self.addresses)
+
+    async def test_a_failing_scan_is_shown(self):
+        from textual.widgets import Label
+        app = self._app(address=None, scanner=FakeScanner(error=RuntimeError("bluetooth is off")))
+        app.session.address = None
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause(0.3)
+
+            self.assertIn("bluetooth is off", str(app.screen.query_one("#scan-state", Label).render()))
+
+
+class TestAgo(TestBase):
+
+    def test_format_ago(self):
+        from idotmatrix.tui.devices import format_ago
+        self.assertEqual("never", format_ago(None, 100))
+        self.assertEqual("just now", format_ago(80, 100))
+        self.assertEqual("5 min ago", format_ago(0, 300))
+        self.assertEqual("2 h ago", format_ago(0, 7300))
+        self.assertEqual("3 d ago", format_ago(0, 3 * 86400 + 5))

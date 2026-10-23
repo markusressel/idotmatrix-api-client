@@ -14,21 +14,23 @@ class Dialog(ModalScreen):
 
     BINDINGS = [("escape", "cancel", "Cancel")]
     DEFAULT_CSS = """
-    Dialog { align: center middle; }
-    Dialog > Vertical { width: 64; height: auto; max-height: 90%; padding: 1 2; border: thick $accent; background: $surface; }
-    Dialog .title { text-style: bold; margin-bottom: 1; }
-    Dialog .field { margin-top: 1; }
+    Dialog { align: center middle; background: $background 60%; }
+    Dialog > Vertical {
+        width: 64; height: auto; max-height: 90%; padding: 1 2;
+        border: round $primary; border-title-color: $primary; border-title-style: bold; background: $surface;
+    }
+    Dialog .field { margin-top: 1; color: $text-muted; }
     Dialog .error { color: $error; height: auto; }
     Dialog Horizontal { height: auto; margin-top: 1; align-horizontal: right; }
-    Dialog Button { margin-left: 2; }
+    Dialog Button { margin-left: 2; min-width: 12; }
     Dialog Input, Dialog Select { background: $boost; }
     """
 
     title_text = ""
 
     def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self.title_text, classes="title")
+        with Vertical() as box:
+            box.border_title = self.title_text
             yield from self.fields()
             yield Label("", id="error", classes="error")
             with Horizontal():
