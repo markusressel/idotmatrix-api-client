@@ -12,7 +12,7 @@ class EffectStyle(Enum):
     """
     Enum for the different effect styles. Tried on a 64x64: GRADIENT_HORIZONTAL_RAINBOW (0) is smooth horizontal
     stripes moving down, VERTICAL_RAINBOW (3) is hard vertical stripes moving to the right and
-    DIAGONAL_RIGHT_RAINBOW (4) is hard stripes (from the top left to the bottom right) that move to the top right. DIAGONAL_LEFT_RAINBOW_ON_BLACK (5) is stripes from the bottom left to the top right on black that move to the top left. The others were not checked.
+    DIAGONAL_RIGHT_RAINBOW (4) is hard stripes (from the top left to the bottom right) that move to the top right. DIAGONAL_LEFT_RAINBOW_ON_BLACK (5) is single colored stripes from the bottom left to the top right on black (stripe and gap 4 pixels wide) that move to the top left. The others were not checked.
     """
 
     GRADIENT_HORIZONTAL_RAINBOW = 0
