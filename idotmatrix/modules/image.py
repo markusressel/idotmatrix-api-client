@@ -234,7 +234,7 @@ class ImageModule(IDotMatrixModule):
             header[4] = 2 if i > 0 else 0  # continuation / first chunk
             header[5:9] = total_length
             header[9:13] = crc32
-            header[13:15] = convert_display_time(time_sign).to_bytes(2, "big")
+            header[13:15] = convert_display_time(time_sign).to_bytes(2, "little")
             header[15] = index
 
             packets.append(self._create_ble_packets(bytes(header) + chunk))

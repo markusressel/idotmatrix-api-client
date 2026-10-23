@@ -109,7 +109,7 @@ class TestStaticImage(TestBase):
         self.assertEqual(0, chunk[4])  # first chunk
         self.assertEqual(3072, int.from_bytes(chunk[5:9], "little"))
         self.assertEqual(zlib.crc32(pixel_data), int.from_bytes(chunk[9:13], "little"))
-        self.assertEqual(5, int.from_bytes(chunk[13:15], "big"))  # display time
+        self.assertEqual(5, int.from_bytes(chunk[13:15], "little"))  # display time
         self.assertEqual(13, chunk[15])  # show now
         self.assertEqual(pixel_data, chunk[16:])
 

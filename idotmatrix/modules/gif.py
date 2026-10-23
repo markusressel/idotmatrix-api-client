@@ -271,9 +271,8 @@ class GifModule(IDotMatrixModule):
                 # 'time_sign' passed to create_gif_data_packets is the input_key
                 converted_time_value = convert_display_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
 
-                time_sign_bytes_be = bytearray(converted_time_value.to_bytes(2, byteorder='big'))
-                header[13] = time_sign_bytes_be[0]
-                header[14] = time_sign_bytes_be[1]
+                # little endian, like every other number of the header (the app does the same)
+                header[13:15] = converted_time_value.to_bytes(2, byteorder='little')
 
             header[15] = gif_type & 0xFF  # Ensure it's a byte
 
