@@ -11,6 +11,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      # trusted publishing: PyPI trusts this workflow, there is no token
+      id-token: write
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -26,6 +29,3 @@ jobs:
           poetry build
       - name: Publish a Python distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_PASSWORD }}
