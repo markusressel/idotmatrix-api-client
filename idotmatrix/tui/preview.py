@@ -5,6 +5,7 @@ import sys
 from PIL import Image as PILImage
 from rich.style import Style
 from rich.text import Text
+from textual.containers import Vertical
 from textual.message import Message
 from textual.widgets import Static
 
@@ -15,13 +16,15 @@ except ImportError:  # not on Windows
     fcntl = termios = None
 
 HALF_BLOCK = "▀"
-DEFAULT_CELL_ASPECT = 2.2
+DEFAULT_CELL_ASPECT = 2.0
+# cells at least this much taller than wide get two columns per pixel; in between the pixels are slightly too tall
+WIDE_PIXEL_ASPECT = 3.0
 
 
 def cell_aspect() -> float:
     """
     Height of a terminal cell divided by its width. Asked from the terminal (if it reports its size in pixels),
-    or taken from `IDOTMATRIX_TUI_CELL_ASPECT`, or a typical 2.2.
+    or taken from `IDOTMATRIX_TUI_CELL_ASPECT`, or 2.0.
     """
     try:
         value = float(os.environ.get("IDOTMATRIX_TUI_CELL_ASPECT", ""))
@@ -42,28 +45,36 @@ def cell_aspect() -> float:
     return DEFAULT_CELL_ASPECT
 
 
+def columns_per_pixel(aspect: float) -> int:
+    """
+    How many columns a pixel of a half block picture gets. Always the same for all pixels: a pixel that is one column
+    wide in some places and two in others looks worse than pixels that are all a little too tall.
+    """
+    return 2 if aspect >= WIDE_PIXEL_ASPECT else 1
+
+
 def fitted_side(image_side: int, max_columns: int, max_rows: int, aspect: float = 2.0) -> int:
     """How many pixels per side of the picture fit in the space."""
-    return max(1, min(image_side, int(max_columns / (aspect / 2)), max_rows * 2))
+    return max(1, min(image_side, max_columns // columns_per_pixel(aspect), max_rows * 2))
 
 
 def render_frame(image: PILImage.Image, max_columns: int, max_rows: int, aspect: float = 2.0) -> Text:
     """
-    Draws a picture with half blocks, two pixels on top of each other in a cell. A pixel is as wide as it is high
-    (a half cell is `aspect / 2` cells wide), so the picture is square. The picture is scaled down (not up beyond a
-    whole pixel) to fit.
+    Draws a picture with half blocks, two pixels on top of each other in a cell. The picture is scaled down (not up
+    beyond a whole pixel) to fit. Exact only if a cell is twice as high as wide, see `columns_per_pixel`, and
+    `detect_pixel_image` for the exact way.
     """
-    per_pixel = aspect / 2
+    per_pixel = columns_per_pixel(aspect)
     side = fitted_side(image.width, max_columns, max_rows, aspect)
     if side != image.width or side != image.height:
         image = image.resize((side, side), PILImage.Resampling.NEAREST)
     image = image.convert("RGB")
     pixels = image.load()
-    columns = max(1, round(side * per_pixel))
+    columns = side * per_pixel
     text = Text(no_wrap=True, overflow="crop")
     for y in range(0, side, 2):
         for column in range(columns):
-            x = min(int(column / per_pixel), side - 1)
+            x = column // per_pixel
             top = pixels[x, y]
             bottom = pixels[x, y + 1] if y + 1 < side else (0, 0, 0)
             text.append(HALF_BLOCK, Style(color=f"rgb({top[0]},{top[1]},{top[2]})",
@@ -73,37 +84,23 @@ def render_frame(image: PILImage.Image, max_columns: int, max_rows: int, aspect:
     return text
 
 
-class PreviewWidget(Static):
-    """Shows a picture, or plays an animation with the durations of its frames."""
+class Fitted(Message):
+    """The picture was drawn with `shown` pixels per side of the `actual` ones (equal if it fits, 0 if no picture)."""
 
-    DEFAULT_CSS = """
-    PreviewWidget {
-        content-align: center middle;
-        height: 1fr;
-    }
-    """
+    def __init__(self, shown: int, actual: int):
+        super().__init__()
+        self.shown = shown
+        self.actual = actual
 
-    class Fitted(Message):
-        """The picture was drawn with `shown` pixels per side of the `actual` ones (equal if it fits)."""
 
-        def __init__(self, shown: int, actual: int):
-            super().__init__()
-            self.shown = shown
-            self.actual = actual
+class _Player:
+    """Plays frames with their durations. A widget that draws them implements `_draw`."""
 
-    def __init__(self, **kwargs):
-        super().__init__("", **kwargs)
+    def _init_player(self) -> None:
         self._frames: list[PILImage.Image] = []
         self._durations: list[int] = []
         self._index = 0
         self._timer = None
-        self._aspect = cell_aspect()
-
-    def show_message(self, message: str) -> None:
-        self._stop()
-        self._frames, self._durations = [], []
-        self.update(message)
-        self.post_message(self.Fitted(0, 0))
 
     def show_frames(self, frames: list[PILImage.Image], durations: list[int]) -> None:
         self._stop()
@@ -121,17 +118,114 @@ class PreviewWidget(Static):
             self._timer.stop()
             self._timer = None
 
-    def _draw(self) -> None:
-        size = self.size
-        if size.width and size.height:
-            actual = self._frames[self._index].width
-            self.post_message(self.Fitted(fitted_side(actual, size.width, size.height, self._aspect), actual))
-            self.update(render_frame(self._frames[self._index], size.width, size.height, self._aspect))
-
     def _schedule(self) -> None:
         self._timer = self.set_timer(max(self._durations[self._index], 20) / 1000, self._next)
 
     def _next(self) -> None:
+        if not self._frames:  # the timer fired as the picture was replaced
+            return
         self._index = (self._index + 1) % len(self._frames)
         self._draw()
         self._schedule()
+
+    def _draw(self) -> None:
+        raise NotImplementedError
+
+
+class PreviewWidget(_Player, Static):
+    """Shows a picture with half blocks, or plays an animation with the durations of its frames."""
+
+    DEFAULT_CSS = """
+    PreviewWidget {
+        content-align: center middle;
+        height: 1fr;
+    }
+    """
+    Fitted = Fitted
+
+    def __init__(self, **kwargs):
+        super().__init__("", **kwargs)
+        self._init_player()
+        self._aspect = cell_aspect()
+
+    def show_message(self, message: str) -> None:
+        self._stop()
+        self._frames, self._durations = [], []
+        self.update(message)
+        self.post_message(Fitted(0, 0))
+
+    def _draw(self) -> None:
+        size = self.size
+        if size.width and size.height:
+            actual = self._frames[self._index].width
+            self.post_message(Fitted(fitted_side(actual, size.width, size.height, self._aspect), actual))
+            self.update(render_frame(self._frames[self._index], size.width, size.height, self._aspect))
+
+
+def detect_pixel_image():
+    """
+    The widget class that draws real pixels (Kitty graphics or Sixel), or None if the terminal supports none of them
+    or `IDOTMATRIX_TUI_PIXELS=off`. Asks the terminal, so call it before the app starts.
+    """
+    if os.environ.get("IDOTMATRIX_TUI_PIXELS", "").lower() in ("off", "0", "no", "false"):
+        return None
+    try:
+        from textual_image import renderable, widget
+    except ImportError:
+        return None
+    if renderable.Image is renderable.SixelImage:
+        return widget.SixelImage
+    if renderable.Image is renderable.TGPImage:
+        return widget.TGPImage
+    return None
+
+
+class PixelPreviewWidget(_Player, Vertical):
+    """
+    Shows a picture with real pixels, exactly square whatever the shape of the cells. The picture is enlarged by a
+    whole number first (nearest neighbour), so the pixels stay sharp.
+    """
+
+    DEFAULT_CSS = """
+    PixelPreviewWidget { height: 1fr; align: center middle; }
+    PixelPreviewWidget > .pixels { width: auto; height: auto; max-width: 100%; max-height: 100%; }
+    PixelPreviewWidget > .message { width: auto; height: auto; }
+    """
+    Fitted = Fitted
+
+    def __init__(self, image_class, **kwargs):
+        super().__init__(**kwargs)
+        self._init_player()
+        self._image_class = image_class
+        self._pixels = None
+        self._label = Static("", classes="message")
+
+    def compose(self):
+        self._pixels = self._image_class(classes="pixels")
+        self._pixels.display = False
+        yield self._pixels
+        yield self._label
+
+    def show_message(self, message: str) -> None:
+        self._stop()
+        self._frames, self._durations = [], []
+        self._pixels.display = False
+        self._pixels.image = None
+        self._label.display = True
+        self._label.update(message)
+        self.post_message(Fitted(0, 0))
+
+    def _draw(self) -> None:
+        size = self.size
+        if not (size.width and size.height):
+            return
+        from textual_image.widget import get_cell_size
+        cell = get_cell_size()
+        frame = self._frames[self._index]
+        side = frame.width
+        room = min(size.width * cell.width, size.height * cell.height)
+        factor = max(1, room // side)
+        self.post_message(Fitted(min(side, room), side))
+        self._label.display = False
+        self._pixels.display = True
+        self._pixels.image = frame.convert("RGB").resize((side * factor, side * factor), PILImage.Resampling.NEAREST)

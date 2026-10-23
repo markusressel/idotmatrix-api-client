@@ -21,7 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     if folder is not None and not folder.is_dir():
         print(f"{folder} is not a folder", file=sys.stderr)
         return 1
-    IDotMatrixApp(folder=folder, address=args.address, choose_device=args.choose).run()
+    from idotmatrix.tui.preview import detect_pixel_image
+    IDotMatrixApp(folder=folder, address=args.address, choose_device=args.choose,
+                  pixel_image=detect_pixel_image()).run()
     return 0
 
 

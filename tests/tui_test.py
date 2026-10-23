@@ -1,4 +1,5 @@
 import asyncio
+import importlib.util
 import json
 import unittest
 from pathlib import Path
@@ -177,14 +178,14 @@ class TestRender(TestBase):
         self.assertEqual(5, len(lines))
         self.assertEqual(10, len(lines[0]))
 
-    def test_taller_cells_make_the_picture_wider_so_it_stays_square(self):
+    def test_all_pixels_get_the_same_width(self):
         from idotmatrix.tui.preview import render_frame
 
-        text = render_frame(Image.new("RGB", (10, 10), (1, 2, 3)), 80, 24, aspect=2.4)
+        for aspect, columns in ((2.0, 10), (2.4, 10), (2.9, 10), (3.2, 20)):
+            with self.subTest(aspect=aspect):
+                text = render_frame(Image.new("RGB", (10, 10), (1, 2, 3)), 80, 24, aspect=aspect)
 
-        lines = text.plain.splitlines()
-        self.assertEqual(5, len(lines))
-        self.assertEqual(12, len(lines[0]))  # 10 pixels, each 1.2 cells wide
+                self.assertEqual(columns, len(text.plain.splitlines()[0]))
 
 
 class FakeScanner:
@@ -961,3 +962,56 @@ class TestPreviewWarning(AppHelpers, TestBase):
         visible, _ = await self._warning((200, 90))
 
         self.assertFalse(visible)
+
+
+@unittest.skipUnless(HAS_TEXTUAL and importlib.util.find_spec("textual_image"), "needs textual and textual-image")
+class TestPixelPreview(AppHelpers, TestBase):
+
+    def _app_with_pixels(self):
+        from textual.widgets import Static
+
+        class FakePixels(Static):
+            image = None
+
+        app = self._app()
+        app._pixel_image = FakePixels
+        return app, FakePixels
+
+    async def test_the_picture_is_enlarged_by_a_whole_number_with_sharp_pixels(self):
+        from types import SimpleNamespace
+        from idotmatrix.tui.preview import PixelPreviewWidget
+        app, _ = self._app_with_pixels()
+        cell = SimpleNamespace(width=10, height=22)
+        with patch("textual_image.widget.get_cell_size", return_value=cell):
+            async with app.run_test(size=(120, 50)) as pilot:
+                await self._settle(pilot)
+                await pilot.pause(0.5)
+                await self._settle(pilot)
+
+                widget = app.query_one(PixelPreviewWidget)
+                image = widget._pixels.image
+                self.assertIsNotNone(image)
+                self.assertEqual(image.width, image.height)
+                self.assertEqual(0, image.width % 64)
+                self.assertGreaterEqual(image.width // 64, 2)
+
+    async def test_too_little_room_for_the_pixels_shows_the_warning(self):
+        from types import SimpleNamespace
+        app, _ = self._app_with_pixels()
+        cell = SimpleNamespace(width=3, height=6)
+        with patch("textual_image.widget.get_cell_size", return_value=cell):
+            async with app.run_test(size=(40, 20)) as pilot:
+                await self._settle(pilot)
+                await pilot.pause(0.5)
+                await self._settle(pilot)
+
+                self.assertTrue(app.query_one("#preview-warning").has_class("visible"))
+
+
+class TestDetectPixelImage(TestBase):
+
+    def test_the_pixel_widget_can_be_switched_off(self):
+        from idotmatrix.tui.preview import detect_pixel_image
+
+        with patch.dict("os.environ", {"IDOTMATRIX_TUI_PIXELS": "off"}):
+            self.assertIsNone(detect_pixel_image())

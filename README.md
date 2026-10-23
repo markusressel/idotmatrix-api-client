@@ -213,6 +213,12 @@ scale and a label, `b` the brightness, `c` shows the clock, `x` clears the slots
 and `:` lists all commands (and the themes). The folder, the displays, the options and the theme are remembered
 (`~/.config/idotmatrix-tui/session.json`).
 
+The preview draws real pixels, exactly square and sharp, in terminals that support the Kitty graphics protocol or
+Sixel (kitty, WezTerm, foot, Ghostty, iTerm2, ...). Elsewhere it uses half blocks, which are only exact if a cell is
+twice as high as wide. A warning under the preview says when it is too small to show every pixel.
+`IDOTMATRIX_TUI_PIXELS=off` always uses half blocks, `IDOTMATRIX_TUI_CELL_ASPECT` (cell height / width) tells the half
+block preview the shape of your cells if the terminal does not report it.
+
 ## Fonts
 
 `text.display_text()` (and `TextModule.show_text()`) rasterize each character directly to on/off

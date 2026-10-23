@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tui = ["textual>=8.0.0"]
+tui = ["textual>=8.0.0", "textual-image>=0.14.0"]
 
 [project.scripts]
 idotmatrix-tui = "idotmatrix.tui.__main__:main"

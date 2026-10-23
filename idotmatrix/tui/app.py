@@ -22,7 +22,7 @@ from idotmatrix.tui.convert import Preview
 from idotmatrix.tui.devices import DevicesScreen
 from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, PathDialog, OptionsDialog, SlideshowDialog
 from idotmatrix.tui.files import Entry, files_in, fit_name, format_size, is_supported, list_folder, restore_index
-from idotmatrix.tui.preview import PreviewWidget
+from idotmatrix.tui.preview import Fitted, PixelPreviewWidget, PreviewWidget
 from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
 from idotmatrix.tui.settings import Options, Session
 
@@ -134,8 +134,10 @@ class IDotMatrixApp(App):
         session_path: Path | None = None,
         scanner: DeviceScanner | None = None,
         choose_device: bool = False,
+        pixel_image=None,
     ):
         super().__init__()
+        self._pixel_image = pixel_image
         self._scanner = scanner or BleakDeviceScanner()
         self._choose_device = choose_device
         self._device_names: dict[str, str] = {}
@@ -174,7 +176,10 @@ class IDotMatrixApp(App):
             with Vertical(id="right"):
                 with Vertical(id="preview-box") as box:
                     box.border_title = "On the display"
-                    yield PreviewWidget(id="preview")
+                    if self._pixel_image is not None:
+                        yield PixelPreviewWidget(self._pixel_image, id="preview")
+                    else:
+                        yield PreviewWidget(id="preview")
                     yield Static("", id="preview-warning")
                 with Vertical(id="info-box") as info:
                     info.border_title = "Details"
@@ -457,7 +462,7 @@ class IDotMatrixApp(App):
     def _start_preview(self) -> None:
         try:
             path = self.selected_path()
-            widget = self.query_one("#preview", PreviewWidget)
+            widget = self.query_one("#preview")
         except NoMatches:  # the timer fired while the app was closing
             return
         self._previewed = path
@@ -489,7 +494,7 @@ class IDotMatrixApp(App):
             return
         self._preview = preview
         try:
-            self.query_one("#preview", PreviewWidget).show_frames(preview.frames, preview.durations)
+            self.query_one("#preview").show_frames(preview.frames, preview.durations)
             self._update_info()
         except NoMatches:  # the app closed while the file was converted
             return
@@ -497,13 +502,16 @@ class IDotMatrixApp(App):
     def _show_preview_error(self, path: Path, error: Exception) -> None:
         if path == self._previewed:
             try:
-                self.query_one("#preview", PreviewWidget).show_message(f"cannot be shown: {error}")
+                self.query_one("#preview").show_message(f"cannot be shown: {error}")
             except NoMatches:
                 return
 
-    @on(PreviewWidget.Fitted)
-    def _preview_fitted(self, event: PreviewWidget.Fitted) -> None:
-        warning = self.query_one("#preview-warning", Static)
+    @on(Fitted)
+    def _preview_fitted(self, event: Fitted) -> None:
+        try:
+            warning = self.query_one("#preview-warning", Static)
+        except NoMatches:  # the app is closing
+            return
         too_small = event.actual > event.shown > 0
         warning.set_class(too_small, "visible")
         if too_small:
