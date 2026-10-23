@@ -117,3 +117,67 @@ class TestBleakTransportWithDevice(TestBase):
 
         self.assertIs(device, client_cls.call_args.kwargs["address_or_ble_device"])
         self.assertEqual(ADDRESS, under_test.address)
+
+
+class TestBleakTransportWithConnector(TestBase):
+    """Home Assistant connects with `establish_connection` of bleak-retry-connector, which returns a connected client."""
+
+    def _create(self):
+        client = MagicMock()
+        client.is_connected = True
+        client.write_gatt_char = AsyncMock()
+        client.disconnect = AsyncMock()
+        connector = AsyncMock(return_value=client)
+        with patch("idotmatrix.transport.BleakClient") as client_cls:
+            under_test = BleakTransport(ADDRESS, on_disconnected=MagicMock(), connector=connector)
+        return under_test, connector, client, client_cls
+
+    async def test_no_client_is_created_before_connecting(self):
+        under_test, connector, _, client_cls = self._create()
+
+        client_cls.assert_not_called()
+        connector.assert_not_awaited()
+        self.assertFalse(under_test.is_connected)
+
+    async def test_connect_uses_the_connector(self):
+        under_test, connector, client, _ = self._create()
+
+        await under_test.connect()
+
+        connector.assert_awaited_once()
+        self.assertEqual(ADDRESS, connector.await_args.args[0])
+        self.assertTrue(under_test.is_connected)
+
+    async def test_the_disconnect_callback_is_handed_to_the_connector(self):
+        on_disconnected = MagicMock()
+        connector = AsyncMock(return_value=MagicMock(is_connected=True))
+        with patch("idotmatrix.transport.BleakClient"):
+            under_test = BleakTransport(ADDRESS, on_disconnected=on_disconnected, connector=connector)
+        await under_test.connect()
+
+        connector.await_args.args[1](MagicMock())
+
+        on_disconnected.assert_called_once_with()
+
+    async def test_writes_go_to_the_connected_client(self):
+        under_test, _, client, _ = self._create()
+        await under_test.connect()
+
+        await under_test.write(b"\x01", response=False)
+
+        client.write_gatt_char.assert_awaited_once()
+
+    async def test_each_connect_asks_the_connector_again(self):
+        under_test, connector, _, _ = self._create()
+
+        await under_test.connect()
+        await under_test.connect()
+
+        self.assertEqual(2, connector.await_count)
+
+    async def test_disconnect_before_connecting_is_fine(self):
+        under_test, _, client, _ = self._create()
+
+        await under_test.disconnect()
+
+        client.disconnect.assert_not_awaited()

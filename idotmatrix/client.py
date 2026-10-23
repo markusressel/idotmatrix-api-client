@@ -35,6 +35,7 @@ class IDotMatrixClient:
         max_ble_packet_size: Optional[int] = None,
         ble_device: Optional[BLEDevice] = None,
         transport_factory: Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]] = None,
+        install_signal_handlers: bool = True,
     ):
         """
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
@@ -50,12 +51,16 @@ class IDotMatrixClient:
                                               f.e. for the scanner of Home Assistant. See `ConnectionManager.set_device`.
             transport_factory (Optional[Callable]): Creates the `Transport` that talks to the device, to connect in a
                                                     different way than `bleak` does by default. See `ConnectionManager`.
+            install_signal_handlers (bool): Whether to close the connection on SIGINT and SIGTERM. Turn it off if the
+                                            application handles these signals itself (f.e. Home Assistant).
         """
         self._connection_manager = ConnectionManager(
             address=mac_address,
             max_ble_packet_size=max_ble_packet_size,
             transport_factory=transport_factory,
+            install_signal_handlers=install_signal_handlers,
         )
+        self._uses_ble_device = ble_device is not None
         if ble_device is not None:
             mac_address = ble_device.address
             self._connection_manager.set_device(ble_device)
@@ -175,7 +180,10 @@ class IDotMatrixClient:
         """
         Connect to the IDotMatrix device.
         """
-        if self.mac_address:
+        if self._uses_ble_device:
+            # connecting by address would replace the BLEDevice
+            await self._connection_manager.connect()
+        elif self.mac_address:
             await self._connection_manager.connect_by_address(self.mac_address)
         else:
             await self._connection_manager.connect_by_discovery()
@@ -201,6 +209,15 @@ class IDotMatrixClient:
                 f"The screen type {info.screen_type} of the device is not supported, firmware {info.firmware_version}.")
         self._screen_size = info.screen_size
         return info.screen_size
+
+    def set_ble_device(self, ble_device: BLEDevice) -> None:
+        """
+        Hands over a newer `BLEDevice` of the device, f.e. when the scanner of Home Assistant found it again. An
+        established connection is not interrupted, the new one is used for the next connection.
+        """
+        self._uses_ble_device = True
+        self.mac_address = ble_device.address
+        self._connection_manager.set_device(ble_device)
 
     async def disconnect(self):
         """

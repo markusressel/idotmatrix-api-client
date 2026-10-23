@@ -144,6 +144,8 @@ pixel by pixel and has to be left again before a GIF can be shown.
 
 #### Home Assistant and other Bluetooth stacks
 
+A Home Assistant integration that is built on this library is in development: [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix).
+
 By default the library connects with `bleak` itself. If something else owns the Bluetooth stack, like the scanner and
 the Bluetooth proxies of Home Assistant, hand over what it found or how to connect:
 
@@ -158,6 +160,11 @@ client = IDotMatrixClient(
     transport_factory=lambda address_or_device, on_disconnected: MyTransport(address_or_device, on_disconnected),
 )
 ```
+
+Turn off `install_signal_handlers` if your application handles SIGINT and SIGTERM itself, otherwise the client
+replaces the handlers of the event loop to close the connection on exit. To connect with `bleak-retry-connector`
+(Bluetooth proxies), create the transport yourself: `BleakTransport(address_or_device, on_disconnected, connector=...)`
+where the connector is an async function that returns a connected `BleakClient`, like `establish_connection`.
 
 `ConnectionManager.set_device(ble_device)` hands over a newer `BLEDevice` later. An established connection stays, the
 new one is used for the next connection. A `Transport` has to write to the device, deliver its notifications and call
