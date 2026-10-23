@@ -50,11 +50,15 @@ class MaterialsModule(IDotMatrixModule):
         resize_mode: image_utils.ResizeMode = image_utils.ResizeMode.FIT,
         palletize: bool | None = None,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
-        clear: bool = True,
+        clear_unused: bool = True,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
         through them. Other slots are not touched, so a list of slots protects the others.
+
+        The slots are not deleted before they are filled (the official app does that): an item the device already
+        holds, with the same display time, is not transferred again, whatever slot it is in, which takes about 0.8 s
+        instead of seconds. So storing the same files again, or in another order, is fast. (verified on a 64x64)
 
         Args:
             files: The files, in the order they should be shown in. Animated GIFs are stored as GIFs, the rest as images.
@@ -64,7 +68,7 @@ class MaterialsModule(IDotMatrixModule):
             resize_mode: How the files are scaled to the screen.
             palletize: Reduce the colors to a palette. The default is on for GIFs and off for images.
             background_color: Color of the bars if a file does not have the shape of the screen.
-            clear: Delete the used slots before the upload, like the official app does.
+            clear_unused: Delete the slots that are allowed but get no file, so that nothing stale keeps cycling.
 
         Returns:
             The slots that were used, one for each file.
@@ -80,8 +84,9 @@ class MaterialsModule(IDotMatrixModule):
         if not used:
             return []
 
-        if clear:
-            await self.clear(used)
+        unused = slots[len(files):]
+        if clear_unused and unused:
+            await self.clear(unused)
         for slot, file in zip(used, files):
             if await asyncio.to_thread(self._is_animated, file):
                 await self._gif.upload_gif_file(

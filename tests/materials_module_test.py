@@ -54,24 +54,33 @@ class TestMaterialsModule(TestBase):
         # WHEN
         used = await self.under_test.store([gif, image], slots=[7, 4], display_time=30)
 
-        # THEN the used slots are deleted first, then each file goes into one slot, in the order of the slot numbers
+        # THEN each file goes into one slot, in the order of the slot numbers, and nothing is deleted
         self.assertEqual([4, 7], used)
-        self.connection_manager.send_bytes.assert_awaited_once_with(
-            data=bytearray(bytes.fromhex("0700020102" "0407")), response=True)
+        self.connection_manager.send_bytes.assert_not_awaited()
         gif_header, image_header = [headers[0] for headers in self._headers()]
         self.assertEqual((1, 4, 30), (gif_header[2], gif_header[15], int.from_bytes(gif_header[13:15], "little")))
         self.assertEqual((2, 7, 30), (image_header[2], image_header[15], int.from_bytes(image_header[13:15], "little")))
 
-    async def test_store_defaults_to_all_slots(self):
+    async def test_store_defaults_to_all_slots_and_deletes_the_others(self):
         # WHEN
         used = await self.under_test.store([self._test_data_folder / "demo_64.png"] * 2)
 
-        # THEN only as many slots as files are used, from the first one
+        # THEN only as many slots as files are filled, from the first one, the rest of the allowed slots is emptied
         self.assertEqual([0, 1], used)
+        self.connection_manager.send_bytes.assert_awaited_once_with(
+            data=bytearray(bytes.fromhex("0f000201" "0a" "02030405060708090a0b")), response=True)
 
-    async def test_store_without_clear(self):
+    async def test_store_only_deletes_unused_slots_that_are_allowed(self):
         # WHEN
-        await self.under_test.store([self._test_data_folder / "demo_64.png"], clear=False)
+        await self.under_test.store([self._test_data_folder / "demo_64.png"], slots=[5, 6, 8])
+
+        # THEN slot 5 gets the file, 6 and 8 are emptied, all others are left alone
+        self.connection_manager.send_bytes.assert_awaited_once_with(
+            data=bytearray(bytes.fromhex("07000201" "02" "0608")), response=True)
+
+    async def test_store_without_clearing_unused_slots(self):
+        # WHEN
+        await self.under_test.store([self._test_data_folder / "demo_64.png"], clear_unused=False)
 
         # THEN
         self.connection_manager.send_bytes.assert_not_awaited()

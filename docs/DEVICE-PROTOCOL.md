@@ -223,8 +223,12 @@ rainbow effect, and once it rebooted. (**verified**)
 - Deleting slots: `<length> 00 02 01 <number of slots> <slot>...` (the length is 5 plus the number of slots, so
   `11 00 02 01 0c 00 01 02 03 04 05 06 07 08 09 0a 0b` for all of them), answered with `05 00 02 01 01`.
   (**verified**) Other slots are not touched.
-- The device skips an upload of data it already holds (same CRC), which took 0.5 s instead of 2 s for a 17 KB GIF. With
-  `show now` (index 13) that is only the last item, with slots it is every stored item. (**verified**)
+- The device skips an upload of an item it already holds: same data and same display time (a different display time
+  is transferred in full). The check is not per slot: the same item sent to another slot is answered "finished" at
+  the first chunk too (0.8 s instead of 2 to 10 s), and the device then has it in that slot as well (the item showed
+  up twice in the cycle). With `show now` (index 13) that is only the last item. (**verified**)
+- An upload into an occupied slot replaces what was in it, no delete needed. (**verified**) So `MaterialsModule.store`
+  does not delete the slots it fills (as the app does): unchanged items cost 0.8 s, and reordering is cheap.
 - We never got a "no space" answer. The rejections we saw were all status `00` ("not ready"). The size of the storage
   is not known, the app does not ask for it. (**verified**)
 
