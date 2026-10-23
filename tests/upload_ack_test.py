@@ -152,6 +152,7 @@ class TestUploadFlowControl(FakeDeviceTestBase):
     async def test_paces_the_ble_packets_of_a_chunk(self):
         # GIVEN
         self.replies = [GIF_FINISHED]
+        self.transport.reply_to_any_write = True
         sleeps = []
 
         async def record_sleep(seconds):
@@ -159,10 +160,29 @@ class TestUploadFlowControl(FakeDeviceTestBase):
 
         # WHEN
         with patch("idotmatrix.connection_manager.asyncio.sleep", record_sleep):
-            await self.under_test.send_packets([[b"a", b"b", b"c"]], response=True, wait_for_ack=True)
+            await self.under_test.send_packets([[b"a", b"b", b"c"]], response=False, wait_for_ack=True)
 
         # THEN
         self.assertEqual([0.02, 0.02], [s for s in sleeps if s])
+
+    async def test_uploads_write_every_packet_with_response(self):
+        # GIVEN
+        self.replies = [GIF_FINISHED]
+
+        # WHEN
+        await self.under_test.send_packets([[b"a", b"b", b"c"]], response=True, wait_for_ack=True)
+
+        # THEN each write is answered by the device, so there is no burst the Bluetooth stack could drop
+        responses = [call.kwargs["response"] for call in self.transport.write.await_args_list]
+        self.assertEqual([True, True, True], responses)
+
+    async def test_without_ack_only_the_last_packet_is_written_with_response(self):
+        # WHEN
+        await self.under_test.send_packets([[b"a", b"b", b"c"]], response=True)
+
+        # THEN
+        responses = [call.kwargs["response"] for call in self.transport.write.await_args_list]
+        self.assertEqual([False, False, True], responses)
 
     async def test_does_not_pace_writes_without_ack(self):
         # GIVEN

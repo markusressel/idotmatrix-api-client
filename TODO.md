@@ -72,4 +72,4 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [x] Detect the screen size with `get_device_info` (`DeviceInfo.screen_size`): `IDotMatrixClient(screen_size=None)` asks the device in `connect`. Only tried through the 64x64 reply; the 16x16 and 32x32 types are from the app
 - [ ] Add `verify_password` (`07 00 05 02 <p1> <p2> <p3>`, answered by `05 00 05 02 01`) and use the password flag, needs a device with a password to try (setting one can lock the device until it is reset)
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.
-- [x] Pacing the upload writes (20 ms, like the app) in 0.2.2: the sporadic "did not acknowledge the upload within 5 seconds" errors stopped in Home Assistant. If they come back: write every packet with response like the app, and capture a debug log
+- [ ] Check behind an ESPHome Bluetooth proxy whether writing every upload packet with response (like the app) ends the upload timeouts and the reboots on the first upload after a reconnect (0.2.2, pacing only, did not). Measure the upload time with BlueZ too
