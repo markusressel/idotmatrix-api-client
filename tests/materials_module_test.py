@@ -185,7 +185,9 @@ class TestMaterialsPlanning(TestBase):
         # GIVEN
         file = self._picture("a.png", 1)
         await self.under_test.store([file], slots=[0], display_time=10)
-        for kwargs in ({"display_time": 20}, {"palletize": True}, {"background_color": (1, 2, 3)}, {"colors": 16}):
+        changes = ({"display_time": 20}, {"palletize": True}, {"background_color": (1, 2, 3)}, {"colors": 16},
+                   {"max_size_kb": 50})
+        for kwargs in changes:
             with self.subTest(kwargs=kwargs):
                 self.connection_manager.send_packets.reset_mock()
 

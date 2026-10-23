@@ -64,6 +64,7 @@ class MaterialsModule(IDotMatrixModule):
         keep_order: bool = False,
         verify: bool = False,
         colors: int = 256,
+        max_size_kb: int | None = None,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
@@ -82,6 +83,8 @@ class MaterialsModule(IDotMatrixModule):
             palletize: Reduce the colors to a palette. The default is on for GIFs and off for images.
             background_color: Color of the bars if a file does not have the shape of the screen.
             colors: The number of colors of the palette (2 to 256), fewer make GIFs smaller and faster to upload.
+            max_size_kb: The most a converted GIF may have, quality is given up until it fits, see
+                `GifModule.upload_gif_file`. Keeps the upload of each GIF short.
             clear_unused: Delete the allowed slots that get no file, so that nothing stale keeps cycling.
             keep_order: Put the files into the slots in the order of the slot numbers, which is the order of the cycle,
                 instead of keeping what is stored where it is. That can transfer many files again, because writing a
@@ -104,7 +107,8 @@ class MaterialsModule(IDotMatrixModule):
             return []
 
         items = [
-            await asyncio.to_thread(self._fingerprint, file, display_time, resize_mode, palletize, background_color, colors)
+            await asyncio.to_thread(
+                self._fingerprint, file, display_time, resize_mode, palletize, background_color, colors, max_size_kb)
             for file in files
         ]
         keys = [key for key, _ in items]
@@ -131,6 +135,7 @@ class MaterialsModule(IDotMatrixModule):
                     slot=slot,
                     display_time=display_time,
                     colors=colors,
+                    max_size_kb=max_size_kb,
                 )
             else:
                 await self._image.show_image_file(
@@ -165,14 +170,15 @@ class MaterialsModule(IDotMatrixModule):
 
     @staticmethod
     def _fingerprint(
-        file: PathLike | str, display_time: int, resize_mode, palletize, background_color, colors: int
+        file: PathLike | str, display_time: int, resize_mode, palletize, background_color, colors: int,
+        max_size_kb: int | None,
     ) -> tuple:
         """What identifies an item: the content of the file and everything that changes what is sent."""
         with open(file, "rb") as handle:
             digest = hashlib.sha1(handle.read()).hexdigest()
         with PILImage.open(file) as img:
             animated = getattr(img, "n_frames", 1) > 1
-        return (digest, animated, display_time, resize_mode, palletize, str(background_color), colors), animated
+        return (digest, animated, display_time, resize_mode, palletize, str(background_color), colors, max_size_kb), animated
 
     @staticmethod
     def _validate_slots(slots: Iterable[int] | None) -> list[int]:
