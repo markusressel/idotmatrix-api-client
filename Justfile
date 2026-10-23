@@ -11,6 +11,10 @@ test *args:
     cd tests
     {{uv_test}} python -m pytest {{args}}
 
+# run the terminal UI, extra args go to it, f.e. `just tui ~/pictures --choose`
+tui *args:
+    uv run --no-project --python 3.13 --with-editable . --with textual python -m idotmatrix.tui {{args}}
+
 coverage:
     #!/usr/bin/env bash
     set -euxo pipefail
