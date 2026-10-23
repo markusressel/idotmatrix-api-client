@@ -56,14 +56,54 @@ class TestConnectionManager(TestBase):
         self.assertEqual(ADDRESS, under_test.address)
         self.assertEqual([device], self.created_for)
 
-    async def test_set_device_with_a_newer_device_creates_a_new_transport(self):
+    async def test_set_device_with_a_newer_device_keeps_the_transport_until_the_next_connection(self):
         under_test = self.create()
         first, second = MagicMock(address=ADDRESS), MagicMock(address=ADDRESS)
 
         under_test.set_device(first)
         under_test.set_device(second)
 
+        self.assertEqual([first], self.created_for)
+
+        await under_test.connect()
+
         self.assertEqual([first, second], self.created_for)
+
+    async def test_set_device_while_connecting_does_not_replace_the_transport_that_connects(self):
+        """The scanners report the display all the time, also while a connection is being made."""
+        under_test = self.create()
+        first, second = MagicMock(address=ADDRESS), MagicMock(address=ADDRESS)
+        under_test.set_device(first)
+        connecting = asyncio.Event()
+        release = asyncio.Event()
+        original_connect = self.transport._connect
+
+        async def slow_connect():
+            connecting.set()
+            await release.wait()
+            await original_connect()
+
+        self.transport.connect.side_effect = slow_connect
+
+        task = asyncio.create_task(under_test.connect())
+        await connecting.wait()
+        under_test.set_device(second)
+        release.set()
+        await task
+
+        self.transport.start_notify.assert_awaited_once()
+        self.assertEqual([first], self.created_for)
+        self.assertTrue(under_test._notifications_available)
+
+    async def test_set_device_of_another_display_replaces_the_transport(self):
+        under_test = self.create()
+        first = MagicMock(address=ADDRESS)
+        other = MagicMock(address="AA:BB:CC:DD:EE:FF")
+        under_test.set_device(first)
+
+        under_test.set_device(other)
+
+        self.assertEqual([first, other], self.created_for)
 
     async def test_set_device_does_not_interrupt_a_connection(self):
         under_test = self.create()
