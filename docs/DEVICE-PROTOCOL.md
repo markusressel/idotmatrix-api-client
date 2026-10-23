@@ -287,7 +287,7 @@ Two different mechanisms exist in the official app.
    not implemented.
 
 Effect styles (looked at on a 64x64): `GRADIENT_HORIZONTAL_RAINBOW` (0) draws smooth horizontal stripes that move down,
-`VERTICAL_RAINBOW` (3) hard vertical stripes that move to the right, `DIAGONAL_RIGHT_RAINBOW` (4) hard stripes without
+`VERTICAL_RAINBOW` (3) hard vertical stripes (4 pixels wide) that move to the right, `DIAGONAL_RIGHT_RAINBOW` (4) hard stripes without
 blending from the bottom left to the top right. (**verified**) The names of the members are fine. The other styles
 were not looked at.
 

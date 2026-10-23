@@ -74,4 +74,4 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [ ] Add `verify_password` (`07 00 05 02 <p1> <p2> <p3>`, answered by `05 00 05 02 01`) and use the password flag, needs a device with a password to try (setting one can lock the device until it is reset)
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.
 - [ ] Check behind an ESPHome Bluetooth proxy whether writing every upload packet with response (like the app) ends the upload timeouts and the reboots on the first upload after a reconnect (0.2.2, pacing only, did not). Measure the upload time with BlueZ too
-- [ ] Look at the effect styles 1, 2, 5 and 6 on a device (0, 3 and 4 are known); the TUI preview of those is a guess, and the width of the hard stripes is too
+- [ ] Look at the effect styles 1, 2, 5 and 6 on a device (0, 3 and 4 are known); the TUI preview of those is a guess, and the width of the diagonal stripes is too (the vertical ones are 4 pixels wide)

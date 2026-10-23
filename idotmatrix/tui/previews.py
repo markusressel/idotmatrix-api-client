@@ -18,8 +18,10 @@ BLACK: Color = (0, 0, 0)
 WHITE: Color = (255, 255, 255)
 SEPARATORS = {0x02: (8, 16), 0x05: (16, 32)}  # the first byte of the separator in front of a character -> its cell
 MAX_CHARACTERS = 16
-EFFECT_WIDTH, EFFECT_HEIGHT = 32, 16
-DIAGONAL_BAND = 5  # the width of a stripe of the effects with hard stripes, in pixels along a row
+# the top half of a 64x64 display, so a stripe is as wide as on the display
+EFFECT_WIDTH, EFFECT_HEIGHT = 64, 32
+VERTICAL_BAND = 4  # the width of a stripe of the vertical rainbow (verified)
+DIAGONAL_BAND = 5  # the width of a stripe of the diagonal rainbow in pixels along a row (a guess)
 
 
 def style_of(color: Color) -> str:
@@ -149,7 +151,7 @@ class EffectPreview(Static):
         self._grid = [[self._random.choice(self._colors) for _ in range(EFFECT_WIDTH)] for _ in range(EFFECT_HEIGHT)]
 
     def on_mount(self) -> None:
-        self.border_title = "Preview (an approximation)"
+        self.border_title = "Preview (top half, an approximation)"
         self.set_interval(0.1, self._tick)
         self._tick()
 
@@ -174,8 +176,8 @@ class EffectPreview(Static):
             return [[mix(colors, y / height - phase)] * width for y in range(height)]
         if style == EffectStyle.VERTICAL_RAINBOW.value:
             # hard vertical stripes that move to the right (verified)
-            offset = round(phase * len(colors) * DIAGONAL_BAND)
-            return [[colors[((x - offset) // DIAGONAL_BAND) % len(colors)] for x in range(width)]
+            offset = round(phase * len(colors) * VERTICAL_BAND)
+            return [[colors[((x - offset) // VERTICAL_BAND) % len(colors)] for x in range(width)]
                     for _ in range(height)]
         if style == EffectStyle.DIAGONAL_RIGHT_RAINBOW.value:
             # hard stripes without blending (verified), from the bottom left to the top right, moving
