@@ -3,6 +3,7 @@ import binascii
 import io
 import logging
 import struct
+from collections.abc import Callable
 from enum import Enum
 from os import PathLike
 from typing import List, Tuple
@@ -158,6 +159,7 @@ class ImageModule(IDotMatrixModule):
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
         colors: int = 256,
         overlay: TextOverlay | None = None,
+        progress: Callable[[int, int], None] | None = None,
     ) -> None:
         """
         Shows an image file on the device, the way the official app does it for photos. It is shown right away, unless
@@ -184,6 +186,8 @@ class ImageModule(IDotMatrixModule):
                 raw upload has the same size either way, with `png` fewer colors make it smaller. Less than 256 reduces
                 the colors even if `palletize` is off.
             overlay (TextOverlay, optional): A text that is drawn on top of the image, f.e. to label it.
+            progress (Callable[[int, int], None], optional): Called with (chunks sent, chunks in total) while the image
+                is transferred, see `GifModule.upload_gif_file`.
         """
         validate_colors(colors)
         palletize = palletize or colors < 256
@@ -203,7 +207,8 @@ class ImageModule(IDotMatrixModule):
             overlay=overlay,
         )
         await self._send_static_image_data(
-            pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time, colors=colors)
+            pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time, colors=colors,
+            progress=progress)
 
     async def show_image_pixeldata(
         self,
@@ -243,6 +248,7 @@ class ImageModule(IDotMatrixModule):
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
         colors: int = 256,
+        progress: Callable[[int, int], None] | None = None,
     ) -> None:
         if png:
             pixel_data = self._encode_png(pixel_data, palette=palette, colors=colors)
@@ -251,7 +257,7 @@ class ImageModule(IDotMatrixModule):
             index=INDEX_SHOW_NOW if slot is None else slot,
             display_time=None if slot is None else display_time,
         )
-        await self._send_packets(packets, response=True, wait_for_ack=True)
+        await self._send_packets(packets, response=True, wait_for_ack=True, progress=progress)
 
     def _create_static_image_data_packets(
         self,

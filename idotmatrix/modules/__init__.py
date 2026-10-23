@@ -1,4 +1,5 @@
 from asyncio import sleep
+from collections.abc import Callable
 from typing import List
 
 from idotmatrix.connection_manager import ConnectionManager
@@ -45,6 +46,7 @@ class IDotMatrixModule:
         response: bool = False,
         sleep_after: float = None,
         wait_for_ack: bool = False,
+        progress: Callable[[int, int], None] | None = None,
     ):
         """
         Sends multiple packets to the IDotMatrix device.
@@ -54,11 +56,15 @@ class IDotMatrixModule:
             sleep_after (float, optional): Time to wait after sending the packets. Defaults to 0 if response=True and 0.5 seconds if response=False.
             wait_for_ack (bool, optional): Whether the device has to acknowledge each packet before the next one is sent.
                 Required for uploads of images and GIFs. Defaults to False.
+            progress (Callable[[int, int], None], optional): Called with (packets done, packets in total), see
+                `ConnectionManager.send_packets`.
         """
         if sleep_after is None:
             sleep_after = 0 if response else 0.5
 
-        await self._connection_manager.send_packets(packets=packets, response=response, wait_for_ack=wait_for_ack)
+        extra = {} if progress is None else {"progress": progress}
+        await self._connection_manager.send_packets(
+            packets=packets, response=response, wait_for_ack=wait_for_ack, **extra)
         if sleep_after > 0:
             # sometimes the device needs a moment to process the command before it is able to receive the next one
             await sleep(sleep_after)

@@ -2,6 +2,7 @@ import asyncio
 import binascii
 import io
 import logging
+from collections.abc import Callable
 from os import PathLike
 from typing import List, Tuple
 
@@ -60,6 +61,7 @@ class GifModule(IDotMatrixModule):
         overlay: TextOverlay | None = None,
         shared_palette: bool = False,
         max_color_error: float = DEFAULT_MAX_COLOR_ERROR,
+        progress: Callable[[int, int], None] | None = None,
     ):
         """
         Uploads a GIF file to the device. It is shown right away, unless a slot is given.
@@ -91,6 +93,9 @@ class GifModule(IDotMatrixModule):
                 flicker. On a 64x64 up to 5 looks good, up to 9 is still acceptable but duller, more looks broken
                 (about 3 is nearly lossless). The palette sizes 256 to 16 are tried, with a palette for each frame
                 and with a shared one.
+            progress (Callable[[int, int], None], optional): Called with (chunks sent, chunks in total) while the GIF
+                is transferred, each time the device has acknowledged a chunk of 4096 bytes. It is called after the
+                conversion, which can take a few seconds for a long animation.
         """
         if colors != AUTO_COLORS:
             validate_colors(colors)
@@ -132,7 +137,7 @@ class GifModule(IDotMatrixModule):
             time_sign=0,
             display_time=None if slot is None else display_time,
         )
-        await self._send_packets(packets=packets, response=True, wait_for_ack=True)
+        await self._send_packets(packets=packets, response=True, wait_for_ack=True, progress=progress)
 
     async def clear_storage(self) -> None:
         """

@@ -96,6 +96,36 @@ class TestUploadFlowControl(FakeDeviceTestBase):
 
         self.assertEqual([("write", b"a")], self.events)
 
+    async def test_reports_the_progress_after_each_acknowledged_packet(self):
+        self.replies = [GIF_NEXT, GIF_NEXT, GIF_FINISHED]
+        reported = []
+
+        await self.under_test.send_packets(
+            [[b"a"], [b"b"], [b"c"]], response=True, wait_for_ack=True, progress=lambda *args: reported.append(args))
+
+        self.assertEqual([(1, 3), (2, 3), (3, 3)], reported)
+
+    async def test_progress_is_complete_when_the_device_skips_the_rest(self):
+        self.replies = [GIF_FINISHED]
+        reported = []
+
+        await self.under_test.send_packets(
+            [[b"a"], [b"b"], [b"c"]], response=True, wait_for_ack=True, progress=lambda *args: reported.append(args))
+
+        self.assertEqual([(3, 3)], reported)
+
+    async def test_a_failing_progress_callback_does_not_stop_the_upload(self):
+        self.replies = [GIF_NEXT, GIF_FINISHED]
+
+        def progress(done, total):
+            raise RuntimeError("boom")
+
+        with self.assertLogs("idotmatrix.connection_manager", level="ERROR"):
+            await self.under_test.send_packets(
+                [[b"a"], [b"b"]], response=True, wait_for_ack=True, progress=progress)
+
+        self.assertEqual(2, self.transport.write.await_count)
+
     async def test_image_acks(self):
         self.replies = [IMAGE_NEXT, IMAGE_FINISHED]
 
