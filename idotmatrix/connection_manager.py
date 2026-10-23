@@ -300,14 +300,53 @@ class ConnectionManager:
                 # leftovers of earlier commands must not be taken for the acknowledgement of this one
                 self._notifications = asyncio.Queue()
 
-            self.logging.debug("sending raw data to device")
-            ble_packet_size = await self.get_max_bytes_per_chunk(response)
-            chunk_count = -(-len(data) // ble_packet_size)
-            for packet in range(0, len(data), ble_packet_size):
-                self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
-                await self._transport.write(data[packet:packet + ble_packet_size], response=response)
+            await self._write_chunks(data, response)
 
             return wait_for_ack and await self._wait_for_command_ack(bytes(data))
+
+    async def _write_chunks(self, data: bytearray | bytes, response: bool) -> None:
+        self.logging.debug("sending raw data to device")
+        ble_packet_size = await self.get_max_bytes_per_chunk(response)
+        chunk_count = -(-len(data) // ble_packet_size)
+        for packet in range(0, len(data), ble_packet_size):
+            self.logging.debug(f"sending chunk {packet // ble_packet_size + 1} of {chunk_count}")
+            await self._transport.write(data[packet:packet + ble_packet_size], response=response)
+
+    async def request(
+        self,
+        data: bytearray | bytes,
+        response: bool = True,
+        timeout: float = COMMAND_ACK_TIMEOUT_SECONDS,
+    ) -> Optional[bytes]:
+        """
+        Sends a command and returns the notification that the device answers it with, for commands that are
+        answered with data instead of a status (f.e. `CommonModule.get_device_info`). The answer starts with the
+        length, then the command and subcommand byte of the request.
+
+        Args:
+            data: The command.
+            response: Whether to use a write with response.
+            timeout: How long to wait for the answer.
+        Returns:
+            The notification, or None if the device did not answer in time or notifications are not available.
+        """
+        async with self._io_lock:
+            if not self.is_connected():
+                await self.connect()
+            if not self._notifications_available:
+                await self._write_chunks(data, response)
+                return None
+            self._notifications = asyncio.Queue()
+            await self._write_chunks(data, response)
+            try:
+                async with asyncio.timeout(timeout):
+                    while True:
+                        notification = await self._notifications.get()
+                        if len(notification) >= 4 and (notification[2], notification[3]) == (data[2], data[3]):
+                            return notification
+            except TimeoutError:
+                self.logging.warning(f"the device did not answer the command {bytes(data).hex()} within {timeout} seconds")
+                return None
 
     async def _wait_for_command_ack(self, command: bytes, timeout: float = None) -> bool:
         """

@@ -68,5 +68,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [x] Acknowledgements of normal commands: `send_bytes` waits for them by default for the commands in `util/command_ack.py`
 - [x] Heartbeat that detects a silently dead link (`set_heartbeat`, enabled by `DigitalPictureFrame`). Its own dead-link detection is only tested with mocks, BlueZ noticed the power loss first; try it on another platform or with a device that is out of range instead of switched off
 - [ ] Add more commands to `util/command_ack.py` once their acknowledgements are verified (eco, graffiti, ...; text, time, speed, joint, freeze behave differently)
-- [ ] Find out what the longer reply to the set time command (`09 00 01 80 05 09 01 04 00`) means
+- [x] The reply to the set time command is the device info (firmware, screen type, password flag), see `CommonModule.get_device_info` and docs/DEVICE-PROTOCOL.md. Unknown: what byte 6 ("switch status") stands for, it does not follow the screen
+- [ ] Detect the screen size with `get_device_info` (`DeviceInfo.screen_size`) so `IDotMatrixClient` does not need a `screen_size`
+- [ ] Add `verify_password` (`07 00 05 02 <p1> <p2> <p3>`, answered by `05 00 05 02 01`) and use the password flag, needs a device with a password to try (setting one can lock the device until it is reset)
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.

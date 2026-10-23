@@ -2,6 +2,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 from idotmatrix.modules.common import CommonModule
+from idotmatrix.screensize import ScreenSize
 from tests import TestBase
 
 
@@ -99,6 +100,24 @@ class TestCommonModule(TestBase):
     async def test_set_time_sunday_is_7(self):
         await self._module().set_time(datetime(2025, 1, 5, 0, 0, 0))
         self._assert_sent([11, 0, 1, 128, 25, 1, 5, 7, 0, 0, 0], True)
+
+    async def test_get_device_info(self):
+        module = self._module()
+        module._connection_manager.request.return_value = bytes.fromhex("0900018005090104 00".replace(" ", ""))
+
+        info = await module.get_device_info(datetime(2025, 1, 6, 13, 14, 15))
+
+        module._connection_manager.request.assert_awaited_once_with(
+            bytearray([11, 0, 1, 128, 25, 1, 6, 1, 13, 14, 15]), response=True)
+        self.assertEqual("5.09", info.firmware_version)
+        self.assertEqual(ScreenSize.SIZE_64x64, info.screen_size)
+        self.assertFalse(info.password_protected)
+
+    async def test_get_device_info_without_an_answer(self):
+        module = self._module()
+        module._connection_manager.request.return_value = None
+
+        self.assertIsNone(await module.get_device_info())
 
     async def test_set_joint(self):
         await self._module().set_joint(2)
