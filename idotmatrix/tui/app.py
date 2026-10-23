@@ -29,6 +29,8 @@ logging = logging.getLogger(__name__)
 PARENT_KEY = ".."
 PREVIEW_DELAY_SECONDS = 0.25
 DEFAULT_CANVAS_SIZE = 64
+CONNECT_ATTEMPTS = 4
+CONNECT_RETRY_SECONDS = 1.0
 
 
 def default_client_factory(address: str | None) -> IDotMatrixClient:
@@ -386,7 +388,7 @@ class IDotMatrixApp(App):
                 except Exception:
                     logging.exception("could not disconnect")
             self.client = self._client_factory(self.session.address)
-            await self.client.connect()
+            await self._connect_client()
             size = self.client.screen_size
             self.canvas_size = size.value[0] if isinstance(size, ScreenSize) else DEFAULT_CANVAS_SIZE
             self.connection = "connected"
@@ -401,6 +403,17 @@ class IDotMatrixApp(App):
             if not self.screen_stack[1:]:
                 self.action_devices()
         self._update_status()
+
+    async def _connect_client(self) -> None:
+        # BlueZ answers InProgress while the search that was running in the device list is still shutting down
+        for attempt in range(CONNECT_ATTEMPTS):
+            try:
+                await self.client.connect()
+                return
+            except Exception as e:
+                if "InProgress" not in str(e) or attempt == CONNECT_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(CONNECT_RETRY_SECONDS)
 
     def action_devices(self) -> None:
         if self._busy is not None:

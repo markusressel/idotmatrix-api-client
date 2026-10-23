@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from PIL import Image
 
@@ -261,6 +261,17 @@ class TestApp(AppHelpers, TestBase):
             self.assertEqual(
                 ["..", str(self.folder / "a.gif"), str(self.folder / "b2.png"), str(self.folder / "b10.jpg")],
                 self._rows(app))
+
+    async def test_connecting_is_retried_while_bluez_is_still_busy(self):
+        client = FakeClient()
+        client.connect = AsyncMock(side_effect=[RuntimeError("[org.bluez.Error.InProgress] Operation already in progress"), None])
+        app = self._app(client)
+        with patch("idotmatrix.tui.app.CONNECT_RETRY_SECONDS", 0):
+            async with app.run_test(size=(120, 40)) as pilot:
+                await self._settle(pilot)
+
+                self.assertEqual("connected", app.connection)
+                self.assertEqual(2, client.connect.await_count)
 
     async def test_a_failed_connection_is_shown_and_nothing_is_sent(self):
         client = FakeClient(fail=True)
