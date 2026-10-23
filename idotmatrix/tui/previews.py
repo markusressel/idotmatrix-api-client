@@ -20,6 +20,7 @@ SEPARATORS = {0x02: (8, 16), 0x05: (16, 32)}  # the first byte of the separator 
 MAX_CHARACTERS = 16
 # the top half of a 64x64 display, so a stripe is as wide as on the display
 EFFECT_WIDTH, EFFECT_HEIGHT = 64, 32
+LEFT_STRIPE_PERIOD = 16  # pixels along a row from one colored stripe to the next (a guess)
 VERTICAL_BAND = 4  # the width of a stripe of the vertical rainbow (verified)
 DIAGONAL_BAND = 5  # the width of a stripe of the diagonal rainbow in pixels along a row (a guess)
 
@@ -186,8 +187,9 @@ class EffectPreview(Static):
             return [[colors[((x - y - offset) // DIAGONAL_BAND) % len(colors)] for x in range(width)]
                     for y in range(height)]
         if style == EffectStyle.DIAGONAL_LEFT_RAINBOW_ON_BLACK.value:
-            return [[mix(colors, ((width - x) / width + y / height) / 2 + phase)
-                     if math.sin(((width - x) / width + y / height) * math.tau * 3 + phase * math.tau) > 0 else BLACK
+            # stripes from the bottom left to the top right with black between them, moving to the top left
+            return [[mix(colors, (x + y) / (width + height) + phase)
+                     if math.sin(((x + y) / LEFT_STRIPE_PERIOD + phase * 2) * math.tau) > 0 else BLACK
                      for x in range(width)] for y in range(height)]
         if style == EffectStyle.RANDOM_COLORED_PIXELS_ON_BLACK.value:
             return [[pick(colors) if self._random.random() < 0.12 else BLACK for _ in range(width)]
