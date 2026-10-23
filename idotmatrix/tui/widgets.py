@@ -58,7 +58,7 @@ class Field(Widget):
     ALLOW_SELECT = False
     DEFAULT_CSS = """
     Field { height: 1; background: transparent; }
-    Field:focus { background: $boost; }
+    Field:focus { background: $accent 50%; }
     """
 
     def __init__(self, key: str, **kwargs):

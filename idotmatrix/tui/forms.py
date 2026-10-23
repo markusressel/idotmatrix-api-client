@@ -142,6 +142,10 @@ class FeatureForm(VerticalScroll, can_focus=False):
     FeatureForm .help { color: $text-muted; margin-bottom: 1; }
     FeatureForm .row { height: 1; margin-top: 1; }
     FeatureForm .row Label { width: 28; color: $text-muted; }
+    FeatureForm .row:focus-within { background: $accent 50%; }
+    FeatureForm .row:focus-within Label { color: $text; text-style: bold; }
+    FeatureForm .row:focus-within Field:focus, FeatureForm .row:focus-within Input:focus { background: transparent; }
+    FeatureForm Button:focus { background: $accent; color: $text; text-style: bold reverse; }
     FeatureForm .row Field, FeatureForm .row ColorField, FeatureForm .row TextField { width: 1fr; }
     FeatureForm .buttons { height: auto; margin-top: 2; }
     FeatureForm Button { margin-right: 2; }
