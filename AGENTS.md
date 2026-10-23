@@ -85,6 +85,9 @@ The most important rules:
 - Assert exact byte payloads. A changed byte means a changed wire protocol; do not "fix" expected bytes
   without confirming against the protocol source or a real device.
 - Use GIVEN / WHEN / THEN comments, as existing tests do.
+- `tests/media_fixtures.py` generates pictures and animations for the conversion tests (noise, flat colors, 200+ frames,
+  tiny and extreme sizes, transparency, odd durations): add a case there when a real-world file breaks something.
+  `IDM_TEST_MEDIA=<folder> just test real_media_sweep_test.py` converts a local folder of real files, it is skipped otherwise.
 - Tests must not need hardware or Bluetooth. To test the connection logic, use `tests.fake_device.FakeDeviceTestBase`
   (a `ConnectionManager` on a `tests.fake_transport.FakeTransport`) instead of patching `bleak`.
 

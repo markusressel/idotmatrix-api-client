@@ -123,6 +123,7 @@ class ImageModule(IDotMatrixModule):
                 canvas_size=canvas_size,
                 resize_mode=resize_mode,
                 resample_mode=resample_mode,
+                background_color=background_color,
                 mode="RGB",  # ensure the image is in RGB mode
             )
 

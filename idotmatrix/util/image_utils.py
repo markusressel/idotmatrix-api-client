@@ -83,7 +83,11 @@ def resize_image(
         # if the dimensions of the frame are not equal to the pixel size, resize it while maintaining the aspect ratio
         # and adding a black background if necessary.
         ratio = min(canvas_size / image.width, canvas_size / image.height)
-        new_size = (int(image.width * ratio), int(image.height * ratio))
+        # at least one pixel, a very wide or tall picture would be 0 pixels high on a small screen
+        new_size = (
+            min(canvas_size, max(1, round(image.width * ratio))),
+            min(canvas_size, max(1, round(image.height * ratio))),
+        )
         image = image.resize(
             size=new_size,
             resample=resample_mode,
@@ -92,7 +96,11 @@ def resize_image(
         # if the dimensions of the frame are not equal to the pixel size, resize it to fill the canvas
         # this might crop the image, but maintains aspect ratio
         ratio = max(canvas_size / image.width, canvas_size / image.height)
-        new_size = (int(image.width * ratio), int(image.height * ratio))
+        # never smaller than the canvas, rounding down would leave a stripe of background
+        new_size = (
+            max(canvas_size, round(image.width * ratio)),
+            max(canvas_size, round(image.height * ratio)),
+        )
         image = image.resize(
             size=new_size,
             resample=resample_mode,
