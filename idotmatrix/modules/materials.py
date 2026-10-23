@@ -70,6 +70,7 @@ class MaterialsModule(IDotMatrixModule):
         overlay: TextOverlay | Callable[[str], TextOverlay | None] | None = None,
         shared_palette: bool = False,
         max_color_error: float = DEFAULT_MAX_COLOR_ERROR,
+        progress: Callable[[int, int, int, int], None] | None = None,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
@@ -100,6 +101,9 @@ class MaterialsModule(IDotMatrixModule):
                 slot destroys the item that is in it.
             verify: Do not trust what this module remembers about the slots, send all files again (which takes about
                 0.8 s for each item the device holds). Use it if something else (the app) may have changed the slots.
+            progress: Called with (file number, number of files, chunks sent, chunks in total) while the files are
+                transferred, the file number counting from 1. A file that is in its slot already is reported once as
+                (n, count, 1, 1). Not called while a file is converted, which can take a few seconds for a GIF.
 
         Returns:
             The slot of each file, in the order of the files. The device cycles in the order of the slots.
@@ -136,8 +140,16 @@ class MaterialsModule(IDotMatrixModule):
         for index, file in enumerate(files):
             slot = assignment[index]
             if stored.get(slot) == keys[index]:
+                if progress is not None:
+                    progress(index + 1, len(files), 1, 1)
                 continue
             self._contents.pop(slot, None)  # not known anymore, in case the upload fails
+            progress_args = {}
+            if progress is not None:
+                def file_progress(done: int, total: int, number: int = index + 1) -> None:
+                    progress(number, len(files), done, total)
+
+                progress_args = {"progress": file_progress}
             if items[index][1]:
                 await self._gif.upload_gif_file(
                     file_path=file,
@@ -151,6 +163,7 @@ class MaterialsModule(IDotMatrixModule):
                     overlay=overlays[index],
                     shared_palette=shared_palette,
                     max_color_error=max_color_error,
+                    **progress_args,
                 )
             else:
                 await self._image.show_image_file(
@@ -162,6 +175,7 @@ class MaterialsModule(IDotMatrixModule):
                     display_time=display_time,
                     colors=256 if colors == AUTO_COLORS else colors,
                     overlay=overlays[index],
+                    **progress_args,
                 )
             self._contents[slot] = keys[index]
         return [assignment[index] for index in range(len(files))]

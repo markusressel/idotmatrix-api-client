@@ -429,6 +429,7 @@ class ConnectionManager:
         packets: List[List[bytearray | bytes]],
         response: bool = False,
         wait_for_ack: bool = False,
+        progress: Callable[[int, int], None] | None = None,
     ):
         """
         Sends multiple packets to the device.
@@ -443,6 +444,9 @@ class ConnectionManager:
             response: If True, a write-with-response operation will be used, otherwise a write-without-response operation will be used.
             wait_for_ack: If True, the device has to acknowledge each packet before the next one is sent. This is how
                 the official app transfers images and GIFs, the device drops or garbles data that is sent too early.
+            progress: Called with (packets done, packets in total) after each packet, with wait_for_ack once the
+                device acknowledged it. The upload is done when the two are equal, also when the device skips the
+                rest because it already has the data. Runs on the event loop, so it must not block.
         Raises:
             UploadError: If wait_for_ack is set and the device rejects a packet or does not answer in time.
         """
@@ -494,7 +498,17 @@ class ConnectionManager:
                     if status == UploadStatus.FINISHED and i < len(packets) - 1:
                         # f.e. the device already has the same data stored
                         self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
+                        self._report_progress(progress, len(packets), len(packets))
                         return
+                self._report_progress(progress, i + 1, len(packets))
+
+    def _report_progress(self, progress: Callable[[int, int], None] | None, done: int, total: int) -> None:
+        if progress is None:
+            return
+        try:
+            progress(done, total)
+        except Exception:
+            self.logging.exception("the progress callback failed")
 
     async def _write_chunk(
         self, packet: List[bytearray | bytes], response: bool, all_with_response: bool, paced: bool, label: str

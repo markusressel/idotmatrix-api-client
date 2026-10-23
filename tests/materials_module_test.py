@@ -50,6 +50,26 @@ class TestMaterialsModule(TestBase):
                     await self.under_test.clear(slots)
         self.connection_manager.send_bytes.assert_not_awaited()
 
+    async def test_store_reports_the_progress_of_each_file(self):
+        # GIVEN uploads that report two chunks
+        gif = self._test_data_folder / "demo.gif"
+        image = self._test_data_folder / "demo_64.png"
+
+        async def upload(**kwargs):
+            kwargs["progress"](1, 2)
+            kwargs["progress"](2, 2)
+
+        self.gif.upload_gif_file = AsyncMock(side_effect=upload)
+        self.image.show_image_file = AsyncMock(side_effect=upload)
+        reported = []
+
+        # WHEN the files are stored, and again
+        await self.under_test.store([gif, image], progress=lambda *args: reported.append(args))
+        await self.under_test.store([gif, image], progress=lambda *args: reported.append(args))
+
+        # THEN the second time they are in their slots already
+        self.assertEqual([(1, 2, 1, 2), (1, 2, 2, 2), (2, 2, 1, 2), (2, 2, 2, 2), (1, 2, 1, 1), (2, 2, 1, 1)], reported)
+
     async def test_store_puts_files_into_the_slots_in_order(self):
         # GIVEN
         gif = self._test_data_folder / "demo.gif"
