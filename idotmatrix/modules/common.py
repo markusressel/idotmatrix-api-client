@@ -5,6 +5,7 @@ from typing import Optional
 from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.protocol import build_command
+from idotmatrix.util.device_info import DeviceInfo, parse_device_info
 
 
 class CommonModule(IDotMatrixModule):
@@ -95,9 +96,26 @@ class CommonModule(IDotMatrixModule):
         Args:
             time (datetime): The datetime object representing the date and time to set. Accuracy is to the second.
 
-        Returns:
-            Optional[bytearray]: Command to be sent to the device or None if error.
+        The device answers with information about itself, see `get_device_info`.
         """
+        await self._send_bytes(data=self._create_set_time_command(time), response=True)
+
+    async def get_device_info(self, time: Optional[datetime] = None) -> Optional[DeviceInfo]:
+        """
+        Asks the device about itself: the firmware version, the type of its screen and whether it is protected by a
+        password. The device only tells that as the answer to the set time command, so this sets its time as well.
+
+        Args:
+            time (datetime, optional): The time to set on the device. Defaults to the current time.
+        Returns:
+            Optional[DeviceInfo]: The information, or None if the device did not answer.
+        """
+        command = self._create_set_time_command(time or datetime.now())
+        notification = await self._connection_manager.request(command, response=True)
+        return parse_device_info(notification) if notification else None
+
+    @staticmethod
+    def _create_set_time_command(time: datetime) -> bytearray:
         year = time.year
         month = time.month
         day = time.day
@@ -115,9 +133,8 @@ class CommonModule(IDotMatrixModule):
         if not (0 <= second <= 59):
             raise ValueError("Common.setTime parameter second is not in range between 0 and 59")
 
-        data = build_command(
+        return build_command(
             protocol.SET_TIME, year % 100, month, day, datetime(year, month, day).weekday() + 1, hour, minute, second)
-        await self._send_bytes(data=data, response=True)
 
     async def set_joint(self, mode: int):
         """

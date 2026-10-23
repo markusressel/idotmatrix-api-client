@@ -90,7 +90,7 @@ arguments are out of range silently, the acknowledgement is the only way to noti
 | screen on | `05 00 07 01 01` | `05 00 07 01 01` |
 | freeze (it toggles) | `04 00 03 00` | `05 00 03 00 00`, then `05 00 03 00 01` for the second call (**guess**: the new state) |
 | text | upload | `05 00 03 00 03` (the upload acknowledgement, type 3 finished) |
-| set time | `0b 00 01 80 ...` | `09 00 01 80 05 09 01 04 00`, a longer reply, content unknown |
+| set time | `0b 00 01 80 ...` | `09 00 01 80 05 09 01 04 00`, the device info, see below |
 | countdown off after the countdown has ended | `07 00 08 80 00 ...` | `05 00 04 80 01` once, the acknowledgement of a brightness command (**guess**: the device restores the brightness when a countdown ends). Stopping a running countdown is acknowledged normally, `05 00 08 80 01` |
 
 No acknowledgement came for `set_speed`, `set_joint`, an unknown command (`05 00 63 80 01`) and a command whose length
@@ -104,6 +104,24 @@ fullscreen color, effects, countdown, chronograph, scoreboard and the microphone
 (the clock 125 ms), and the modules skip the 0.5 s pause they used to make after a command. `set_speed` and
 `set_joint` are never acknowledged, freeze, text and `set_time` are answered differently, so they are not in the list.
 Add a command to the list once its acknowledgement was verified on a device.
+
+### Device info (reply to set time)
+
+The device answers the set time command (`0b 00 01 80 ...`) with `09 00 01 80 <major> <minor> <?> <type> <password>`.
+The official app reads it right after connecting (`MainActivity`, **app**), the library as `CommonModule.get_device_info`.
+On the 64x64 it is `09 00 01 80 05 09 01 04 00`:
+
+| Byte | Example | Meaning |
+|---|---|---|
+| 4, 5 | `05 09` | firmware version 5.09 (**app**, **verified** that it is the same for every call) |
+| 6 | `01` | "switch status", the app treats 0 as off and anything else as on, and updates a switch with it. It does **not** follow the screen: it stayed `01` while the screen was off (**verified**). Meaning unknown |
+| 7 | `04` | screen type: 1 = 16x16, 2 = 8x32, 3 = 32x32, 4 = 64x64 (**verified**), 11 = 16x64 (**app**). The app uses it to choose the screen size, types containing an 8 in hex (splicing displays) open a dialog |
+| 8 | `00` | password flag, 1 = the device is protected (**app**) |
+
+The reply was identical with the screen on and off, and for repeated calls (**verified**).
+
+A protected device is unlocked with `07 00 05 02 <p1> <p2> <p3>` (the password as three two-digit numbers), answered
+with `05 00 05 02 01` if the password was right (**app**, not tried). The app does this when the password flag is set.
 
 ### Heartbeat
 
@@ -228,10 +246,10 @@ something else, f.e. the clock, does. (**verified**)
 
 - `set_joint` (`05 00 0c 80 <mode>`), `set_mic_type` (`06 00 0b 80 <type>`): not used by the app.
 - `get_device_location` needs an AES step that the app does in a native library (`csh.tiro.cc.aes`).
-- The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`), what a protected device expects from a client
-  is unknown.
+- The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`). A protected device is unlocked with a verify
+  command according to the app (see Device info), nobody tried it.
 - Firmware update (OTA) over `ae00`: encrypted, not a goal for now.
-- What the longer reply to the set time command means, and whether any command produces other notifications.
+- What byte 6 of the device info stands for, and whether any command produces other notifications.
 
 ## Third-party sources
 

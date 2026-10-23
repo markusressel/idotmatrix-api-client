@@ -34,7 +34,7 @@ idotmatrix/
   transport.py           Transport protocol (write, notify, MTU) and BleakTransport, which wraps the bleak client
   screensize.py          ScreenSize enum
   const.py               BLE UUIDs and constants
-  digital_picture_frame.py
+  apps/                  things built on top of the client (digital_picture_frame.py: slideshow of a folder)
   modules/               one class per device feature (clock, text, gif, image, ...)
     __init__.py          IDotMatrixModule base class (_send_bytes, _connect)
   util/                  color_utils, image_utils, file_watch, upload_ack, device_material
