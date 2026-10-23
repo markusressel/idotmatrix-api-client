@@ -69,8 +69,10 @@ Rules:
 - The app writes the 509 byte BLE packets of a chunk 20 ms apart, and with response (Android's default write type;
   nothing in the app sets write-without-response). We used to write all but the last packet of a chunk back-to-back
   without response. Sporadic `UploadError`s ("did not acknowledge within 5 seconds", once followed by a reboot) are
-  suspected to come from that burst overrunning the device (**guess**). Now the packets of a chunk are paced
-  20 ms apart like in the app; whether that fixes the timeouts is unverified, see `TODO.md`.
+  suspected to come from that burst overrunning the device (**guess**). Since 0.2.2 the packets of a chunk are paced
+  20 ms apart like in the app. A 64x64 took 132 uploads in a row both with and without pacing (about 1 s each, pacing
+  adds about 80 ms), so the lab test does not tell. In Home Assistant the timeouts stopped for a while after the
+  update (**guess**: pacing fixed them; no debug log of a failure was ever captured).
 - Implemented in `ConnectionManager.send_packets(wait_for_ack=True)` and `util/upload_ack.py`. A device that does
   not answer leads to an `UploadError` after 5 s.
 
