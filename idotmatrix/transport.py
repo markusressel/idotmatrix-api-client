@@ -3,6 +3,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from bleak import BleakClient
+from bleak.backends.device import BLEDevice
 
 from .const import UUID_READ_DATA, UUID_CHARACTERISTIC_WRITE_DATA
 
@@ -46,15 +47,16 @@ class BleakTransport:
 
     logging = logging.getLogger(__name__)
 
-    def __init__(self, address: str, on_disconnected: Callable[[], None]) -> None:
+    def __init__(self, address_or_device: str | BLEDevice, on_disconnected: Callable[[], None]) -> None:
         """
         Args:
-            address: The Bluetooth address (MAC) of the device.
+            address_or_device: The Bluetooth address (MAC) of the device, or a `BLEDevice` that a scanner found. The
+                latter is what Home Assistant provides, it knows how to reach the device (f.e. over a Bluetooth proxy).
             on_disconnected: Called when the connection was lost.
         """
-        self.address = address
+        self.address = address_or_device if isinstance(address_or_device, str) else address_or_device.address
         self._client = BleakClient(
-            address_or_ble_device=address,
+            address_or_ble_device=address_or_device,
             disconnected_callback=lambda _client: on_disconnected(),
         )
 

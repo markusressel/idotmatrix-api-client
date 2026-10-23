@@ -1,5 +1,8 @@
+from collections.abc import Callable
 from functools import cached_property
 from typing import Optional
+
+from bleak.backends.device import BLEDevice
 
 from idotmatrix.connection_manager import ConnectionManager, ConnectionListener
 from idotmatrix.modules.chronograph import ChronographModule
@@ -17,6 +20,7 @@ from idotmatrix.modules.scoreboard import ScoreboardModule
 from idotmatrix.modules.system import SystemModule
 from idotmatrix.modules.text import TextModule
 from idotmatrix.screensize import ScreenSize
+from idotmatrix.transport import Transport
 
 
 class IDotMatrixClient:
@@ -29,6 +33,8 @@ class IDotMatrixClient:
         screen_size: ScreenSize,
         mac_address: Optional[str] = None,
         max_ble_packet_size: Optional[int] = None,
+        ble_device: Optional[BLEDevice] = None,
+        transport_factory: Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]] = None,
     ):
         """
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
@@ -39,11 +45,19 @@ class IDotMatrixClient:
                                          the client will attempt to discover devices.
             max_ble_packet_size (Optional[int]): Overrides the detected maximum size of a single BLE write.
                                                  Only needed if the BLE stack misreports the negotiated MTU.
+            ble_device (Optional[BLEDevice]): The device to connect to, as found by a scanner. Instead of `mac_address`,
+                                              f.e. for the scanner of Home Assistant. See `ConnectionManager.set_device`.
+            transport_factory (Optional[Callable]): Creates the `Transport` that talks to the device, to connect in a
+                                                    different way than `bleak` does by default. See `ConnectionManager`.
         """
         self._connection_manager = ConnectionManager(
             address=mac_address,
             max_ble_packet_size=max_ble_packet_size,
+            transport_factory=transport_factory,
         )
+        if ble_device is not None:
+            mac_address = ble_device.address
+            self._connection_manager.set_device(ble_device)
         self.screen_size = screen_size
         self.mac_address = mac_address
 

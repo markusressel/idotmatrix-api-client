@@ -47,6 +47,59 @@ class TestConnectionManager(TestBase):
 
         self.assertEqual([ADDRESS], self.created_for)
 
+    async def test_set_device_creates_a_transport_for_the_device(self):
+        under_test = self.create()
+        device = MagicMock(address=ADDRESS)
+
+        under_test.set_device(device)
+
+        self.assertEqual(ADDRESS, under_test.address)
+        self.assertEqual([device], self.created_for)
+
+    async def test_set_device_with_a_newer_device_creates_a_new_transport(self):
+        under_test = self.create()
+        first, second = MagicMock(address=ADDRESS), MagicMock(address=ADDRESS)
+
+        under_test.set_device(first)
+        under_test.set_device(second)
+
+        self.assertEqual([first, second], self.created_for)
+
+    async def test_set_device_does_not_interrupt_a_connection(self):
+        under_test = self.create()
+        first, second = MagicMock(address=ADDRESS), MagicMock(address=ADDRESS)
+        under_test.set_device(first)
+        await under_test.connect()
+
+        under_test.set_device(second)
+
+        self.assertTrue(under_test.is_connected())
+        self.assertEqual([first], self.created_for)
+
+    async def test_the_newer_device_is_used_for_the_next_connection(self):
+        under_test = self.create()
+        first, second = MagicMock(address=ADDRESS), MagicMock(address=ADDRESS)
+        under_test.set_device(first)
+        await under_test.connect()
+        under_test.set_device(second)
+        self.transport.lose_connection()
+        under_test._connected = False
+
+        await under_test.connect()
+
+        self.assertEqual([first, second], self.created_for)
+        self.assertTrue(under_test.is_connected())
+
+    async def test_a_dead_link_is_replaced_by_a_transport_for_the_same_device(self):
+        under_test = self.create()
+        device = MagicMock(address=ADDRESS)
+        under_test.set_device(device)
+        await under_test.connect()
+
+        await under_test._close_dead_link()
+
+        self.assertEqual([device, device], self.created_for)
+
     async def test_create_transport_without_address_raises(self):
         under_test = self.create()
         with self.assertRaises(ValueError):

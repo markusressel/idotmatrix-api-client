@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import List, Optional, Awaitable, Any
 
 from bleak import BleakScanner, AdvertisementData
+from bleak.backends.device import BLEDevice
 
 from .const import BLUETOOTH_DEVICE_NAME
 from .transport import Transport, BleakTransport
@@ -58,7 +59,7 @@ class ConnectionManager:
         self,
         address: Optional[str] = None,
         max_ble_packet_size: Optional[int] = None,
-        transport_factory: Optional[Callable[[str, Callable[[], None]], Transport]] = None,
+        transport_factory: Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]] = None,
     ) -> None:
         """
         Initializes the ConnectionManager with an optional Bluetooth address.
@@ -67,15 +68,17 @@ class ConnectionManager:
             If no address is provided, the instance can be used to discover devices and set the address later.
             max_ble_packet_size (Optional[int]): Overrides the maximum payload size of a single write-without-response.
             Only needed if the BLE stack misreports the negotiated MTU. By default, it is detected on connect.
-            transport_factory (Optional[Callable[[str, Callable[[], None]], Transport]]): Creates the `Transport` for an
-            address. It gets a callback that has to be called when the connection was lost. By default, a `BleakTransport`
-            is used. Mainly useful to test code against a fake device.
+            transport_factory (Optional[Callable[[str | BLEDevice, Callable[[], None]], Transport]]): Creates the
+            `Transport` for an address (or a `BLEDevice`, see `set_device`). It gets a callback that has to be called when
+            the connection was lost. By default, a `BleakTransport` is used. Use it to connect in a different way, f.e. with
+            the client that Home Assistant provides, or to test code against a fake device.
         """
         self._max_ble_packet_size_override = max_ble_packet_size
         self.address: Optional[str] = None
         self._transport_factory = transport_factory or BleakTransport
         self._transport: Optional[Transport] = None
-        self._transport_address: Optional[str] = None
+        self._transport_target: str | BLEDevice | None = None  # what to connect to
+        self._transport_created_for: str | BLEDevice | None = None  # what the current transport was created for
 
         if address:
             self.set_address(address)
@@ -130,35 +133,47 @@ class ConnectionManager:
             address (str): The Bluetooth address (MAC) of the iDotMatrix device, f.e. "00:11:22:33:44:55".
         """
         self.address = address
+        self._transport_target = address
         self._create_transport()
 
-    def _create_transport(self, address: str = None) -> Transport:
+    def set_device(self, device: BLEDevice) -> None:
         """
-        Creates a transport for the given address.
+        Sets the device to connect to as a `BLEDevice`, f.e. one that a scanner of Home Assistant found, which knows
+        how to reach the device (f.e. over a Bluetooth proxy). Call it again with the newer `BLEDevice` when the
+        scanner found the device again. An established connection is not interrupted, the new device is used for
+        the next connection.
         Args:
-            address (str, optional): The Bluetooth address (MAC) of the iDotMatrix device. If not provided,
-                                     it uses the address set in the ConnectionManager instance.
-        Returns:
-            Transport: A transport for the specified address.
-        Raises:
-            ValueError: If no address is provided and the instance's address is not set.
+            device (BLEDevice): The iDotMatrix device.
         """
-        if address is None and self.address is None:
-            raise ValueError("No address provided for the transport.")
-        if address is None:
-            address = self.address
+        same_device = self.address == device.address
+        self.address = device.address
+        self._transport_target = device
+        if not (same_device and self.is_connected()):
+            self._create_transport()
 
-        if self._transport and self._transport_address == address:
-            self.logging.debug(f"reusing existing transport for {address}")
+    def _create_transport(self) -> Transport:
+        """
+        Creates a transport for the address or device that was set, unless the current one already is for it.
+        Returns:
+            Transport: A transport for the device.
+        Raises:
+            ValueError: If neither an address nor a device was set.
+        """
+        target = self._transport_target
+        if target is None:
+            raise ValueError("No address provided for the transport.")
+
+        if self._transport and self._transport_created_for == target:
+            self.logging.debug(f"reusing existing transport for {self.address}")
             return self._transport
 
         if self._transport:
-            # a transport is bound to one address, so a different device needs a new one
+            # a transport is bound to one device, so a different one needs a new transport
             self._connected = False
             self._ble_packet_size = None
 
-        self._transport = self._transport_factory(address, self._on_disconnected)
-        self._transport_address = address
+        self._transport = self._transport_factory(target, self._on_disconnected)
+        self._transport_created_for = target
         return self._transport
 
     async def connect_by_address(self, address: str) -> None:
@@ -209,6 +224,7 @@ class ConnectionManager:
 
             if not self.is_connected():
                 self.logging.info(f"connecting to {self.address}...")
+                self._create_transport()  # a newer device may have been set while connected
                 await self._transport.connect()
                 self._connected = True
                 newly_connected = True
