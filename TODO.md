@@ -59,7 +59,8 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [ ] Cloud-API to download / upload images: not started
 - [ ] Cloud-firmware update: unknown whether possible
 - [ ] Understand the other notifications of the device (only the upload acknowledgements on `fa03` are known, see `util/upload_ack.py`)
-- [ ] `GifModule.clear_storage` (the app's "delete all materials" command) has not been tried on a device
+- [x] Deleting slots (`MaterialsModule.clear`, the command behind `GifModule.clear_storage`) works on a 64x64
+- [ ] Do stored slots survive a power cycle? How many items fit (is there a size limit besides the 12 slots)?
 - [ ] Uploads on 16x16 and 32x32 devices (tests only use mocks for those sizes)
 
 ## 6. Ideas to try on a device

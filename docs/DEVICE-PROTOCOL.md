@@ -215,8 +215,16 @@ rainbow effect, and once it rebooted. (**verified**)
 
 ### Storage
 
-- The app has a command that deletes all stored materials: `11 00 02 01 0c 00 01 02 03 04 05 06 07 08 09 0a 0b`
-  (`GifModule.clear_storage`). (**app**, not tried by us)
+- The device has 12 slots (0 to 11, the index byte of the upload header). Items uploaded into a slot stay on the device,
+  also over a power cycle (**guess**, not tried), and the device cycles through the stored items by itself, in the order
+  of the slots, each for the display time of its header. No Bluetooth traffic is needed for that. (**verified** on a
+  64x64: GIFs and images in slots 1 to 6 cycled with 10 s and 30 s) The official app deletes the slots it is about to
+  fill and then sends its items one after another (`DeviceMaterialChildFragment`). `MaterialsModule` does the same.
+- Deleting slots: `<length> 00 02 01 <number of slots> <slot>...` (the length is 5 plus the number of slots, so
+  `11 00 02 01 0c 00 01 02 03 04 05 06 07 08 09 0a 0b` for all of them), answered with `05 00 02 01 01`.
+  (**verified**) Other slots are not touched.
+- The device skips an upload of data it already holds (same CRC), which took 0.5 s instead of 2 s for a 17 KB GIF. With
+  `show now` (index 13) that is only the last item, with slots it is every stored item. (**verified**)
 - We never got a "no space" answer. The rejections we saw were all status `00` ("not ready"). The size of the storage
   is not known, the app does not ask for it. (**verified**)
 

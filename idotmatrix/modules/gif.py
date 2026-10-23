@@ -13,7 +13,9 @@ from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.protocol import build_command
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
-from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
+from idotmatrix.util.device_material import (
+    DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
+)
 from idotmatrix.util.image_utils import ResizeMode
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
@@ -47,9 +49,11 @@ class GifModule(IDotMatrixModule):
         palletize: bool = True,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
+        slot: int | None = None,
+        display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
     ):
         """
-        Uploads a GIF file to the device.
+        Uploads a GIF file to the device. It is shown right away, unless a slot is given.
 
         Args:
             file_path (str): path to the image file
@@ -58,7 +62,13 @@ class GifModule(IDotMatrixModule):
                 high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to True.
             background_color (Tuple[int, int, int]): RGB color to fill transparent pixels. Defaults to black (0, 0, 0).
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+            slot (int, optional): If given (0 to 11), the GIF is stored in that slot of the device instead of being shown
+                right away. The device cycles through the stored items by itself, see `MaterialsModule`.
+            display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
         """
+        if slot is not None:
+            validate_slot(slot)
+            validate_display_time(display_time)
         screen_width = self.screen_size.value[0]  # assuming square canvas, so width == height
         background_color = color_utils.parse_color_rgb(background_color)
 
@@ -82,8 +92,9 @@ class GifModule(IDotMatrixModule):
             #  this might be the index that this GIF will be stored within the device's memory :think:
             #  it doesn't seem to have an effect when sending a single GIF like it is done here though
             # shows the GIF right away, like the official app does
-            gif_type=INDEX_SHOW_NOW,
+            gif_type=INDEX_SHOW_NOW if slot is None else slot,
             time_sign=0,
+            display_time=None if slot is None else display_time,
         )
         await self._send_packets(packets=packets, response=True, wait_for_ack=True)
 
@@ -208,7 +219,8 @@ class GifModule(IDotMatrixModule):
         gif_data: bytes,
         gif_type: int,
         time_sign: int,  # Assuming this is the raw time signature before DeviceMaterialTimeConvert.ConvertTime
-        ble_device_mtu_enabled: bool = True
+        ble_device_mtu_enabled: bool = True,
+        display_time: int | None = None,
     ) -> list[list[bytearray]]:
         """
         Creates packets for sending GIF data, mirroring the Java GifAgreement logic.
@@ -217,6 +229,7 @@ class GifModule(IDotMatrixModule):
             gif_data: The raw byte array of the GIF data.
             gif_type: The type parameter (e.g., 12 or other values from sendImageData). Values up until 19 display an image on the device.
             time_sign: 0: "0", 1: "10", 2: "30", 3: "60", 4: "300", else: "5".
+            display_time: The display time in seconds. If given it is used instead of the one `time_sign` stands for.
             ble_device_mtu_enabled: Boolean indicating if MTU is enabled on the BLE device.
 
         Returns:
@@ -269,7 +282,7 @@ class GifModule(IDotMatrixModule):
             else:
                 # Java: DeviceMaterialTimeConvert.ConvertTime(AppData.getInstance().getTimeSign())
                 # 'time_sign' passed to create_gif_data_packets is the input_key
-                converted_time_value = convert_display_time(time_sign)  # time_sign is the key (0,1,2,3,4...)
+                converted_time_value = display_time if display_time is not None else convert_display_time(time_sign)
 
                 # little endian, like every other number of the header (the app does the same)
                 header[13:15] = converted_time_value.to_bytes(2, byteorder='little')

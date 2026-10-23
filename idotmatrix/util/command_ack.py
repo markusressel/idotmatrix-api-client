@@ -15,6 +15,7 @@ ACKNOWLEDGED_COMMANDS = frozenset({
     protocol.CHRONOGRAPH,
     protocol.SCOREBOARD,
     protocol.MICROPHONE_MODE,
+    protocol.DELETE_MATERIALS,
 })
 
 
