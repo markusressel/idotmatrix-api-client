@@ -9,12 +9,13 @@ from PIL import Image as PILImage
 from idotmatrix import protocol
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
-from idotmatrix.modules.gif import GifModule
+from idotmatrix.modules.gif import AUTO_COLORS, GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.protocol import build_command
 from idotmatrix.util import image_utils
 from idotmatrix.util.image_utils import validate_colors
 from idotmatrix.util.overlay import TextOverlay
+from idotmatrix.util.quality import DEFAULT_MAX_COLOR_ERROR
 from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, SLOTS, validate_display_time, validate_slot,
 )
@@ -64,9 +65,11 @@ class MaterialsModule(IDotMatrixModule):
         clear_unused: bool = True,
         keep_order: bool = False,
         verify: bool = False,
-        colors: int = 256,
+        colors: int | str = 256,
         max_size_kb: int | None = None,
         overlay: TextOverlay | Callable[[str], TextOverlay | None] | None = None,
+        shared_palette: bool = False,
+        max_color_error: float = DEFAULT_MAX_COLOR_ERROR,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
@@ -84,7 +87,9 @@ class MaterialsModule(IDotMatrixModule):
             resize_mode: How the files are scaled to the screen.
             palletize: Reduce the colors to a palette. The default is on for GIFs and off for images.
             background_color: Color of the bars if a file does not have the shape of the screen.
-            colors: The number of colors of the palette (2 to 256), fewer make GIFs smaller and faster to upload.
+            colors: The number of colors of the palette (2 to 256), fewer make GIFs smaller and faster to upload, or
+                "auto" to let each GIF get as few as still look fine (see `GifModule.upload_gif_file`, `max_color_error`
+                and `shared_palette`). Images use all 256 colors with "auto".
             max_size_kb: The most a converted GIF may have, quality is given up until it fits, see
                 `GifModule.upload_gif_file`. Keeps the upload of each GIF short.
             overlay: A text that is drawn on top of every file, or a function that gets the path of a file and returns
@@ -104,7 +109,8 @@ class MaterialsModule(IDotMatrixModule):
         """
         slots = self._validate_slots(slots)
         validate_display_time(display_time)
-        validate_colors(colors)
+        if colors != AUTO_COLORS:
+            validate_colors(colors)
         if len(files) > len(slots):
             raise ValueError(f"{len(files)} files do not fit into {len(slots)} slots")
         if not files:
@@ -114,7 +120,7 @@ class MaterialsModule(IDotMatrixModule):
         items = [
             await asyncio.to_thread(
                 self._fingerprint, file, display_time, resize_mode, palletize, background_color, colors, max_size_kb,
-                file_overlay)
+                file_overlay, shared_palette, max_color_error)
             for file, file_overlay in zip(files, overlays)
         ]
         keys = [key for key, _ in items]
@@ -143,6 +149,8 @@ class MaterialsModule(IDotMatrixModule):
                     colors=colors,
                     max_size_kb=max_size_kb,
                     overlay=overlays[index],
+                    shared_palette=shared_palette,
+                    max_color_error=max_color_error,
                 )
             else:
                 await self._image.show_image_file(
@@ -152,7 +160,7 @@ class MaterialsModule(IDotMatrixModule):
                     background_color=background_color,
                     slot=slot,
                     display_time=display_time,
-                    colors=colors,
+                    colors=256 if colors == AUTO_COLORS else colors,
                     overlay=overlays[index],
                 )
             self._contents[slot] = keys[index]
@@ -181,13 +189,16 @@ class MaterialsModule(IDotMatrixModule):
         file: PathLike | str, display_time: int, resize_mode, palletize, background_color, colors: int,
         max_size_kb: int | None,
         overlay: TextOverlay | None,
+        shared_palette: bool,
+        max_color_error: float,
     ) -> tuple:
         """What identifies an item: the content of the file and everything that changes what is sent."""
         with open(file, "rb") as handle:
             digest = hashlib.sha1(handle.read()).hexdigest()
         with PILImage.open(file) as img:
             animated = getattr(img, "n_frames", 1) > 1
-        options = (display_time, resize_mode, palletize, str(background_color), colors, max_size_kb, overlay)
+        options = (display_time, resize_mode, palletize, str(background_color), colors, max_size_kb, overlay,
+                   shared_palette, max_color_error)
         return (digest, animated, *options), animated
 
     @staticmethod

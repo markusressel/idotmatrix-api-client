@@ -42,6 +42,19 @@ def palette_table_size(colors: int) -> int:
     return max(4, 1 << (validate_colors(colors) - 1).bit_length())
 
 
+def palettize_together(images: list[PILImage.Image], colors: int = 256) -> list[PILImage.Image]:
+    """
+    Converts the images to one common palette, built from all of them. In an animation that keeps a color the
+    same from frame to frame, where a palette for each frame makes colors jump (flicker).
+    """
+    rgb = [image.convert("RGB") for image in images]
+    montage = PILImage.new("RGB", (rgb[0].width, rgb[0].height * len(rgb)))
+    for index, image in enumerate(rgb):
+        montage.paste(image, (0, index * image.height))
+    palette = montage.quantize(colors=colors, dither=PILImage.Dither.NONE)
+    return [image.quantize(palette=palette, dither=PILImage.Dither.NONE) for image in rgb]
+
+
 def pad_palette(image: PILImage.Image, size: int = 256) -> PILImage.Image:
     """
     Makes sure an image is palettized and its palette has exactly `size` entries.
