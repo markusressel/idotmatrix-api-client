@@ -144,6 +144,16 @@ class TestIDotMatrixClient(TestBase):
         with self.assertRaisesRegex(RuntimeError, "screen size is not known"):
             client.image
 
+    async def test_screen_size_known(self):
+        self._device_answers()
+        client = IDotMatrixClient(mac_address=ADDRESS)
+        self.assertFalse(client.screen_size_known)
+
+        await client.detect_screen_size()
+
+        self.assertTrue(client.screen_size_known)
+        self.assertTrue(IDotMatrixClient(screen_size=ScreenSize.SIZE_16x16).screen_size_known)
+
     async def test_other_modules_work_without_a_screen_size(self):
         client = IDotMatrixClient(mac_address=ADDRESS)
 

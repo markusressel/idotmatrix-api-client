@@ -76,6 +76,11 @@ class IDotMatrixClient:
                 "the client ask the device.")
         return self._screen_size
 
+    @property
+    def screen_size_known(self) -> bool:
+        """Whether the size of the screen is known, f.e. because it was given or detected."""
+        return self._screen_size is not None
+
     @screen_size.setter
     def screen_size(self, screen_size: ScreenSize) -> None:
         self._screen_size = screen_size

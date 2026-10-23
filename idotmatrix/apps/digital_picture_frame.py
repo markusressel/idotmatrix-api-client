@@ -356,6 +356,10 @@ class DigitalPictureFrame:
         """
         while True:
             try:
+                if not self.device_client.screen_size_known:
+                    # connecting does not detect it when the client is connected on the first command
+                    await self.device_client.detect_screen_size()
+
                 # initialize by connecting to the device and showing a black screen
                 await self._show_black_screen()
 
