@@ -216,6 +216,13 @@ rainbow effect, and once it rebooted. (**verified**)
 - The code limits a GIF to 64 frames and a total duration of 2 s per loop by dropping frames; this came from the
   earlier experiments and is not understood. (**guess**)
 - Large GIFs (60+ frames, 50-70 KB) work, a 70 KB upload takes about 5 s. (**verified**)
+- Upload time on a local BlueZ adapter, 64x64, 3 to 125 KB: about 0.1 to 0.15 s per KB, so 120 KB takes 12 to 14 s and
+  25 KB about 3 s. (**verified**)
+- What to give up for `max_size_kb`, rated by eye on two 64x64 animations (120 KB, 63 and 51 frames): keeping every 2nd
+  frame (half the size, same duration) looks as good as all frames, one of them looked less "nervous". Every 3rd frame
+  looks like slow motion, every 4th to 6th very much so, but it is acceptable when size matters most. Fewer colors
+  than `colors="auto"` chose (32 instead of 64 or 128) already looked clearly worse, so frames go first.
+  (**verified**, by eye)
 
 ### Storage
 

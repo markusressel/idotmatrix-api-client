@@ -228,34 +228,21 @@ class TestMaxSize(TestBase):
 
         self.assertEqual(data, self._encode(max_size_kb=len(data) // 1024 + 1))
 
-    def test_colors_are_given_up_before_frames(self):
+    def test_frames_are_given_up_before_colors(self):
         # GIVEN
         data = self._encode()
         frames, duration = self._info(data)
 
-        # WHEN the limit is a bit below the size with all colors
+        # WHEN the limit is a bit below the size with all frames
         reduced = self._encode(max_size_kb=int(len(data) * 0.8) // 1024)
 
-        # THEN it fits, with all frames and the same duration, but fewer colors
-        self.assertLess(len(reduced), len(data))
+        # THEN it fits, with fewer frames and the same duration, but the same colors
         self.assertLessEqual(len(reduced), int(len(data) * 0.8))
-        self.assertEqual((frames, duration), self._info(reduced))
-        self.assertLess(_color_table_sizes(reduced)[0], 256)
-
-    def test_frames_are_dropped_when_fewer_colors_do_not_suffice_and_the_animation_takes_as_long(self):
-        # GIVEN
-        frames, duration = self._info(self._encode())
-        at_32_colors = len(self._encode(colors=32))
-
-        # WHEN the limit is below the size with 32 colors
-        reduced = self._encode(max_size_kb=int(at_32_colors * 0.6) // 1024)
-
-        # THEN
         reduced_frames, reduced_duration = self._info(reduced)
         self.assertLess(reduced_frames, frames)
         self.assertGreaterEqual(reduced_frames, 2)
         self.assertEqual(duration, reduced_duration)
-        self.assertEqual(32, _color_table_sizes(reduced)[0])
+        self.assertEqual(_color_table_sizes(data)[0], _color_table_sizes(reduced)[0])
 
     def test_the_smallest_version_is_used_when_nothing_fits(self):
         with self.assertLogs("idotmatrix.modules.gif", level="WARNING") as logs:
@@ -266,9 +253,10 @@ class TestMaxSize(TestBase):
         self.assertLess(self._info(data)[0], self._info(self._encode())[0])
 
     def test_reductions_start_with_what_was_asked_for_and_never_exceed_it(self):
-        self.assertEqual([(256, 1), (128, 1), (64, 1), (32, 1)], GifModule._size_reductions(256, 1)[:4])
-        self.assertEqual([(100, 1), (64, 1), (32, 1)], GifModule._size_reductions(100, 1)[:3])
-        self.assertEqual([(16, 1), (16, 2), (16, 3)], GifModule._size_reductions(16, 6)[:3])
+        self.assertEqual([(256, 1), (128, 1), (64, 1), (32, 1), (16, 1), (8, 1)], GifModule._size_reductions(256, 1))
+        self.assertEqual([(100, 1), (100, 2), (100, 3), (64, 3), (32, 3), (16, 3), (8, 3)],
+                         GifModule._size_reductions(100, 7))
+        self.assertEqual([(16, 1), (16, 2), (16, 3), (8, 3)], GifModule._size_reductions(16, 7))
         for colors in (256, 100, 16, 4):
             for step_colors, every in GifModule._size_reductions(colors, 40):
                 self.assertLessEqual(step_colors, colors)

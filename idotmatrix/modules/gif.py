@@ -80,10 +80,10 @@ class GifModule(IDotMatrixModule):
                 faster (16 colors are about a third of the size of 256 for a photo-like animation), at the price of
                 rougher colors. Less than 256 reduces the colors even if `palletize` is off.
             max_size_kb (int, optional): The most the converted GIF may have, which is what is transferred (a large
-                one takes 10 s or more). If it is bigger, quality is given up until it fits, in this order: colors
-                (down to 32), frames (every 2nd, 3rd, ... frame, the animation takes as long as before), then colors
-                down to 8 and frames again. If it still does not fit the smallest version is used and a warning is
-                logged.
+                one takes 10 s or more). If it is bigger, quality is given up until it fits, in this order: frames
+                (every 2nd, 3rd, ... frame, the animation takes as long as before), then colors (down to 8). With
+                colors="auto" this starts from the palette that `auto` chose. If it still does not fit the smallest
+                version is used and a warning is logged.
             overlay (TextOverlay, optional): A text that is drawn on top of every frame, f.e. to label it.
             shared_palette (bool): One palette for all frames instead of one for each, which can flicker when the
                 colors differ from frame to frame (it also changes the colors a little more). Not for "auto".
@@ -333,19 +333,14 @@ class GifModule(IDotMatrixModule):
     @staticmethod
     def _size_reductions(colors: int, frame_count: int) -> List[Tuple[int, int]]:
         """
-        What to give up to make a GIF smaller, from the least to the most visible: first colors down to 32, then every
-        second, third, ... frame (the duration of the animation stays the same), then fewer colors with all frames
-        again. Returns (colors, keep every n-th frame), starting with what was asked for.
+        What to give up to make a GIF smaller: first frames (every second, third, ... frame, the duration of the
+        animation stays the same), and only when that does not suffice colors, down to 8, with the fewest frames
+        (fewer colors are what looks worst). Returns (colors, keep every n-th frame), starting with what was asked for.
         """
-        steps = [(c, 1) for c in (256, 128, 64, 32) if c <= colors]
-        if not steps or steps[0][0] != colors:
-            steps.insert(0, (colors, 1))
-        floor = min(colors, 32)
         every_steps = [n for n in (2, 3, 4, 6, 8) if frame_count // n >= 2]
-        steps += [(floor, n) for n in every_steps]
-        for fewer in (16, 8):
-            if fewer < floor:
-                steps += [(fewer, 1)] + [(fewer, n) for n in every_steps]
+        steps = [(colors, n) for n in [1] + every_steps]
+        fewest_frames = every_steps[-1] if every_steps else 1
+        steps += [(fewer, fewest_frames) for fewer in (128, 64, 32, 16, 8) if fewer < colors]
         return steps
 
     def _int_to_bytes_le(self, value: int, length: int = 4) -> bytearray:
