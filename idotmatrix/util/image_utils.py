@@ -28,6 +28,20 @@ def palettize(
     )
 
 
+def validate_colors(colors: int) -> int:
+    """Raises a ValueError for a number of palette colors that cannot be used (2 to 256)."""
+    if isinstance(colors, bool) or not isinstance(colors, int) or not 2 <= colors <= 256:
+        raise ValueError(f"colors must be between 2 and 256, got: {colors!r}")
+    return colors
+
+
+def palette_table_size(colors: int) -> int:
+    """
+    The size of the color table of a GIF for that many colors: a power of 2 entries, and PIL writes at least 4.
+    """
+    return max(4, 1 << (validate_colors(colors) - 1).bit_length())
+
+
 def pad_palette(image: PILImage.Image, size: int = 256) -> PILImage.Image:
     """
     Makes sure an image is palettized and its palette has exactly `size` entries.

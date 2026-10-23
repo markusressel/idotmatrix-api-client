@@ -8,7 +8,7 @@ from PIL import Image
 from idotmatrix.modules.gif import ANIMATION_MAX_FRAME_COUNT, GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
-from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.image_utils import ResizeMode, palette_table_size, validate_colors
 from tests import TestBase
 from tests.gif_module_test import _color_table_sizes
 from tests.media_fixtures import GIFS, IMAGES
@@ -117,3 +117,82 @@ class TestConversionOfVariedMedia(TestBase):
         )
 
         self.assertEqual((255, 0, 0), tuple(pixels[0:3]))
+
+
+class TestColors(TestBase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = TemporaryDirectory()
+        cls.noisy = GIFS["noisy"](Path(cls._tmp.name) / "noisy.gif")
+        cls.gradient = GIFS["many_frames"](Path(cls._tmp.name) / "many.gif")
+        cls.picture = IMAGES["huge_jpg"](Path(cls._tmp.name) / "huge.jpg")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def _encode(self, file: Path, **kwargs) -> bytes:
+        module = GifModule(connection_manager=AsyncMock(), screen_size=ScreenSize.SIZE_64x64)
+        return module._load_gif_and_adapt_to_canvas(
+            file_path=file, canvas_size=64, resize_mode=ResizeMode.FILL, **kwargs)
+
+    def test_fewer_colors_make_the_gif_smaller_and_the_color_tables_smaller(self):
+        sizes = {}
+        for colors in (256, 64, 16, 2):
+            with self.subTest(colors=colors):
+                data = self._encode(self.noisy, colors=colors)
+
+                table_size = palette_table_size(colors)
+                global_size, local_sizes = _color_table_sizes(data)
+                self.assertEqual(table_size, global_size)
+                self.assertEqual({0, table_size}, set(local_sizes) | {0, table_size})
+                self.assertEqual(Image.open(io.BytesIO(data)).n_frames, len(local_sizes))
+                sizes[colors] = len(data)
+
+        self.assertGreater(sizes[256], sizes[64])
+        self.assertGreater(sizes[64], sizes[16])
+        self.assertGreater(sizes[16], sizes[2])
+
+    def test_fewer_colors_apply_even_without_palletize(self):
+        # a palette that is cut to fewer entries than the frame uses would garble the colors
+        data = self._encode(self.gradient, palletize=False, colors=16)
+
+        for frame in range(0, Image.open(io.BytesIO(data)).n_frames, 20):
+            image = Image.open(io.BytesIO(data))
+            image.seek(frame)
+            self.assertLessEqual(len(image.convert("RGB").getcolors(maxcolors=4096)), 16)
+
+    def test_table_sizes_are_powers_of_two(self):
+        self.assertEqual(
+            {2: 4, 3: 4, 4: 4, 5: 8, 16: 16, 17: 32, 255: 256, 256: 256},
+            {colors: palette_table_size(colors) for colors in (2, 3, 4, 5, 16, 17, 255, 256)},
+        )
+
+    def test_invalid_colors(self):
+        for colors in (0, 1, 257, -1, 16.5, "16", True, None):
+            with self.subTest(colors=colors):
+                with self.assertRaises(ValueError):
+                    validate_colors(colors)
+
+    async def test_uploads_reject_invalid_colors(self):
+        connection_manager = AsyncMock()
+        gif = GifModule(connection_manager=connection_manager, screen_size=ScreenSize.SIZE_64x64)
+        image = ImageModule(connection_manager=connection_manager, screen_size=ScreenSize.SIZE_64x64)
+
+        with self.assertRaises(ValueError):
+            await gif.upload_gif_file(self.noisy, colors=1)
+        with self.assertRaises(ValueError):
+            await image.show_image_file(self.picture, colors=300)
+
+        connection_manager.send_packets.assert_not_awaited()
+
+    def test_fewer_colors_reduce_the_colors_of_an_image(self):
+        for colors in (2, 8, 64):
+            with self.subTest(colors=colors):
+                pixels = ImageModule._load_image_and_adapt_to_canvas(
+                    file_path=self.picture, canvas_size=64, resize_mode=ResizeMode.FIT, palletize=True,
+                    background_color=(0, 0, 0), colors=colors)
+
+                image = Image.frombytes("RGB", (64, 64), bytes(pixels))
+                self.assertLessEqual(len(image.getcolors(maxcolors=4096)), colors)

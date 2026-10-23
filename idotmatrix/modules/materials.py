@@ -13,6 +13,7 @@ from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.protocol import build_command
 from idotmatrix.util import image_utils
+from idotmatrix.util.image_utils import validate_colors
 from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, SLOTS, validate_display_time, validate_slot,
 )
@@ -62,6 +63,7 @@ class MaterialsModule(IDotMatrixModule):
         clear_unused: bool = True,
         keep_order: bool = False,
         verify: bool = False,
+        colors: int = 256,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
@@ -79,6 +81,7 @@ class MaterialsModule(IDotMatrixModule):
             resize_mode: How the files are scaled to the screen.
             palletize: Reduce the colors to a palette. The default is on for GIFs and off for images.
             background_color: Color of the bars if a file does not have the shape of the screen.
+            colors: The number of colors of the palette (2 to 256), fewer make GIFs smaller and faster to upload.
             clear_unused: Delete the allowed slots that get no file, so that nothing stale keeps cycling.
             keep_order: Put the files into the slots in the order of the slot numbers, which is the order of the cycle,
                 instead of keeping what is stored where it is. That can transfer many files again, because writing a
@@ -94,13 +97,14 @@ class MaterialsModule(IDotMatrixModule):
         """
         slots = self._validate_slots(slots)
         validate_display_time(display_time)
+        validate_colors(colors)
         if len(files) > len(slots):
             raise ValueError(f"{len(files)} files do not fit into {len(slots)} slots")
         if not files:
             return []
 
         items = [
-            await asyncio.to_thread(self._fingerprint, file, display_time, resize_mode, palletize, background_color)
+            await asyncio.to_thread(self._fingerprint, file, display_time, resize_mode, palletize, background_color, colors)
             for file in files
         ]
         keys = [key for key, _ in items]
@@ -126,6 +130,7 @@ class MaterialsModule(IDotMatrixModule):
                     background_color=background_color,
                     slot=slot,
                     display_time=display_time,
+                    colors=colors,
                 )
             else:
                 await self._image.show_image_file(
@@ -135,6 +140,7 @@ class MaterialsModule(IDotMatrixModule):
                     background_color=background_color,
                     slot=slot,
                     display_time=display_time,
+                    colors=colors,
                 )
             self._contents[slot] = keys[index]
         return [assignment[index] for index in range(len(files))]
@@ -158,13 +164,15 @@ class MaterialsModule(IDotMatrixModule):
         return assignment
 
     @staticmethod
-    def _fingerprint(file: PathLike | str, display_time: int, resize_mode, palletize, background_color) -> tuple:
+    def _fingerprint(
+        file: PathLike | str, display_time: int, resize_mode, palletize, background_color, colors: int
+    ) -> tuple:
         """What identifies an item: the content of the file and everything that changes what is sent."""
         with open(file, "rb") as handle:
             digest = hashlib.sha1(handle.read()).hexdigest()
         with PILImage.open(file) as img:
             animated = getattr(img, "n_frames", 1) > 1
-        return (digest, animated, display_time, resize_mode, palletize, str(background_color)), animated
+        return (digest, animated, display_time, resize_mode, palletize, str(background_color), colors), animated
 
     @staticmethod
     def _validate_slots(slots: Iterable[int] | None) -> list[int]:

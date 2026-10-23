@@ -16,7 +16,7 @@ from idotmatrix.util import image_utils, color_utils
 from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
 )
-from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.image_utils import ResizeMode, validate_colors
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -51,6 +51,7 @@ class GifModule(IDotMatrixModule):
         duration_per_frame_in_ms: int = None,
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
+        colors: int = 256,
     ):
         """
         Uploads a GIF file to the device. It is shown right away, unless a slot is given.
@@ -65,7 +66,11 @@ class GifModule(IDotMatrixModule):
             slot (int, optional): If given (0 to 11), the GIF is stored in that slot of the device instead of being shown
                 right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
+            colors (int): The number of colors of the palette (2 to 256). Fewer colors make the upload smaller and
+                faster (16 colors are about a third of the size of 256 for a photo-like animation), at the price of
+                rougher colors. Less than 256 reduces the colors even if `palletize` is off.
         """
+        validate_colors(colors)
         if slot is not None:
             validate_slot(slot)
             validate_display_time(display_time)
@@ -81,6 +86,7 @@ class GifModule(IDotMatrixModule):
             palletize=palletize,
             background_color=background_color,
             duration_per_frame_in_ms=duration_per_frame_in_ms,
+            colors=colors,
         )
 
         # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
@@ -116,6 +122,7 @@ class GifModule(IDotMatrixModule):
         palletize: bool = True,
         background_color: Tuple[int, int, int] = (0, 0, 0),
         duration_per_frame_in_ms: int = None,
+        colors: int = 256,
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -131,6 +138,7 @@ class GifModule(IDotMatrixModule):
             palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+            colors (int): The number of colors of the palette (2 to 256).
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
@@ -156,8 +164,8 @@ class GifModule(IDotMatrixModule):
                             background_color=background_color,
                             mode="RGBA",
                         )
-                    if palletize:
-                        frame = image_utils.palettize(frame)
+                    if palletize or colors < 256:
+                        frame = image_utils.palettize(frame, colors=colors)
 
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
@@ -172,7 +180,8 @@ class GifModule(IDotMatrixModule):
             #  - the GIF is not animating all frames
 
             # all frames need color tables of the same size, or the device garbles / drops frames
-            frames = [image_utils.pad_palette(frame) for frame in frames]
+            table_size = image_utils.palette_table_size(colors)
+            frames = [image_utils.pad_palette(frame, table_size) for frame in frames]
 
             gif_buffer = io.BytesIO()
             # take the first frame, append the rest as additional frames and save as GIF into gif_buffer
