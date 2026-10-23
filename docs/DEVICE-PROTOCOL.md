@@ -161,13 +161,17 @@ into BLE writes. All numbers are little endian unless noted.
 | 4 | 0 for the first chunk, 2 for the following |
 | 5-8 | size of all data |
 | 9-12 | CRC32 of all data |
-| 13-14 | display time in seconds, big endian, see below |
+| 13-14 | display time of the item in a cycle of stored items, little endian, see below |
 | 15 | index |
 
 The index selects where the item goes: 0 to 11 are slots the device keeps and cycles through (**app**, the app calls
 them "device materials"), 13 shows the item right away, 12 is the one the app uses for text. The official app uses 13
 for showing a photo or GIF, and so do we. The display time is the time the item stays on screen in a cycle of stored
-items; the app takes it from a setting (default 5 s) and we send 5. (**app**)
+items; the app takes it from a setting (default 5 s). We sent the value big endian until 0.2.3, which the device
+read as 1280: items in slots 1 to 3 changed in under a second. With the bytes in the order of the app (little endian,
+`1e 00` for 30 s) items in slots 4 to 6 stayed on screen for about 30 s while the old ones still flashed by.
+(**verified** on a 64x64, by eye; the unit is probably seconds, 5, 10, 30, 60 and 300 are the app's options.)
+Whether the value matters for index 13 (show now) is not known (**guess**: no).
 
 ### Header of DIY image uploads (type 0), 9 bytes (**verified**)
 

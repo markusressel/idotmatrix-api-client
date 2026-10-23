@@ -40,7 +40,7 @@ class TestGifModule(TestBase):
             self.assertEqual(len(gif), int.from_bytes(chunk[5:9], "little"))
             self.assertEqual(zlib.crc32(gif), int.from_bytes(chunk[9:13], "little"))
             self.assertEqual(13, chunk[15])
-            self.assertEqual(5, int.from_bytes(chunk[13:15], "big"))
+            self.assertEqual(5, int.from_bytes(chunk[13:15], "little"))
             self.assertLessEqual(len(chunk) - 16, 4096)
 
         image = Image.open(io.BytesIO(gif))
