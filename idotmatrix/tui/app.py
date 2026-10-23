@@ -101,6 +101,8 @@ class IDotMatrixApp(App):
     #files { height: 1fr; background: transparent; overflow-x: hidden; }
     #files > .datatable--header { background: transparent; text-style: bold; color: $text-muted; }
     #preview { height: 1fr; min-height: 8; }
+    #preview-warning { height: auto; display: none; color: $warning; text-style: bold; text-align: center; }
+    #preview-warning.visible { display: block; }
     #info { height: auto; }
     #activity { height: 1; padding: 0 2; }
     #activity Label { width: 1fr; color: $text-muted; }
@@ -173,6 +175,7 @@ class IDotMatrixApp(App):
                 with Vertical(id="preview-box") as box:
                     box.border_title = "On the display"
                     yield PreviewWidget(id="preview")
+                    yield Static("", id="preview-warning")
                 with Vertical(id="info-box") as info:
                     info.border_title = "Details"
                     yield Static("", id="info")
@@ -497,6 +500,15 @@ class IDotMatrixApp(App):
                 self.query_one("#preview", PreviewWidget).show_message(f"cannot be shown: {error}")
             except NoMatches:
                 return
+
+    @on(PreviewWidget.Fitted)
+    def _preview_fitted(self, event: PreviewWidget.Fitted) -> None:
+        warning = self.query_one("#preview-warning", Static)
+        too_small = event.actual > event.shown > 0
+        warning.set_class(too_small, "visible")
+        if too_small:
+            warning.update(f"⚠ too small: drawn at {event.shown}x{event.shown} of {event.actual}x{event.actual} pixels, "
+                           "enlarge the terminal for an exact picture")
 
     def _update_info(self) -> None:
         path = self._previewed

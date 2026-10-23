@@ -937,3 +937,27 @@ class TestListKeys(AppHelpers, TestBase):
             text = app.query_one("#status").render()
             circle = next(span for span in text.spans if text.plain[span.start:span.end] == "●")
             self.assertIn("green", str(circle.style))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestPreviewWarning(AppHelpers, TestBase):
+
+    async def _warning(self, size):
+        app = self._app()
+        async with app.run_test(size=size) as pilot:
+            await self._settle(pilot)
+            await pilot.pause(0.5)
+            await self._settle(pilot)
+            warning = app.query_one("#preview-warning")
+            return warning.has_class("visible"), str(warning.render())
+
+    async def test_a_small_terminal_shows_a_warning_near_the_bottom_of_the_preview(self):
+        visible, text = await self._warning((60, 20))
+
+        self.assertTrue(visible)
+        self.assertIn("too small", text)
+
+    async def test_a_big_terminal_shows_no_warning(self):
+        visible, _ = await self._warning((200, 90))
+
+        self.assertFalse(visible)

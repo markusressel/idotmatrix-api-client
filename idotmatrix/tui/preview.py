@@ -5,6 +5,7 @@ import sys
 from PIL import Image as PILImage
 from rich.style import Style
 from rich.text import Text
+from textual.message import Message
 from textual.widgets import Static
 
 try:
@@ -41,6 +42,11 @@ def cell_aspect() -> float:
     return DEFAULT_CELL_ASPECT
 
 
+def fitted_side(image_side: int, max_columns: int, max_rows: int, aspect: float = 2.0) -> int:
+    """How many pixels per side of the picture fit in the space."""
+    return max(1, min(image_side, int(max_columns / (aspect / 2)), max_rows * 2))
+
+
 def render_frame(image: PILImage.Image, max_columns: int, max_rows: int, aspect: float = 2.0) -> Text:
     """
     Draws a picture with half blocks, two pixels on top of each other in a cell. A pixel is as wide as it is high
@@ -48,7 +54,7 @@ def render_frame(image: PILImage.Image, max_columns: int, max_rows: int, aspect:
     whole pixel) to fit.
     """
     per_pixel = aspect / 2
-    side = max(1, min(image.width, int(max_columns / per_pixel), max_rows * 2))
+    side = fitted_side(image.width, max_columns, max_rows, aspect)
     if side != image.width or side != image.height:
         image = image.resize((side, side), PILImage.Resampling.NEAREST)
     image = image.convert("RGB")
@@ -77,6 +83,14 @@ class PreviewWidget(Static):
     }
     """
 
+    class Fitted(Message):
+        """The picture was drawn with `shown` pixels per side of the `actual` ones (equal if it fits)."""
+
+        def __init__(self, shown: int, actual: int):
+            super().__init__()
+            self.shown = shown
+            self.actual = actual
+
     def __init__(self, **kwargs):
         super().__init__("", **kwargs)
         self._frames: list[PILImage.Image] = []
@@ -89,6 +103,7 @@ class PreviewWidget(Static):
         self._stop()
         self._frames, self._durations = [], []
         self.update(message)
+        self.post_message(self.Fitted(0, 0))
 
     def show_frames(self, frames: list[PILImage.Image], durations: list[int]) -> None:
         self._stop()
@@ -109,6 +124,8 @@ class PreviewWidget(Static):
     def _draw(self) -> None:
         size = self.size
         if size.width and size.height:
+            actual = self._frames[self._index].width
+            self.post_message(self.Fitted(fitted_side(actual, size.width, size.height, self._aspect), actual))
             self.update(render_frame(self._frames[self._index], size.width, size.height, self._aspect))
 
     def _schedule(self) -> None:
