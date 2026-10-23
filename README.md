@@ -134,6 +134,10 @@ await client.image.show_image_file("photo.jpg", resize_mode=ResizeMode.FILL)
 # show an animated GIF
 await client.gif.upload_gif_file("animation.gif")
 
+# label a picture or every frame of a GIF (the text is drawn at the size of the screen, before the colors are reduced)
+from idotmatrix.util.overlay import TextOverlay
+await client.gif.upload_gif_file("animation.gif", overlay=TextOverlay("64c", position="top-right"))
+
 # store files in the slots of the device, which then cycles through them on its own (no uploads during the show)
 await client.materials.store(["a.gif", "b.png", "c.gif"], slots=[1, 2, 3], display_time=30)
 # the module remembers what is in which slot: storing again only transfers what is new, in any order

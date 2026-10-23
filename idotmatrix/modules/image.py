@@ -17,6 +17,7 @@ from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
 )
 from idotmatrix.util.image_utils import validate_colors
+from idotmatrix.util.overlay import TextOverlay
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
@@ -98,6 +99,7 @@ class ImageModule(IDotMatrixModule):
         palletize: bool,
         background_color: Tuple[int, int, int],
         colors: int = 256,
+        overlay: TextOverlay | None = None,
     ) -> bytearray:
         """
         Loads an image from a file, resizes it to fit within a square canvas of pixel_size x pixel_size,
@@ -108,6 +110,7 @@ class ImageModule(IDotMatrixModule):
             palletize (bool): If True, the image will be converted to a palette-based image.
             background_color (Tuple[int, int, int]): RGB color for the background, which is only visible if the input
             colors (int): The number of colors of the palette that `palletize` reduces the image to.
+            overlay (TextOverlay, optional): A text that is drawn on top of the image.
         Returns:
             bytearray: A bytearray containing the raw pixel data of the processed image in RGB format.
         """
@@ -130,6 +133,9 @@ class ImageModule(IDotMatrixModule):
                 mode="RGB",  # ensure the image is in RGB mode
             )
 
+            if overlay is not None:
+                img = overlay.apply(img).convert("RGB")
+
             if palletize:
                 img = image_utils.palettize(img, colors=colors)
 
@@ -151,6 +157,7 @@ class ImageModule(IDotMatrixModule):
         slot: int | None = None,
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
         colors: int = 256,
+        overlay: TextOverlay | None = None,
     ) -> None:
         """
         Shows an image file on the device, the way the official app does it for photos. It is shown right away, unless
@@ -175,6 +182,7 @@ class ImageModule(IDotMatrixModule):
             colors (int): The number of colors of the palette (2 to 256) that `palletize` reduces the image to. The
                 raw upload has the same size either way, with `png` fewer colors make it smaller. Less than 256 reduces
                 the colors even if `palletize` is off.
+            overlay (TextOverlay, optional): A text that is drawn on top of the image, f.e. to label it.
         """
         validate_colors(colors)
         palletize = palletize or colors < 256
@@ -191,6 +199,7 @@ class ImageModule(IDotMatrixModule):
             palletize=palletize,
             background_color=background_color,
             colors=colors,
+            overlay=overlay,
         )
         await self._send_static_image_data(
             pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time, colors=colors)

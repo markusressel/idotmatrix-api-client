@@ -17,6 +17,7 @@ from idotmatrix.util.device_material import (
     DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
 )
 from idotmatrix.util.image_utils import ResizeMode, validate_colors
+from idotmatrix.util.overlay import TextOverlay
 
 ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
 DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
@@ -53,6 +54,7 @@ class GifModule(IDotMatrixModule):
         display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
         colors: int = 256,
         max_size_kb: int | None = None,
+        overlay: TextOverlay | None = None,
     ):
         """
         Uploads a GIF file to the device. It is shown right away, unless a slot is given.
@@ -75,6 +77,7 @@ class GifModule(IDotMatrixModule):
                 (down to 32), frames (every 2nd, 3rd, ... frame, the animation takes as long as before), then colors
                 down to 8 and frames again. If it still does not fit the smallest version is used and a warning is
                 logged.
+            overlay (TextOverlay, optional): A text that is drawn on top of every frame, f.e. to label it.
         """
         validate_colors(colors)
         if max_size_kb is not None and (isinstance(max_size_kb, bool) or not isinstance(max_size_kb, int)
@@ -97,6 +100,7 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms=duration_per_frame_in_ms,
             colors=colors,
             max_size_kb=max_size_kb,
+            overlay=overlay,
         )
 
         # If the device already has the exact same GIF stored, it answers the first chunk with "finished"
@@ -134,6 +138,7 @@ class GifModule(IDotMatrixModule):
         duration_per_frame_in_ms: int = None,
         colors: int = 256,
         max_size_kb: int | None = None,
+        overlay: TextOverlay | None = None,
     ) -> bytes:
         """
         Loads a GIF file and adapts it to the pixel size of the device's canvas.
@@ -151,6 +156,7 @@ class GifModule(IDotMatrixModule):
             duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
             colors (int): The number of colors of the palette (2 to 256).
             max_size_kb (int, optional): The size the GIF may have at most, see `upload_gif_file`.
+            overlay (TextOverlay, optional): A text that is drawn on top of every frame.
         Returns:
             bytes: A byte representation of the GIF file, adapted to fit the pixel size.
         """
@@ -176,6 +182,8 @@ class GifModule(IDotMatrixModule):
                             background_color=background_color,
                             mode="RGBA",
                         )
+                    if overlay is not None:
+                        frame = overlay.apply(frame)
 
                     frames.append(frame.copy())
                     img.seek(img.tell() + 1)
