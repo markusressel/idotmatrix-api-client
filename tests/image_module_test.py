@@ -89,7 +89,7 @@ class TestStaticImage(TestBase):
         return [(i % 256, (i * 3) % 256, (i * 7) % 256) for i in range(32 * 32)]
 
     async def test_show_image_pixeldata(self):
-        await self.under_test.show_image_pixeldata(self._pixels())
+        await self.under_test.show_image_pixeldata(self._pixels(), png=False)
 
         self.connection_manager.send_packets.assert_awaited_once()
         kwargs = self.connection_manager.send_packets.await_args.kwargs
@@ -116,7 +116,7 @@ class TestStaticImage(TestBase):
     async def test_large_images_are_sent_in_4096_byte_chunks(self):
         under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
 
-        await under_test.show_image_pixeldata([(1, 2, 3)] * (64 * 64))
+        await under_test.show_image_pixeldata([(1, 2, 3)] * (64 * 64), png=False)
 
         chunks = [b"".join(p) for p in self.connection_manager.send_packets.await_args.kwargs["packets"]]
         self.assertEqual([4096 + 16] * 3, [len(c) for c in chunks])
@@ -139,7 +139,7 @@ class TestStaticImage(TestBase):
     async def test_show_image_file(self):
         under_test = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
 
-        await under_test.show_image_file(self._test_data_folder / "demo_64.png")
+        await under_test.show_image_file(self._test_data_folder / "demo_64.png", png=False)
 
         kwargs = self.connection_manager.send_packets.await_args.kwargs
         chunks = [b"".join(ble_packets) for ble_packets in kwargs["packets"]]
@@ -172,8 +172,14 @@ class TestStaticImage(TestBase):
         self.assertEqual((64, 64), decoded.size)
         self.assertEqual(bytes(c for pixel in pixels for c in pixel), decoded.convert("RGB").tobytes())  # lossless
 
-    async def test_png_is_off_by_default(self):
+    async def test_png_is_on_by_default(self):
         await self.under_test.show_image_pixeldata(self._pixels())
+
+        chunk = b"".join(self.connection_manager.send_packets.await_args.kwargs["packets"][0])
+        self.assertEqual(b"\x89PNG", chunk[16:20])
+
+    async def test_raw_rgb_with_png_off(self):
+        await self.under_test.show_image_pixeldata(self._pixels(), png=False)
 
         chunk = b"".join(self.connection_manager.send_packets.await_args.kwargs["packets"][0])
         self.assertNotEqual(b"\x89PNG", chunk[16:20])
