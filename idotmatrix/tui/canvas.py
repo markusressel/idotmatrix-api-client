@@ -14,6 +14,7 @@ class PixelCanvas:
         self._undo: list[list[list[Color]]] = []
         self._redo: list[list[list[Color]]] = []
         self._dirty: set[tuple[int, int]] = set()
+        self._touched: set[int] = set()
 
     def get(self, x: int, y: int) -> Color:
         return self._pixels[y][x]
@@ -34,6 +35,7 @@ class PixelCanvas:
             return False
         self._pixels[y][x] = color
         self._dirty.add((x, y))
+        self._touched.add(y)
         return True
 
     def line(self, x0: int, y0: int, x1: int, y1: int, color: Color) -> None:
@@ -115,6 +117,12 @@ class PixelCanvas:
         changed = {(x, y): self._pixels[y][x] for x, y in self._dirty}
         self._dirty.clear()
         return changed
+
+    def take_touched(self) -> "set[int]":  # a string: the method set of this class hides the builtin
+        """The rows of pixels that changed since the last call, to draw only those again."""
+        touched = self._touched
+        self._touched = set()
+        return touched
 
     def everything(self) -> dict[tuple[int, int], Color]:
         self._dirty.clear()

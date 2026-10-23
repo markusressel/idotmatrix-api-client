@@ -34,7 +34,7 @@ class DeviceBar(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield PlainStatic("Brightness", id="label")
-        yield Slider(MIN_BRIGHTNESS, MAX_BRIGHTNESS, self.app.brightness)
+        yield Slider(MIN_BRIGHTNESS, MAX_BRIGHTNESS, self.app.brightness, focusable=False)
         yield PlainStatic("", id="percent")
         yield PowerButton()
         yield PlainStatic("F5 dimmer  F6 brighter  F7 power", id="hint")

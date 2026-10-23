@@ -295,14 +295,24 @@ class IDotMatrixApp(App):
             return  # a dialog or the list of displays is open
         if page_id == "files":
             self.pop_screen()
+            self._play_preview(True)
             return
         page = self._page(page_id)
         if page is None or page is current:
             return
         if current is self.main_screen:
+            self._play_preview(False)
             self.push_screen(page_id)
         else:
             self.switch_screen(page_id)
+
+    def _play_preview(self, playing: bool) -> None:
+        """The animation of the preview runs only while the files are shown."""
+        try:
+            preview = self.main_screen.query_one("#preview")
+        except NoMatches:
+            return
+        preview.resume() if playing else preview.pause()
 
     # messages: shown in the status bar instead of on top of the other panels
 

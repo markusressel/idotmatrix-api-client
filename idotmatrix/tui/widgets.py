@@ -462,8 +462,9 @@ class Slider(Widget):
             self.slider = slider
             self.value = value
 
-    def __init__(self, low: int, high: int, value: int, **kwargs):
+    def __init__(self, low: int, high: int, value: int, focusable: bool = True, **kwargs):
         super().__init__(**kwargs)
+        self.can_focus = focusable  # a slider that takes the focus would take the arrow keys of the page as well
         self.low = low
         self.high = high
         self.set_reactive(Slider.value, value)

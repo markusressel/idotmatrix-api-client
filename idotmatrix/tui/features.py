@@ -222,14 +222,14 @@ FEATURES = (
         "device", "Device", "Rotation, the time, what the display knows about itself, and resets. Brightness and "
                             "power are at the bottom of every page.",
         actions=(
-            Action("Normal", _normal, "primary", icon="⟲"),
-            Action("Upside down", _flipped, icon="⟳"),
-            Action("Set the time", _sync_time, icon="◷"),
-            Action("Info", _info, icon="ⓘ"),
+            Action("Normal", _normal, "primary", icon="⟲", group="Rotation"),
+            Action("Upside down", _flipped, icon="⟳", group="Rotation"),
+            Action("Set the time", _sync_time, icon="◷", group="Time and information"),
+            Action("Info", _info, icon="ⓘ", group="Time and information"),
             Action("Reset", _reset, "warning", "Reset the display and its internals? It can fix issues that appear "
-                                                "over time.", icon="⚠"),
+                                                "over time.", icon="⚠", group="Danger zone"),
             Action("Delete data", _delete_data, "error", "Delete the data of the display and reset it to defaults? "
-                                                         "The stored pictures are gone.", icon="✖"),
+                                                         "The stored pictures are gone.", icon="✖", group="Danger zone"),
         ),
     ),
 )

@@ -344,3 +344,68 @@ class TestScoreboardMouse(AppHelpers, TestBase):
             self.assertEqual([2, 0], [counter.count for counter in counters])
             await self._until(pilot, lambda: self.client.scoreboard.show.await_args
                               and self.client.scoreboard.show.await_args.args == (2, 0))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestButtonGroups(AppHelpers, TestBase):
+
+    def setUp(self):
+        super().setUp()
+        _device_client(self.client)
+
+    async def test_the_buttons_of_the_device_are_in_rows_and_up_down_move_between_the_rows(self):
+        from textual.widgets import Button
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f2", *["down"] * 9, "enter")  # device
+            await pilot.pause()
+            form = app.screen.query_one("#device")
+
+            rows = form._button_rows()
+            self.assertEqual([2, 2, 2], [len(row) for row in rows])
+            self.assertIs(app.focused, rows[0][0])
+            await pilot.press("right")
+            self.assertIs(app.focused, rows[0][1])
+            await pilot.press("down")
+            self.assertIs(app.focused, rows[1][1])
+            await pilot.press("down", "up", "up", "up")
+            self.assertIs(app.focused, rows[0][1])
+            self.assertEqual(6, len(list(form.query(Button))))
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestDrawKeys(AppHelpers, TestBase):
+
+    def setUp(self):
+        super().setUp()
+        _device_client(self.client)
+
+    async def test_the_arrows_move_the_cursor_and_do_not_touch_the_brightness(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f3")
+            await pilot.pause()
+            before = app.screen._widget.cursor
+
+            await pilot.press("left", "left", "up")
+
+            self.assertEqual((before[0] - 2, before[1] - 1), app.screen._widget.cursor)
+            self.assertEqual(100, app.session.brightness)
+
+    async def test_only_the_rows_with_changes_are_drawn_again(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("f3")
+            await pilot.pause()
+            widget = app.screen._widget
+            widget.render_line(0)
+            widget.render_line(1)
+            kept = widget._strips[0]
+
+            widget.canvas.set(3, 2, (255, 0, 0))  # pixel row 2 is in the cell row 1 (or 2 if the pixels are wide)
+            widget.update_rows()
+
+            self.assertIs(kept, widget._strips.get(0))

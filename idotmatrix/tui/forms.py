@@ -42,6 +42,7 @@ class Action:
     variant: str = "default"
     confirm: str = ""  # asks this before it runs
     icon: str = ""
+    group: str = ""  # buttons of a group are in a row of their own, below the name of the group
 
 
 @dataclass(frozen=True)
@@ -147,7 +148,9 @@ class FeatureForm(VerticalScroll, can_focus=False):
     FeatureForm .row:focus-within Field:focus, FeatureForm .row:focus-within Input:focus { background: transparent; }
     FeatureForm Button:focus { background: $accent; color: $text; text-style: bold reverse; }
     FeatureForm .row Field, FeatureForm .row ColorField, FeatureForm .row TextField { width: 1fr; }
+    FeatureForm .group { margin-top: 2; color: $primary; text-style: bold; }
     FeatureForm .buttons { height: auto; margin-top: 2; }
+    FeatureForm .buttons.grouped { margin-top: 1; }
     FeatureForm Button { margin-right: 2; }
     """
     BINDINGS = [
@@ -185,10 +188,16 @@ class FeatureForm(VerticalScroll, can_focus=False):
             from idotmatrix.tui.previews import EffectPreview, TextPreview
             self.preview = EffectPreview() if self.feature.preview == "effect" else TextPreview()
             yield self.preview
-        with Horizontal(classes="buttons"):
-            for index, action in enumerate(self.feature.actions):
-                label = f"{action.icon} {action.label}" if action.icon else action.label
-                yield Button(label, id=f"{self.feature.id}-action{index}", variant=action.variant, compact=True)
+        groups: dict[str, list[tuple[int, Action]]] = {}
+        for index, action in enumerate(self.feature.actions):
+            groups.setdefault(action.group, []).append((index, action))
+        for name, actions in groups.items():
+            if name:
+                yield Label(name, classes="group")
+            with Horizontal(classes="buttons grouped" if name else "buttons"):
+                for index, action in actions:
+                    label = f"{action.icon} {action.label}" if action.icon else action.label
+                    yield Button(label, id=f"{self.feature.id}-action{index}", variant=action.variant, compact=True)
 
     def _make(self, item: Field, value) -> Widget:
         if item.kind == "choice":
@@ -217,9 +226,14 @@ class FeatureForm(VerticalScroll, can_focus=False):
 
     # moving
 
+    def _button_rows(self) -> list[list[Button]]:
+        """The buttons as they are laid out: one row for every group."""
+        return [list(row.query(Button)) for row in self.query(".buttons")]
+
     def _targets(self) -> list[Widget]:
+        """What the focus visits from top to bottom: the fields, then the first button of every row."""
         targets = [widget.focus_target() for widget in self._widgets.values()]
-        return targets + list(self.query(Button))
+        return targets + [row[0] for row in self._button_rows() if row]
 
     def focus_first(self) -> None:
         targets = self._targets()
@@ -227,14 +241,32 @@ class FeatureForm(VerticalScroll, can_focus=False):
             targets[0].focus()
 
     def action_field(self, delta: int) -> None:
-        targets = self._targets()
         focused = self.app.focused
-        if focused not in targets:
+        rows = self._button_rows()
+        fields = [widget.focus_target() for widget in self._widgets.values()]
+        row_index = next((index for index, row in enumerate(rows) if focused in row), None)
+        if row_index is not None:
+            column = rows[row_index].index(focused)
+            target_row = row_index + delta
+            if 0 <= target_row < len(rows):
+                row = rows[target_row]
+                target = row[min(column, len(row) - 1)]
+            elif target_row < 0 and fields:
+                target = fields[-1]
+            else:
+                return
+        elif focused in fields:
+            index = fields.index(focused) + delta
+            if 0 <= index < len(fields):
+                target = fields[index]
+            elif index >= len(fields) and rows:
+                target = rows[0][0]
+            else:
+                return
+        else:
             return
-        index = targets.index(focused) + delta
-        if 0 <= index < len(targets):
-            targets[index].focus()
-            self.scroll_to_widget(targets[index])
+        target.focus()
+        self.scroll_to_widget(target)
 
     def check_action(self, action: str, parameters: tuple) -> bool | None:
         if action == "button":
@@ -244,12 +276,12 @@ class FeatureForm(VerticalScroll, can_focus=False):
         return True
 
     def action_button(self, delta: int) -> None:
-        buttons = list(self.query(Button))
         focused = self.app.focused
-        if focused in buttons:
-            index = buttons.index(focused) + delta
-            if 0 <= index < len(buttons):
-                buttons[index].focus()
+        for row in self._button_rows():
+            if focused in row:
+                index = row.index(focused) + delta
+                if 0 <= index < len(row):
+                    row[index].focus()
 
     # changes
 

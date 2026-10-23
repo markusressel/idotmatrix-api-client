@@ -1,9 +1,12 @@
 import asyncio
 import logging
+from functools import lru_cache
 from itertools import islice
 from pathlib import Path
 
 from PIL import Image as PILImage
+from rich.color import Color as RichColor
+from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
 from textual import events
@@ -11,7 +14,8 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
-from textual.geometry import Size
+from textual.geometry import Region, Size
+from textual.strip import Strip
 from textual.widget import Widget
 from textual.widgets import Static
 
@@ -29,6 +33,7 @@ PALETTE = (
     "#ff00ff", "#ff0080", "#ffffff", "#c0c0c0", "#808080", "#804000", "#000000",
 )
 BIG_STEP = 8
+STATE_DELAY_SECONDS = 0.05
 ANCHOR: Color = (255, 215, 0)
 
 
@@ -46,6 +51,12 @@ def style_of(color: Color) -> str:
     return "rgb({},{},{})".format(*color)
 
 
+@lru_cache(maxsize=16384)
+def cell_style(top: Color, bottom: Color) -> Style:
+    """The style of a cell with two pixels, cached: a canvas has thousands of them and few colors."""
+    return Style(color=RichColor.from_rgb(*top), bgcolor=RichColor.from_rgb(*bottom))
+
+
 class CanvasWidget(Widget):
     """
     The picture. If it fits, a pixel is two columns wide and one row high (square, and the mouse hits it exactly),
@@ -54,6 +65,7 @@ class CanvasWidget(Widget):
 
     DEFAULT_CSS = "CanvasWidget { width: auto; height: auto; }"
     ALLOW_SELECT = False  # dragging paints, it must not select text
+    can_focus = True
 
     def __init__(self, canvas: PixelCanvas, **kwargs):
         super().__init__(**kwargs)
@@ -64,6 +76,8 @@ class CanvasWidget(Widget):
         self.on_pointer = None  # called with (x, y, button, started)
         self._pointer_down = False
         self._last_pixel: tuple[int, int] | None = None
+        self._strips: dict[int, Strip] = {}
+        self._shown_marks: set[int] = set()
 
     def get_content_width(self, container: Size, viewport: Size) -> int:
         return self.canvas.size * (2 if self.wide else 1)
@@ -74,7 +88,7 @@ class CanvasWidget(Widget):
     def set_wide(self, wide: bool) -> None:
         if wide != self.wide:
             self.wide = wide
-            self.refresh(layout=True)
+            self.reset()
 
     def _color_at(self, x: int, y: int) -> Color:
         if (x, y) == self.cursor:
@@ -83,23 +97,45 @@ class CanvasWidget(Widget):
             return ANCHOR
         return self.canvas.get(x, y)
 
-    def render(self) -> Text:
-        size = self.canvas.size
-        text = Text(no_wrap=True, overflow="crop")
-        if self.wide:
-            for y in range(size):
-                for x in range(size):
-                    text.append("  ", Style(bgcolor=style_of(self._color_at(x, y))))
-                if y + 1 < size:
-                    text.append("\n")
-        else:
-            for y in range(0, size, 2):
-                for x in range(size):
-                    text.append("▀", Style(color=style_of(self._color_at(x, y)),
-                                           bgcolor=style_of(self._color_at(x, y + 1))))
-                if y + 2 < size:
-                    text.append("\n")
-        return text
+    def _cell_row(self, y: int) -> int:
+        """The row of cells that shows the row of pixels."""
+        return y if self.wide else y // 2
+
+    def _marked_rows(self) -> set[int]:
+        rows = {self._cell_row(self.cursor[1])}
+        if self.anchor is not None:
+            rows.add(self._cell_row(self.anchor[1]))
+        return rows
+
+    def render_line(self, row: int) -> Strip:
+        """One row of cells. The rows are kept until a pixel in them changes, so a stroke draws a few of them."""
+        strip = self._strips.get(row)
+        if strip is None:
+            size = self.canvas.size
+            if self.wide:
+                segments = [Segment("  ", cell_style(self._color_at(x, row), self._color_at(x, row)))
+                            for x in range(size)] if row < size else []
+            else:
+                segments = [Segment("▀", cell_style(self._color_at(x, row * 2), self._color_at(x, row * 2 + 1)))
+                            for x in range(size)] if row * 2 < size else []
+            strip = self._strips[row] = Strip(segments)
+        return strip
+
+    def reset(self) -> None:
+        """Draws everything again."""
+        self._strips.clear()
+        self.canvas.take_touched()
+        self._shown_marks = self._marked_rows()
+        self.refresh(layout=True)
+
+    def update_rows(self) -> None:
+        """Draws again the rows with changed pixels and the ones the cursor or the corner of a line is or was in."""
+        rows = {self._cell_row(y) for y in self.canvas.take_touched()} | self._marked_rows() | self._shown_marks
+        self._shown_marks = self._marked_rows()
+        width = self.size.width
+        for row in rows:
+            self._strips.pop(row, None)
+            self.refresh(Region(0, row, width, 1))
 
     # the mouse
 
@@ -196,6 +232,7 @@ class DrawScreen(PageScreen):
         self._generation = -1
         self._wake: asyncio.Event | None = None
         self._widget: CanvasWidget | None = None
+        self._state_timer = None
 
     @property
     def canvas_file(self) -> Path:
@@ -234,13 +271,14 @@ class DrawScreen(PageScreen):
         self._fit()
         self._update_palette()
         self._update()
+        self._widget.focus()
 
     def on_screen_resume(self) -> None:
         if self.canvas.size != self.app.canvas_size:  # another display than the canvas was made for
             self.canvas = PixelCanvas(self.app.canvas_size)
             self._widget.canvas = self.canvas
             self._widget.cursor = (self.canvas.size // 2, self.canvas.size // 2)
-            self._widget.refresh(layout=True)
+            self._widget.reset()
             self.query_one("#canvas-box").border_title = f"Canvas {self.canvas.size}x{self.canvas.size}"
         self._diy_active = False
         self._fit()
@@ -275,10 +313,19 @@ class DrawScreen(PageScreen):
     # drawing
 
     def _changed(self) -> None:
-        self._widget.refresh()
-        self._update()
+        self._widget.update_rows()
+        self._update_soon()
         if self.live and self._wake is not None:
             self._wake.set()
+
+    def _update_soon(self) -> None:
+        """Updates the texts at the side once for a burst of changes, not for every pixel of a stroke."""
+        if self._state_timer is None:
+            self._state_timer = self.set_timer(STATE_DELAY_SECONDS, self._update_now)
+
+    def _update_now(self) -> None:
+        self._state_timer = None
+        self._update()
 
     def _update_palette(self) -> None:
         palette = Text()
