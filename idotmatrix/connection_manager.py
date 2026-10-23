@@ -35,6 +35,9 @@ class ConnectionListener:
 # the official app gives up on an upload if the device does not acknowledge a chunk within 5 seconds
 UPLOAD_ACK_TIMEOUT_SECONDS = 5
 
+# the official app writes the BLE packets of an upload chunk 20 ms apart, the device may lose data that arrives faster
+UPLOAD_WRITE_INTERVAL_SECONDS = 0.02
+
 # the device answers normal commands within a few milliseconds
 COMMAND_ACK_TIMEOUT_SECONDS = 1
 
@@ -397,14 +400,17 @@ class ConnectionManager:
         self._last_activity = time.monotonic()
         self._notifications.put_nowait(bytes(data))
 
-    async def _wait_for_upload_status(self) -> UploadStatus:
+    async def _wait_for_upload_status(self, deadline: float) -> UploadStatus:
         """
         Waits for the device to acknowledge an upload chunk.
+        Args:
+            deadline: The loop time at which the wait ends. Like in the official app it is counted from the start of
+                the chunk, not from its last write.
         Raises:
             UploadError: If the device rejects the upload or does not answer in time.
         """
         try:
-            async with asyncio.timeout(UPLOAD_ACK_TIMEOUT_SECONDS):
+            async with asyncio.timeout_at(deadline):
                 while True:
                     notification = await self._notifications.get()
                     status = parse_upload_notification(notification)
@@ -468,16 +474,29 @@ class ConnectionManager:
                 self._notifications = asyncio.Queue()
 
             for i, packet in enumerate(packets):
-                for j, ble_paket in enumerate(packet):
-                    self.logging.debug(f"sending packet {i + 1}.{j + 1} of {len(packets)}.{len(packets[-1])}")
-                    wait_for_response = response if j == len(packet) - 1 else False
-                    await self._transport.write(ble_paket, response=wait_for_response)
+                deadline = asyncio.get_running_loop().time() + UPLOAD_ACK_TIMEOUT_SECONDS
+                await self._write_chunk(packet, response, paced=wait_for_ack, label=f"{i + 1} of {len(packets)}")
                 if wait_for_ack:
-                    status = await self._wait_for_upload_status()
+                    status = await self._wait_for_upload_status(deadline)
                     if status == UploadStatus.FINISHED and i < len(packets) - 1:
                         # f.e. the device already has the same data stored
                         self.logging.debug("the device reports the upload as finished, skipping the remaining packets")
                         return
+
+    async def _write_chunk(self, packet: List[bytearray | bytes], response: bool, paced: bool, label: str):
+        """
+        Writes the BLE packets of one packet. Only the last one is written with a response, if requested.
+        Args:
+            packet: The BLE packets to write.
+            response: If True, the last BLE packet is written with response.
+            paced: If True, the writes are spaced `UPLOAD_WRITE_INTERVAL_SECONDS` apart.
+            label: Describes the packet in the log.
+        """
+        for j, ble_packet in enumerate(packet):
+            if paced and j > 0:
+                await asyncio.sleep(UPLOAD_WRITE_INTERVAL_SECONDS)
+            self.logging.debug(f"sending packet {label}.{j + 1} of {len(packet)}")
+            await self._transport.write(ble_packet, response=response if j == len(packet) - 1 else False)
 
     @staticmethod
     def _split_oversized_ble_packets(
