@@ -42,6 +42,7 @@
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
 * [Usage](#usage)
+  * [Terminal UI](#terminal-ui)
 * [Fonts](#fonts)
 * [Roadmap](#roadmap)
 * [Contributing](#contributing)
@@ -190,6 +191,22 @@ The `DigitalPictureFrame` can
 * display a static list of images and/or GIFs
 * watch one or more directories for images and GIFs
 * automatically reconnect to the device in case of an error or connection loss
+
+### Terminal UI
+
+A terminal UI to browse a folder, see what a picture or animation will look like on the display (with your color,
+size and label options, and how long the upload takes) and send it:
+
+```shell
+pip install 'idotmatrix-api-client[tui]'
+idotmatrix-tui /path/to/pictures --address AA:BB:CC:DD:EE:FF
+```
+
+`Enter` shows the file on the display, `Space` marks files and `s` stores the marked ones (or the whole folder) in the
+slots of the display, which then cycles through them on its own. `o` sets the colors (auto), the largest GIF, the
+scale and a label, `b` the brightness, `c` shows the clock, `x` clears the slots, `/` filters, `Esc` cancels an upload
+and `:` lists all commands. The folder, the address and the options are remembered
+(`~/.config/idotmatrix-tui/session.json`).
 
 ## Fonts
 

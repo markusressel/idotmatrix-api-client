@@ -1,4 +1,4 @@
-uv_test := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-mock --with mock --with asyncmock"
+uv_test := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-mock --with mock --with asyncmock --with textual"
 
 [default]
 default:

@@ -16,6 +16,12 @@ dependencies = [
     "watchdog>=6.0.0"
 ]
 
+[project.optional-dependencies]
+tui = ["textual>=8.0.0"]
+
+[project.scripts]
+idotmatrix-tui = "idotmatrix.tui.__main__:main"
+
 [project.urls]
 homepage = "https://github.com/markusressel/idotmatrix-api-client"
 repository = "https://github.com/markusressel/idotmatrix-api-client"
