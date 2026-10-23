@@ -1,6 +1,8 @@
 import logging
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class EcoModule(IDotMatrixModule):
@@ -55,18 +57,7 @@ class EcoModule(IDotMatrixModule):
         start_hour: int, start_minute: int,
         end_hour: int, end_minute: int,
         eco_brightness: int) -> bytearray:
-        data = bytearray(
-            [
-                10,
-                0,
-                2,
-                128,
-                int(enabled) % 256,
-                int(start_hour) % 256,
-                int(start_minute) % 256,
-                int(end_hour) % 256,
-                int(end_minute) % 256,
-                int(eco_brightness) % 256,
-            ]
-        )
+        data = build_command(
+            protocol.ECO, int(enabled) % 256, int(start_hour) % 256, int(start_minute) % 256,
+            int(end_hour) % 256, int(end_minute) % 256, int(eco_brightness) % 256)
         return data

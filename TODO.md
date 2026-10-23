@@ -47,7 +47,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 - [x] `Transport` protocol + fake device for tests (`idotmatrix/transport.py`, `tests/fake_transport.py`)
 - [x] Home Assistant support, first step: `BleakTransport` / `ConnectionManager.set_device` / `IDotMatrixClient(ble_device=...)` take a `BLEDevice`, `transport_factory` allows a custom `Transport`. Not tried inside Home Assistant yet: check the address-less discovery and our auto-reconnect and heartbeat against HA's own reconnect handling (a real integration probably wants to turn them off), and whether it needs `bleak-retry-connector`
-- [ ] Opcode table / protocol layer
+- [x] Opcode table / protocol layer (`idotmatrix/protocol.py`: `Command`, `build_command`, used by the modules, the ack table and the heartbeat). Not covered: the text and upload headers, which are assembled by hand
 - [ ] Move `digital_picture_frame.py` out of package top level
 - [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)
 

@@ -8,7 +8,9 @@ from typing import List, Optional, Awaitable, Any
 from bleak import BleakScanner, AdvertisementData
 from bleak.backends.device import BLEDevice
 
+from . import protocol
 from .const import BLUETOOTH_DEVICE_NAME
+from .protocol import build_command
 from .transport import Transport, BleakTransport
 from .util.command_ack import is_acknowledged_command
 from .util.upload_ack import UploadStatus, parse_upload_notification
@@ -37,7 +39,7 @@ UPLOAD_ACK_TIMEOUT_SECONDS = 5
 COMMAND_ACK_TIMEOUT_SECONDS = 1
 
 # a command that the device rejects (status 0) on purpose: it changes nothing, but its answer proves that the device is alive
-HEARTBEAT_COMMAND = bytes([5, 0, 4, 128, 255])
+HEARTBEAT_COMMAND = bytes(build_command(protocol.BRIGHTNESS, 255))
 HEARTBEAT_ACK_TIMEOUT_SECONDS = 3
 
 RECONNECT_INITIAL_DELAY_SECONDS = 5

@@ -1,6 +1,8 @@
 import logging
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class CountdownModule(IDotMatrixModule):
@@ -64,15 +66,5 @@ class CountdownModule(IDotMatrixModule):
 
     @staticmethod
     def _create_payload(mode: int, minutes: int, seconds: int) -> bytearray:
-        data = bytearray(
-            [
-                7,
-                0,
-                8,
-                128,
-                mode % 256,
-                minutes % 256,
-                seconds % 256,
-            ]
-        )
+        data = build_command(protocol.COUNTDOWN, mode % 256, minutes % 256, seconds % 256)
         return data

@@ -1,6 +1,8 @@
 import logging
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class ChronographModule(IDotMatrixModule):
@@ -44,13 +46,5 @@ class ChronographModule(IDotMatrixModule):
         """
         if mode not in range(0, 4):
             raise ValueError("Chronograph.setMode expects parameter mode to be between 0 and 3")
-        data: bytearray = bytearray(
-            [
-                5,
-                0,
-                9,
-                128,
-                mode,
-            ]
-        )
+        data: bytearray = build_command(protocol.CHRONOGRAPH, mode)
         await self._send_bytes(data=data)

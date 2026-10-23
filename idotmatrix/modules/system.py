@@ -2,7 +2,9 @@ import logging
 
 from cryptography.fernet import Fernet
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class SystemModule(IDotMatrixModule):
@@ -14,27 +16,7 @@ class SystemModule(IDotMatrixModule):
         """
         Deletes the device data and resets it to defaults.
         """
-        data = bytearray(
-            [
-                17,
-                0,
-                2,
-                1,
-                12,
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-            ]
-        )
+        data = build_command(protocol.DELETE_MATERIALS, 12, 0, *range(1, 12))
         await self._send_bytes(data=data)
 
     @staticmethod

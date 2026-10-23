@@ -1,7 +1,9 @@
 import logging
 import struct
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class ScoreboardModule(IDotMatrixModule):
@@ -26,16 +28,11 @@ class ScoreboardModule(IDotMatrixModule):
         )  # Clamping the value to be between 0 and 999
 
         # Preparing the data to be sent, adjusting the indices according to the byte order.
-        data = bytearray(
-            [
-                8,  # Command start
-                0,  # Placeholder
-                10,  # Command ID
-                128,  # Another command specifier
-                bytearray_count1[1],  # Lower byte of count1
-                bytearray_count1[0],  # Upper byte of count1
-                bytearray_count2[1],  # Lower byte of count2
-                bytearray_count2[0],  # Upper byte of count2
-            ]
+        data = build_command(
+            protocol.SCOREBOARD,
+            bytearray_count1[1],  # Lower byte of count1
+            bytearray_count1[0],  # Upper byte of count1
+            bytearray_count2[1],  # Lower byte of count2
+            bytearray_count2[0],  # Upper byte of count2
         )
         await self._send_bytes(data=data)

@@ -30,6 +30,7 @@ CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12, 3.13 and 3.14. K
 idotmatrix/
   client.py              IDotMatrixClient: public entry point, exposes one property per module
   connection_manager.py  connection logic: send_bytes, acks, heartbeat, auto-reconnect, listeners
+  protocol.py            Command table (opcode + subcommand) and build_command, which computes the length bytes
   transport.py           Transport protocol (write, notify, MTU) and BleakTransport, which wraps the bleak client
   screensize.py          ScreenSize enum
   const.py               BLE UUIDs and constants
@@ -46,7 +47,8 @@ example*.py              runnable usage examples (need a real device)
 - Everything that talks to the device is `async`. Never block the event loop; use `asyncio.sleep`.
 - Each feature module subclasses `IDotMatrixModule`, takes a `ConnectionManager`, and sends via
   `self._send_bytes(data=..., response=...)`. Do not call `bleak` directly from modules; the connection manager talks to a `Transport`.
-- Commands are raw byte payloads (`bytearray([len, 0, cmd, ...])`). Document the source in the docstring
+- Commands are built with `protocol.build_command(protocol.SOME_COMMAND, *payload)`, which writes the length bytes. New
+  commands get an entry in `protocol.py` (opcode and subcommand), upload headers are still assembled by hand. Document the source in the docstring
   (`Based on the BleProtocolN.java file ...`). Public methods do not return raw bytes (dropped by design).
 - New module checklist: add `idotmatrix/modules/<name>.py`, register a property on `IDotMatrixClient`
   in `client.py`, add `tests/<name>_module_test.py`.

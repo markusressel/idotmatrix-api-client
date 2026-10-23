@@ -6,8 +6,10 @@ from typing import List, Tuple
 
 from PIL import Image as PILImage
 
+from idotmatrix import protocol
 from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
 from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
@@ -89,7 +91,7 @@ class GifModule(IDotMatrixModule):
 
         Uploading a GIF the device already has is fast, because the device skips the transfer.
         """
-        data = bytearray([17, 0, 2, 1, 12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        data = build_command(protocol.DELETE_MATERIALS, 12, 0, *range(1, 12))
         await self._send_bytes(data=data, response=True)
 
     def _load_gif_and_adapt_to_canvas(

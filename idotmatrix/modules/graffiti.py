@@ -1,6 +1,8 @@
 import logging
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 from idotmatrix.util import color_utils
 
 MAX_PIXEL_LIST_LENGTH = 255  # trial and error
@@ -60,20 +62,10 @@ class GraffitiModule(IDotMatrixModule):
         if len(xys) > MAX_PIXEL_LIST_LENGTH:
             raise ValueError("xys coordinate list must have length <= {}".format(MAX_PIXEL_LIST_LENGTH))
 
-        size = 8 + 2*len(xys)
-        data = bytearray(
-            [
-                size % 256,   # length of the array, LSB
-                size // 256,  # length of the array, MSB (will be 0 or 1)
-                5,            # graffiti mode
-                1,            # mirroring mode 1-4; TODO: support these
-                0,            # ???
-                r % 256,      # Ensure R, G, B, X, Y are within byte range
-                g % 256,
-                b % 256,
-            ] + [0] * (size - 8)
+        # the subcommand is the mirroring mode 1-4; TODO: support these
+        return build_command(
+            protocol.GRAFFITI,
+            0,  # ???
+            r % 256, g % 256, b % 256,  # R, G, B and the coordinates have to be within byte range
+            *[coordinate for xy in xys for coordinate in xy],
         )
-        for i, xy in enumerate(xys):
-            data[8+2*i] = xy[0]
-            data[8+2*i+1] = xy[1]
-        return data

@@ -2,7 +2,9 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from idotmatrix import protocol
 from idotmatrix.modules import IDotMatrixModule
+from idotmatrix.protocol import build_command
 
 
 class CommonModule(IDotMatrixModule):
@@ -20,14 +22,7 @@ class CommonModule(IDotMatrixModule):
         Returns:
             bytearray: Command to be sent to the device.
         """
-        data = bytearray(
-            [
-                4,
-                0,
-                3,
-                0,
-            ]
-        )
+        data = build_command(protocol.FREEZE_SCREEN)
         await self._send_bytes(data=data, response=True)
 
     async def turn_off(self):
@@ -37,15 +32,7 @@ class CommonModule(IDotMatrixModule):
         Returns:
             bytearray: Command to be sent to the device.
         """
-        data = bytearray(
-            [
-                5,
-                0,
-                7,
-                1,
-                0,
-            ]
-        )
+        data = build_command(protocol.SCREEN_ON_OFF, 0)
         await self._send_bytes(data=data, response=True)
 
     async def turn_on(self):
@@ -55,15 +42,7 @@ class CommonModule(IDotMatrixModule):
         Returns:
             bytearray: Command to be sent to the device.
         """
-        data = bytearray(
-            [
-                5,
-                0,
-                7,
-                1,
-                1,
-            ]
-        )
+        data = build_command(protocol.SCREEN_ON_OFF, 1)
         await self._send_bytes(data=data)
 
     async def set_screen_state(self, is_on: bool):
@@ -74,15 +53,7 @@ class CommonModule(IDotMatrixModule):
             is_on (bool): True = on, False = off.
         """
 
-        data = bytearray(
-            [
-                5,
-                0,
-                7,
-                1,
-                1 if is_on else 0,
-            ]
-        )
+        data = build_command(protocol.SCREEN_ON_OFF, 1 if is_on else 0)
         await self._send_bytes(data=data)
 
     async def set_screen_flipped(self, flip: bool = True):
@@ -92,15 +63,7 @@ class CommonModule(IDotMatrixModule):
         Args:
             flip (bool): False = normal, True = rotated. Defaults to True.
         """
-        data = bytearray(
-            [
-                5,
-                0,
-                6,
-                128,
-                1 if flip else 0,
-            ]
-        )
+        data = build_command(protocol.SCREEN_FLIP, 1 if flip else 0)
         await self._send_bytes(data=data, response=True)
 
     async def set_brightness(self, brightness_percent: int):
@@ -112,15 +75,7 @@ class CommonModule(IDotMatrixModule):
         """
         if brightness_percent not in range(5, 101):
             raise ValueError("Common.setBrightness parameter brightness_percent is not in range between 5 and 100")
-        data = bytearray(
-            [
-                5,
-                0,
-                4,
-                128,
-                brightness_percent,
-            ]
-        )
+        data = build_command(protocol.BRIGHTNESS, brightness_percent)
         await self._send_bytes(data=data, response=True)
 
     async def set_speed(self, speed: int):
@@ -130,15 +85,7 @@ class CommonModule(IDotMatrixModule):
         Args:
             speed (int): Set the speed.
         """
-        data = bytearray(
-            [
-                5,
-                0,
-                3,
-                1,
-                speed,
-            ]
-        )
+        data = build_command(protocol.SET_SPEED, speed)
         await self._send_bytes(data=data)
 
     async def set_time(self, time: datetime):
@@ -168,21 +115,8 @@ class CommonModule(IDotMatrixModule):
         if not (0 <= second <= 59):
             raise ValueError("Common.setTime parameter second is not in range between 0 and 59")
 
-        data = bytearray(
-            [
-                11,
-                0,
-                1,
-                128,
-                year % 100,
-                month,
-                day,
-                datetime(year, month, day).weekday() + 1,
-                hour,
-                minute,
-                second,
-            ]
-        )
+        data = build_command(
+            protocol.SET_TIME, year % 100, month, day, datetime(year, month, day).weekday() + 1, hour, minute, second)
         await self._send_bytes(data=data, response=True)
 
     async def set_joint(self, mode: int):
@@ -192,15 +126,7 @@ class CommonModule(IDotMatrixModule):
         Args:
             mode (int): Set the joint mode.
         """
-        data = bytearray(
-            [
-                5,
-                0,
-                12,
-                128,
-                mode,
-            ]
-        )
+        data = build_command(protocol.SET_JOINT, mode)
         await self._send_bytes(data=data)
 
     async def set_password(self, password: int):
@@ -213,18 +139,7 @@ class CommonModule(IDotMatrixModule):
         pwd_high = (password // 10000) % 256
         pwd_mid = (password // 100) % 100 % 256
         pwd_low = password % 100 % 256
-        data = bytearray(
-            [
-                8,
-                0,
-                4,
-                2,
-                1,
-                pwd_high,
-                pwd_mid,
-                pwd_low,
-            ]
-        )
+        data = build_command(protocol.SET_PASSWORD, 1, pwd_high, pwd_mid, pwd_low)
         await self._send_bytes(data=data)
 
     async def reset(self):
@@ -238,7 +153,7 @@ class CommonModule(IDotMatrixModule):
         """
         reset_packets = [
             [
-                bytes(bytearray.fromhex("04 00 03 80"))
+                bytes(build_command(protocol.RESET))
             ]
         ]
         await self._send_packets(packets=reset_packets, response=True)
