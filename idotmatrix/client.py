@@ -15,6 +15,7 @@ from idotmatrix.modules.fullscreen_color import FullscreenColorModule
 from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.graffiti import GraffitiModule
 from idotmatrix.modules.image import ImageModule
+from idotmatrix.modules.materials import MaterialsModule
 from idotmatrix.modules.music_sync import MusicSyncModule
 from idotmatrix.modules.scoreboard import ScoreboardModule
 from idotmatrix.modules.system import SystemModule
@@ -150,6 +151,14 @@ class IDotMatrixClient:
         return ImageModule(
             connection_manager=self._connection_manager,
             screen_size=self.screen_size
+        )
+
+    @cached_property
+    def materials(self) -> MaterialsModule:
+        return MaterialsModule(
+            connection_manager=self._connection_manager,
+            gif=self.gif,
+            image=self.image,
         )
 
     @cached_property

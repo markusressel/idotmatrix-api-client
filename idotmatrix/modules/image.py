@@ -13,7 +13,9 @@ from idotmatrix.connection_manager import ConnectionManager
 from idotmatrix.modules import IDotMatrixModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util import image_utils, color_utils
-from idotmatrix.util.device_material import INDEX_SHOW_NOW, convert_display_time
+from idotmatrix.util.device_material import (
+    DEFAULT_DISPLAY_TIME_SECONDS, INDEX_SHOW_NOW, convert_display_time, validate_display_time, validate_slot,
+)
 
 MTU_SIZE_IF_ENABLED = 509
 MTU_SIZE_IF_DISABLED = 18
@@ -142,9 +144,12 @@ class ImageModule(IDotMatrixModule):
         palletize: bool = False,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
         png: bool = False,
+        slot: int | None = None,
+        display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
     ) -> None:
         """
-        Shows an image file on the device, the way the official app does it for photos.
+        Shows an image file on the device, the way the official app does it for photos. It is shown right away, unless
+        a slot is given.
 
         In contrast to `upload_image_file` this does not need `set_mode`, and it can be mixed with
         GIF uploads without any mode switching in between.
@@ -159,7 +164,13 @@ class ImageModule(IDotMatrixModule):
             png (bool): If True, the image is sent as a PNG file instead of raw RGB data. That is smaller (about 25-45%
                 for photos, more for pixel-art, and a palette PNG with `palletize`), which saves a little upload time.
                 Experimental: tested on a 64x64 device only, the official app sends raw RGB. Defaults to False.
+            slot (int, optional): If given (0 to 11), the image is stored in that slot of the device instead of being
+                shown right away. The device cycles through the stored items by itself, see `MaterialsModule`.
+            display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
         """
+        if slot is not None:
+            validate_slot(slot)
+            validate_display_time(display_time)
         background_color = color_utils.parse_color_rgb(background_color)
         # reading and converting the file takes a while, the event loop must not be blocked
         pixel_data = await asyncio.to_thread(
@@ -170,7 +181,7 @@ class ImageModule(IDotMatrixModule):
             palletize=palletize,
             background_color=background_color,
         )
-        await self._send_static_image_data(pixel_data, png=png, palette=palletize)
+        await self._send_static_image_data(pixel_data, png=png, palette=palletize, slot=slot, display_time=display_time)
 
     async def show_image_pixeldata(
         self,
@@ -202,10 +213,21 @@ class ImageModule(IDotMatrixModule):
         img.save(buffer, "PNG", optimize=True)
         return bytearray(buffer.getvalue())
 
-    async def _send_static_image_data(self, pixel_data: bytearray, png: bool = False, palette: bool = False) -> None:
+    async def _send_static_image_data(
+        self,
+        pixel_data: bytearray,
+        png: bool = False,
+        palette: bool = False,
+        slot: int | None = None,
+        display_time: int = DEFAULT_DISPLAY_TIME_SECONDS,
+    ) -> None:
         if png:
             pixel_data = self._encode_png(pixel_data, palette=palette)
-        packets = self._create_static_image_data_packets(pixel_data)
+        packets = self._create_static_image_data_packets(
+            pixel_data,
+            index=INDEX_SHOW_NOW if slot is None else slot,
+            display_time=None if slot is None else display_time,
+        )
         await self._send_packets(packets, response=True, wait_for_ack=True)
 
     def _create_static_image_data_packets(
@@ -213,6 +235,7 @@ class ImageModule(IDotMatrixModule):
         image_data: bytearray,
         index: int = INDEX_SHOW_NOW,
         time_sign: int = 0,
+        display_time: int | None = None,
     ) -> List[List[bytearray]]:
         """
         Creates the packets of a static image upload. This corresponds to `sendImageData` of the official app,
@@ -234,7 +257,9 @@ class ImageModule(IDotMatrixModule):
             header[4] = 2 if i > 0 else 0  # continuation / first chunk
             header[5:9] = total_length
             header[9:13] = crc32
-            header[13:15] = convert_display_time(time_sign).to_bytes(2, "little")
+            header[13:15] = (
+                display_time if display_time is not None else convert_display_time(time_sign)
+            ).to_bytes(2, "little")
             header[15] = index
 
             packets.append(self._create_ble_packets(bytes(header) + chunk))
