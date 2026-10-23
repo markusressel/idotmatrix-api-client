@@ -116,6 +116,53 @@ class TestIDotMatrixClient(TestBase):
         self.manager.connect_by_discovery.assert_awaited_once()
         self.manager.connect_by_address.assert_not_awaited()
 
+    def _device_answers(self, screen_type=4):
+        self.manager.request = AsyncMock(return_value=bytes([9, 0, 1, 128, 5, 9, 1, screen_type, 0]))
+
+    async def test_connect_detects_the_screen_size_if_it_was_not_given(self):
+        self._device_answers(screen_type=3)
+        client = IDotMatrixClient(mac_address=ADDRESS)
+
+        await client.connect()
+
+        self.assertEqual(ScreenSize.SIZE_32x32, client.screen_size)
+        self.assertEqual(ScreenSize.SIZE_32x32, client.image.screen_size)
+        self.assertEqual(ScreenSize.SIZE_32x32, client.gif.screen_size)
+
+    async def test_connect_does_not_ask_if_the_screen_size_was_given(self):
+        self._device_answers(screen_type=3)
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_64x64, mac_address=ADDRESS)
+
+        await client.connect()
+
+        self.manager.request.assert_not_awaited()
+        self.assertEqual(ScreenSize.SIZE_64x64, client.screen_size)
+
+    async def test_screen_size_is_not_known_before_connecting(self):
+        client = IDotMatrixClient(mac_address=ADDRESS)
+
+        with self.assertRaisesRegex(RuntimeError, "screen size is not known"):
+            client.image
+
+    async def test_other_modules_work_without_a_screen_size(self):
+        client = IDotMatrixClient(mac_address=ADDRESS)
+
+        self.assertIsInstance(client.clock, ClockModule)
+
+    async def test_detecting_without_an_answer_fails(self):
+        self.manager.request = AsyncMock(return_value=None)
+        client = IDotMatrixClient(mac_address=ADDRESS)
+
+        with self.assertRaisesRegex(RuntimeError, "did not tell"):
+            await client.connect()
+
+    async def test_detecting_an_unsupported_screen_fails(self):
+        self._device_answers(screen_type=11)
+        client = IDotMatrixClient(mac_address=ADDRESS)
+
+        with self.assertRaisesRegex(RuntimeError, "screen type 11"):
+            await client.connect()
+
     async def test_disconnect(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32)
         await client.disconnect()

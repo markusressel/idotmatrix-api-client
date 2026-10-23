@@ -97,9 +97,11 @@ from idotmatrix import IDotMatrixClient, ScreenSize
 
 
 async def main():
-  # create a new IDotMatrixClient instance with the screen size of your device
+  # create a new IDotMatrixClient instance
   client = IDotMatrixClient(
-    screen_size=ScreenSize.SIZE_64x64,  # or use ScreenSize.SIZE_32x32 or ScreenSize.SIZE_16x16
+    # (optional) the screen size of your device, ScreenSize.SIZE_64x64, SIZE_32x32 or SIZE_16x16.
+    # If it is left out, the client asks the device when connecting (so call `connect` before using images or GIFs).
+    screen_size=ScreenSize.SIZE_64x64,
     # mac_address="00:11:22:33:44:55",  # (optional) specify your device's Bluetooth address
   )
   # (optional) connect to first found iDotMatrix Pixel Display
