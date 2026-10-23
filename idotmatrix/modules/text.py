@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import zlib
@@ -97,7 +98,9 @@ class TextModule(IDotMatrixModule):
             text_color=text_color,
             text_bg_mode=text_bg_mode,
             text_bg_color=text_bg_color,
-            text_bitmaps=self._string_to_bitmaps(
+            # loads the font file and draws the characters
+            text_bitmaps=await asyncio.to_thread(
+                self._string_to_bitmaps,
                 text=text,
                 font_size=font_size,
                 font_path=font_path,

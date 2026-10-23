@@ -1,3 +1,4 @@
+import asyncio
 import binascii
 import io
 import logging
@@ -61,7 +62,9 @@ class GifModule(IDotMatrixModule):
         screen_width = self.screen_size.value[0]  # assuming square canvas, so width == height
         background_color = color_utils.parse_color_rgb(background_color)
 
-        gif_data = self._load_gif_and_adapt_to_canvas(
+        # reading and converting the file takes a while, the event loop must not be blocked
+        gif_data = await asyncio.to_thread(
+            self._load_gif_and_adapt_to_canvas,
             file_path=file_path,
             canvas_size=screen_width,
             resize_mode=resize_mode,

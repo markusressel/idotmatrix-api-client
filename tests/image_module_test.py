@@ -189,3 +189,25 @@ class TestStaticImage(TestBase):
         decoded = PILImage.open(io.BytesIO(chunk[16:]))
         self.assertEqual("P", decoded.mode)
         self.assertEqual((10, 20, 30), decoded.convert("RGB").getpixel((5, 5)))
+
+
+class TestNotBlockingTheEventLoop(TestBase):
+    """Reading and converting files must not run in the thread of the event loop (Home Assistant complains)."""
+
+    async def test_image_file_is_loaded_in_another_thread(self):
+        import threading
+        from unittest.mock import patch
+        loop_thread = threading.get_ident()
+        threads = []
+
+        def load(**kwargs):
+            threads.append(threading.get_ident())
+            return bytearray(32 * 32 * 3)
+
+        under_test = ImageModule(connection_manager=AsyncMock(), screen_size=ScreenSize.SIZE_32x32)
+        with patch.object(ImageModule, "_load_image_and_adapt_to_canvas", staticmethod(load)):
+            await under_test.show_image_file("whatever.png")
+            await under_test.upload_image_file("whatever.png")
+
+        self.assertEqual(2, len(threads))
+        self.assertNotIn(loop_thread, threads)

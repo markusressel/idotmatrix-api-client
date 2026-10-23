@@ -2,7 +2,7 @@ import io
 import zlib
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 
@@ -152,3 +152,23 @@ class TestGifEncoding(TestBase):
             source.seek(index)
             image.seek(index)
             self.assertEqual(source.convert("RGB").tobytes(), image.convert("RGB").tobytes())
+
+
+class TestGifNotBlockingTheEventLoop(TestBase):
+
+    async def test_gif_file_is_loaded_in_another_thread(self):
+        import threading
+        loop_thread = threading.get_ident()
+        threads = []
+
+        def load(self, **kwargs):
+            threads.append(threading.get_ident())
+            raise RuntimeError("stop here")
+
+        under_test = GifModule(connection_manager=AsyncMock(), screen_size=ScreenSize.SIZE_32x32)
+        with patch.object(GifModule, "_load_gif_and_adapt_to_canvas", load):
+            with self.assertRaises(RuntimeError):
+                await under_test.upload_gif_file("whatever.gif")
+
+        self.assertNotIn(loop_thread, threads)
+        self.assertEqual(1, len(threads))
