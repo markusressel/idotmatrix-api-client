@@ -30,7 +30,7 @@ class IDotMatrixClient:
 
     def __init__(
         self,
-        screen_size: ScreenSize,
+        screen_size: Optional[ScreenSize] = None,
         mac_address: Optional[str] = None,
         max_ble_packet_size: Optional[int] = None,
         ble_device: Optional[BLEDevice] = None,
@@ -40,7 +40,8 @@ class IDotMatrixClient:
         Initializes the IDotMatrix client with the specified screen size and optional MAC address.
 
         Args:
-            screen_size (ScreenSize): The size of the screen, e.g., ScreenSize.SIZE_64x64.
+            screen_size (Optional[ScreenSize]): The size of the screen, e.g., ScreenSize.SIZE_64x64. If not provided,
+                                                it is asked from the device when connecting (see `detect_screen_size`).
             mac_address (Optional[str]): The Bluetooth MAC address of the iDotMatrix device. If not provided,
                                          the client will attempt to discover devices.
             max_ble_packet_size (Optional[int]): Overrides the detected maximum size of a single BLE write.
@@ -58,8 +59,31 @@ class IDotMatrixClient:
         if ble_device is not None:
             mac_address = ble_device.address
             self._connection_manager.set_device(ble_device)
-        self.screen_size = screen_size
+        self._screen_size = screen_size
         self.mac_address = mac_address
+
+    @property
+    def screen_size(self) -> ScreenSize:
+        """
+        The size of the screen. If it was not given, it is only known after `connect` or `detect_screen_size`.
+
+        Raises:
+            RuntimeError: If the size is not known yet.
+        """
+        if self._screen_size is None:
+            raise RuntimeError(
+                "The screen size is not known yet, pass screen_size to IDotMatrixClient, or connect first to let "
+                "the client ask the device.")
+        return self._screen_size
+
+    @property
+    def screen_size_known(self) -> bool:
+        """Whether the size of the screen is known, f.e. because it was given or detected."""
+        return self._screen_size is not None
+
+    @screen_size.setter
+    def screen_size(self, screen_size: ScreenSize) -> None:
+        self._screen_size = screen_size
 
     @cached_property
     def chronograph(self) -> ChronographModule:
@@ -155,6 +179,28 @@ class IDotMatrixClient:
             await self._connection_manager.connect_by_address(self.mac_address)
         else:
             await self._connection_manager.connect_by_discovery()
+
+        if self._screen_size is None:
+            await self.detect_screen_size()
+
+    async def detect_screen_size(self) -> ScreenSize:
+        """
+        Asks the device for the size of its screen and uses it from now on. This also sets the time of the device,
+        see `CommonModule.get_device_info`.
+
+        Returns:
+            ScreenSize: The size of the screen.
+        Raises:
+            RuntimeError: If the device does not answer, or has a screen that this library does not support.
+        """
+        info = await self.common.get_device_info()
+        if info is None:
+            raise RuntimeError("The device did not tell the size of its screen, pass screen_size to IDotMatrixClient.")
+        if info.screen_size is None:
+            raise RuntimeError(
+                f"The screen type {info.screen_type} of the device is not supported, firmware {info.firmware_version}.")
+        self._screen_size = info.screen_size
+        return info.screen_size
 
     async def disconnect(self):
         """

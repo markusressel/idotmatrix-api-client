@@ -19,7 +19,8 @@ logging.getLogger("bleak").setLevel(logging.WARNING)
 
 async def main():
     client = IDotMatrixClient(
-        screen_size=ScreenSize.SIZE_64x64,  # or use ScreenSize.SIZE_32x32 or ScreenSize.SIZE_16x16
+        # (optional) the screen size of your device, if it is left out the client asks the device when connecting
+        screen_size=ScreenSize.SIZE_64x64,  # or ScreenSize.SIZE_32x32 or ScreenSize.SIZE_16x16
         # mac_address="00:11:22:33:44:55",  # (optional) specify your device's Bluetooth address
     )
     # if mac_address is provided, this is optional.

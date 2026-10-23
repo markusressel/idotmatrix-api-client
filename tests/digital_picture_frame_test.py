@@ -359,6 +359,27 @@ class TestSlideshow(DigitalPictureFrameTestBase):
         self.client.clock.show.assert_awaited_once()
         self.client.disconnect.assert_awaited_once()
 
+    async def test_slideshow_detects_the_screen_size_if_it_is_unknown(self):
+        self.client.screen_size_known = False
+        self.client.detect_screen_size = AsyncMock()
+        self.frame.add_image(PictureFrameImage(Path("a.png")))
+
+        await self.frame.start_slideshow(interval=1)
+
+        self.assertTrue(await _eventually(lambda: self.client.detect_screen_size.await_count > 0))
+        await self.frame.stop_slideshow()
+
+    async def test_slideshow_does_not_detect_a_known_screen_size(self):
+        self.client.screen_size_known = True
+        self.client.detect_screen_size = AsyncMock()
+        self.frame.add_image(PictureFrameImage(Path("a.png")))
+
+        await self.frame.start_slideshow(interval=1)
+        await asyncio.sleep(0.1)
+        await self.frame.stop_slideshow()
+
+        self.client.detect_screen_size.assert_not_awaited()
+
     async def test_slideshow_shows_images(self):
         self.frame.add_image(PictureFrameImage(Path("a.png")))
 
