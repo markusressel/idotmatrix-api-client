@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from idotmatrix.client import IDotMatrixClient
-from idotmatrix.digital_picture_frame import DigitalPictureFrame
+from idotmatrix.apps.digital_picture_frame import DigitalPictureFrame
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util.image_utils import ResizeMode
 

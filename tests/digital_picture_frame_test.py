@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from idotmatrix.digital_picture_frame import DigitalPictureFrame, PictureFrameGif, PictureFrameImage
+from idotmatrix.apps.digital_picture_frame import DigitalPictureFrame, PictureFrameGif, PictureFrameImage
 from tests import TestBase
 
 
@@ -45,7 +45,7 @@ class DigitalPictureFrameTestBase(TestBase):
             # must still yield to the event loop, or the slideshow loop would starve everything else
             await real_sleep(0.01)
 
-        sleep_patcher = patch("idotmatrix.digital_picture_frame.sleep", new=short_sleep)
+        sleep_patcher = patch("idotmatrix.apps.digital_picture_frame.sleep", new=short_sleep)
         sleep_patcher.start()
         self.addCleanup(sleep_patcher.stop)
         self.addCleanup(self._stop_observers)
