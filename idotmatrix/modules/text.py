@@ -60,7 +60,9 @@ class TextModule(IDotMatrixModule):
             font_size (int): Size of the font. Defaults to 16.
             font_path (Optional[str]): Path to the font file. Defaults to None, which uses a default font.
             text_mode (TextMode | int): Mode for displaying text. Defaults to TextMode.MARQUEE.
-            speed (int): Speed of the text display. Defaults to 95.
+            speed (int): Speed of the text display in percent like the slider of the Android App, which goes from 5 to
+                100 (the app starts at 50 and sends the value as it is). Not checked here, the device was not tried with
+                values outside of that range. Defaults to 95.
             text_color_mode (TextColorMode | int): Color mode for the text. Defaults to TextColorMode.WHITE.
             text_color (Tuple[int, int, int]): RGB color for the text. Defaults to None, which uses white.
             text_bg_color (Optional[Tuple[int, int, int]]): RGB color for the background. Defaults to None, which uses black.

@@ -55,6 +55,7 @@ class Field(Widget):
     """What the fields of a form have in common."""
 
     can_focus = True
+    ALLOW_SELECT = False
     DEFAULT_CSS = """
     Field { height: 1; background: transparent; }
     Field:focus { background: $boost; }
@@ -291,7 +292,13 @@ class TextField(Field, can_focus=False):
         self.post_message(FieldChanged(self))
 
 
-class Swatch(Static):
+class PlainStatic(Static):
+    """Text that cannot be selected, f.e. next to a slider that is dragged."""
+
+    ALLOW_SELECT = False
+
+
+class Swatch(PlainStatic):
     """A color as a circle, like the one of the connection."""
 
     DEFAULT_CSS = "Swatch { width: 3; height: 1; padding: 0 1 0 0; }"
@@ -439,6 +446,7 @@ class Slider(Widget):
     """A bar to drag or click. Left and Right move it when it has the focus."""
 
     can_focus = True
+    ALLOW_SELECT = False  # dragging moves the slider, it must not select text
     DEFAULT_CSS = "Slider { height: 1; background: transparent; } Slider:focus { background: $boost; }"
     BINDINGS = [
         Binding("left", "step(-1)", show=False),

@@ -140,7 +140,7 @@ FEATURES = (
             Field("text", "Text", "text", "Hello"),
             Field("font_size", "Font size", "int", 16, low=6, high=64),
             Field("mode", "Mode", "choice", TextMode.MARQUEE.value, choices=_choices(TextMode)),
-            Field("speed", "Speed (higher is slower)", "int", 95, low=0, high=255),
+            Field("speed", "Speed in percent", "int", 95, low=5, high=100),
             Field("color_mode", "Color mode", "choice", TextColorMode.WHITE.value, choices=_color_modes()),
             Field("color", "Color", "color", "#ffffff", placeholder=COLOR_HINT),
             Field("background", "Background (empty: black)", "color", "", placeholder=COLOR_HINT, required=False),

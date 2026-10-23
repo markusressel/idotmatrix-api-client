@@ -2,15 +2,14 @@ from rich.text import Text
 from textual import events
 from textual.app import ComposeResult
 from textual.containers import Horizontal
-from textual.widgets import Static
 
-from idotmatrix.tui.widgets import Slider
+from idotmatrix.tui.widgets import PlainStatic, Slider
 
 MIN_BRIGHTNESS = 5
 MAX_BRIGHTNESS = 100
 
 
-class PowerButton(Static):
+class PowerButton(PlainStatic):
     """Turns the display on or off."""
 
     ALLOW_SELECT = False
@@ -23,6 +22,8 @@ class PowerButton(Static):
 class DeviceBar(Horizontal):
     """Brightness and power of the display, on every page: drag or click the bar, or use the keys."""
 
+    ALLOW_SELECT = False
+
     DEFAULT_CSS = """
     DeviceBar { height: 1; padding: 0 1; background: $surface; }
     DeviceBar > #label { width: 12; color: $text-muted; }
@@ -32,11 +33,11 @@ class DeviceBar(Horizontal):
     """
 
     def compose(self) -> ComposeResult:
-        yield Static("Brightness", id="label")
+        yield PlainStatic("Brightness", id="label")
         yield Slider(MIN_BRIGHTNESS, MAX_BRIGHTNESS, self.app.brightness)
-        yield Static("", id="percent")
+        yield PlainStatic("", id="percent")
         yield PowerButton()
-        yield Static("F5 dimmer  F6 brighter  F7 power", id="hint")
+        yield PlainStatic("F5 dimmer  F6 brighter  F7 power", id="hint")
 
     def on_mount(self) -> None:
         self.refresh_state()
@@ -44,7 +45,7 @@ class DeviceBar(Horizontal):
     def refresh_state(self) -> None:
         app = self.app
         self.query_one(Slider).value = app.brightness
-        self.query_one("#percent", Static).update(f"{app.brightness}%")
+        self.query_one("#percent", PlainStatic).update(f"{app.brightness}%")
         power = Text(" ⏻ on  " if app.screen_on else " ⏻ off ",
                      style="bold white on green" if app.screen_on else "bold white on red")
         self.query_one(PowerButton).update(power)

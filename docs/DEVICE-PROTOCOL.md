@@ -256,6 +256,10 @@ The device has no fonts: the host draws every character with PIL and sends bitma
 Packet: a 16 byte header (total length at 0-1, payload length at 5-8, CRC32 at 9-12), 14 bytes of metadata (number of
 characters (2), `00`, `01`, mode, speed, color mode, RGB, background mode, background RGB), then one bitmap per character.
 
+The speed is a percentage: the slider of the app goes from 5 to 100 (`activity_text.xml`: `android:min="5"`,
+`android:max="100"`, shown as `n%`) and `TextAgreement` sends its value as it is. The device was not tried with other
+values, and which direction is faster is not verified (the percentage suggests: higher is faster). (**app**)
+
 Two cell sizes exist, chosen for the whole string:
 
 | Cell | Separator | Bitmap | Per character |
