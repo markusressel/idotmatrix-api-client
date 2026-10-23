@@ -101,17 +101,28 @@ class _Player:
         self._durations: list[int] = []
         self._index = 0
         self._timer = None
+        self._paused = False
 
     def show_frames(self, frames: list[PILImage.Image], durations: list[int]) -> None:
         self._stop()
         self._frames, self._durations, self._index = frames, durations, 0
         self._draw()
-        if len(frames) > 1:
+        if len(frames) > 1 and not self._paused:
             self._schedule()
 
     def on_resize(self) -> None:
         if self._frames:
             self._draw()
+
+    def pause(self) -> None:
+        """Stops playing, f.e. while another page is shown: drawing the frames takes time the page could use."""
+        self._paused = True
+        self._stop()
+
+    def resume(self) -> None:
+        self._paused = False
+        if len(self._frames) > 1 and self._timer is None:
+            self._schedule()
 
     def _stop(self) -> None:
         if self._timer is not None:
@@ -126,7 +137,8 @@ class _Player:
             return
         self._index = (self._index + 1) % len(self._frames)
         self._draw()
-        self._schedule()
+        if not self._paused:
+            self._schedule()
 
     def _draw(self) -> None:
         raise NotImplementedError

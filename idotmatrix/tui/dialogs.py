@@ -3,14 +3,19 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Label, SelectionList, Select
+from textual.widgets import Button, Input, Label, SelectionList, Select, Switch
 from textual.widgets.selection_list import Selection
 
-from idotmatrix.tui.settings import COLOR_CHOICES, RESIZE_CHOICES, Options
+from idotmatrix.tui.settings import COLOR_CHOICES, FORMAT_CHOICES, PALETTE_CHOICES, RESIZE_CHOICES, Options
+from idotmatrix.util.color_utils import parse_color_rgb
 from idotmatrix.util.device_material import MAX_DISPLAY_TIME_SECONDS, SLOTS
 from idotmatrix.util.overlay import POSITIONS
+
+
+class Fields(VerticalScroll, can_focus=False):
+    """Scrolls the fields of a dialog on a small terminal, without taking the focus from them."""
 
 
 class Dialog(ModalScreen):
@@ -23,7 +28,10 @@ class Dialog(ModalScreen):
         width: 64; height: auto; max-height: 90%; padding: 1 2;
         border: round $primary; border-title-color: $primary; border-title-style: bold; background: $surface;
     }
+    Dialog .fields { height: auto; max-height: 28; }
     Dialog .field { margin-top: 1; color: $text-muted; }
+    Dialog .switch-row { height: auto; margin-top: 1; }
+    Dialog .switch-row Label { width: 1fr; padding-top: 1; color: $text-muted; }
     Dialog .error { color: $error; height: auto; }
     Dialog Horizontal { height: auto; margin-top: 1; align-horizontal: right; }
     Dialog Button { margin-left: 2; min-width: 12; }
@@ -35,7 +43,8 @@ class Dialog(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical() as box:
             box.border_title = self.title_text
-            yield from self.fields()
+            with Fields(classes="fields"):
+                yield from self.fields()
             yield Label("", id="error", classes="error")
             with Horizontal():
                 yield Button("Cancel", id="cancel")
@@ -84,6 +93,19 @@ class OptionsDialog(Dialog):
         yield Input(str(o.max_size_kb or ""), id="max_size", type="integer", placeholder="no limit", compact=True)
         yield Label("Scale", classes="field")
         yield Select([(c, c) for c in RESIZE_CHOICES], value=o.resize_mode, allow_blank=False, compact=True, id="resize")
+        yield Label("Pictures are sent as (slots always use PNG)", classes="field")
+        yield Select([(c, c) for c in FORMAT_CHOICES], value=o.image_format, allow_blank=False, compact=True,
+                     id="format")
+        yield Label("Reduce to a palette (auto: animations yes, pictures no)", classes="field")
+        yield Select([(c, c) for c in PALETTE_CHOICES], value=o.palette, allow_blank=False, compact=True,
+                     id="palette")
+        with Horizontal(classes="switch-row"):
+            yield Label("One palette for all frames (no flicker, may band)")
+            yield Switch(o.shared_palette, id="shared_palette")
+        yield Label("Color error auto may accept, 0 to 100 (lower: more colors, bigger)", classes="field")
+        yield Input(f"{o.max_color_error:g}", id="max_error", type="number", compact=True)
+        yield Label("Background for transparency and bars (#rrggbb or a name)", classes="field")
+        yield Input(o.background, id="background", compact=True)
         yield Label("Label", classes="field")
         yield Select([("none", "none"), ("file name", "name"), ("text", "text")], value=o.label,
                      allow_blank=False, compact=True, id="label")
@@ -94,6 +116,17 @@ class OptionsDialog(Dialog):
         max_size = self.query_one("#max_size", Input).value.strip()
         if max_size and int(max_size) < 1:
             raise ValueError("The largest GIF has to be at least 1 KB")
+        try:
+            max_error = float(self.query_one("#max_error", Input).value)
+        except ValueError:
+            raise ValueError("The color error has to be a number")
+        if not 0 <= max_error <= 100:
+            raise ValueError("The color error has to be between 0 and 100")
+        background = self.query_one("#background", Input).value.strip()
+        try:
+            parse_color_rgb(background)
+        except (ValueError, TypeError):
+            raise ValueError(f"{background!r} is not a color")
         label = self.query_one("#label", Select).value
         label_text = self.query_one("#label_text", Input).value
         if label == "text" and not label_text:
@@ -105,6 +138,11 @@ class OptionsDialog(Dialog):
             label=label,
             label_text=label_text,
             label_position=self.query_one("#position", Select).value,
+            image_format=self.query_one("#format", Select).value,
+            palette=self.query_one("#palette", Select).value,
+            shared_palette=self.query_one("#shared_palette", Switch).value,
+            max_color_error=max_error,
+            background=background,
         )
 
 
@@ -176,17 +214,39 @@ def parse_path(text: str, base: Path) -> Path:
 class PathDialog(Dialog):
     """Asks for a folder, or a file whose folder is opened with the file selected."""
 
-    def __init__(self, folder: Path):
+    def __init__(self, folder: Path, title: str = "Go to", label: str = "Path of a folder or file, paste it here"):
         super().__init__()
-        self.title_text = "Go to"
+        self.title_text = title
+        self._label = label
         self._folder = folder
 
     def fields(self) -> ComposeResult:
-        yield Label("Path of a folder or file, paste it here", classes="field")
+        yield Label(self._label, classes="field")
         yield Input(str(self._folder), id="path", compact=True, select_on_focus=True)
 
     def result(self) -> Path:
         return parse_path(self.query_one("#path", Input).value, self._folder)
+
+
+class TextDialog(Dialog):
+    """Asks for one line of text."""
+
+    def __init__(self, title: str, label: str, value: str = "", placeholder: str = ""):
+        super().__init__()
+        self.title_text = title
+        self._label = label
+        self._value = value
+        self._placeholder = placeholder
+
+    def fields(self) -> ComposeResult:
+        yield Label(self._label, classes="field")
+        yield Input(self._value, id="text", placeholder=self._placeholder, compact=True, select_on_focus=True)
+
+    def result(self) -> str:
+        text = self.query_one("#text", Input).value.strip()
+        if not text:
+            raise ValueError("Enter something")
+        return text
 
 
 class ConfirmDialog(Dialog):

@@ -256,6 +256,10 @@ The device has no fonts: the host draws every character with PIL and sends bitma
 Packet: a 16 byte header (total length at 0-1, payload length at 5-8, CRC32 at 9-12), 14 bytes of metadata (number of
 characters (2), `00`, `01`, mode, speed, color mode, RGB, background mode, background RGB), then one bitmap per character.
 
+The speed is a percentage: the slider of the app goes from 5 to 100 (`activity_text.xml`: `android:min="5"`,
+`android:max="100"`, shown as `n%`) and `TextAgreement` sends its value as it is. The device was not tried with other
+values, and which direction is faster is not verified (the percentage suggests: higher is faster). (**app**)
+
 Two cell sizes exist, chosen for the whole string:
 
 | Cell | Separator | Bitmap | Per character |
@@ -281,6 +285,11 @@ Two different mechanisms exist in the official app.
    bar scenes (`VisualizerUtil.getSendWave`). Sent once, `06 00 00 02 <level> 01` just shows a still frame of the animation
    (**verified**: 1 shows a sitting figure, 2 a frog-like face). `send_image_rythm` sends one such packet. The bar scenes are
    not implemented.
+
+Effect styles (looked at on a 64x64): `GRADIENT_HORIZONTAL_RAINBOW` (0) draws smooth horizontal stripes that move down,
+`VERTICAL_RAINBOW` (3) hard vertical stripes (4 pixels wide) that move to the right, `DIAGONAL_RIGHT_RAINBOW` (4) hard stripes without
+blending that run from the top left to the bottom right and move to the top right, and `DIAGONAL_LEFT_RAINBOW_ON_BLACK` (5) single colored stripes from the bottom left to the
+top right on black that move to the top left, each stripe and each gap 4 pixels wide along a row. (**verified**) The names of the members are fine. The other styles were not looked at.
 
 There is no command that leaves the music sync again: `06 00 00 02 00 00` (`stop_rythm`) had no effect. Showing
 something else, f.e. the clock, does. (**verified**)

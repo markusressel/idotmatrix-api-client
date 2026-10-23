@@ -20,8 +20,10 @@ from idotmatrix.screensize import ScreenSize
 from idotmatrix.tui import convert
 from idotmatrix.tui.convert import Preview
 from idotmatrix.tui.devices import DevicesScreen
-from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, PathDialog, OptionsDialog, SlideshowDialog
+from idotmatrix.tui.dialogs import ConfirmDialog, PathDialog, OptionsDialog, SlideshowDialog
 from idotmatrix.tui.files import Entry, files_in, fit_name, format_size, is_supported, list_folder, restore_index
+from idotmatrix.tui.devicebar import MAX_BRIGHTNESS, MIN_BRIGHTNESS, DeviceBar
+from idotmatrix.tui.pages import PageScreen, StatusBar
 from idotmatrix.tui.preview import Fitted, PixelPreviewWidget, PreviewWidget
 from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
 from idotmatrix.tui.settings import Options, Session
@@ -84,9 +86,6 @@ class IDotMatrixApp(App):
     TITLE = "iDotMatrix"
     CSS = """
     Screen { background: $background; }
-    #statusbar { height: 1; background: $panel; color: $text; }
-    #status { width: auto; padding: 0 1; }
-    #message { width: 1fr; padding: 0 1; text-align: right; text-wrap: nowrap; text-overflow: ellipsis; }
     #main { height: 1fr; padding: 0 1; }
     #left { width: 1fr; border: round $primary; border-title-color: $primary; border-title-style: bold;
             border-subtitle-color: $text-muted; padding: 0 1; }
@@ -113,7 +112,6 @@ class IDotMatrixApp(App):
         Binding("a", "mark_all", "Mark all"),
         Binding("s", "store", "Slots"),
         Binding("o", "options", "Options"),
-        Binding("b", "brightness", "Brightness"),
         Binding("c", "clock", "Clock"),
         Binding("x", "clear_slots", "Clear slots"),
         Binding("d", "devices", "Displays"),
@@ -124,7 +122,17 @@ class IDotMatrixApp(App):
         Binding("escape", "escape", "Cancel"),
         Binding("colon", "command_palette", "Commands", show=False),
         Binding("q", "quit", "Quit"),
+        Binding("f1", "page('files')", "Files", show=False),
+        Binding("f2", "page('controls')", "Controls", show=False),
+        Binding("f3", "page('draw')", "Draw", show=False),
+        Binding("f5", "dim(-5)", "Dimmer", show=False),
+        Binding("f6", "dim(5)", "Brighter", show=False),
+        Binding("f7", "power", "Power", show=False),
     ]
+
+    # what only makes sense on the page with the files
+    FILE_ACTIONS = {"mark", "mark_all", "store", "options", "clock", "clear_slots", "filter", "goto",
+                    "parent", "enter", "extend"}
 
     def __init__(
         self,
@@ -160,7 +168,27 @@ class IDotMatrixApp(App):
         self._loading = False
         self._table_width = 0
         self._message_id = 0
+        self.screen_on = True
+        self._quick_pending: dict[str, Callable[[], object]] = {}
+        self._quick_worker: Worker | None = None
+        self.device_generation = 0  # counts the operations on the display, f.e. to know the draw mode ended
+        self._installed_pages: dict[str, Screen] = {}
+        self.status_text = Text()
+        self.message_text = Text()
         self._message_shown_at = 0.0
+
+    @property
+    def config_dir(self) -> Path:
+        return (self._session_path or Session.default_path()).parent
+
+    @property
+    def busy(self) -> bool:
+        """Whether an operation on the display is running."""
+        return self._busy is not None
+
+    @property
+    def session_path(self) -> Path | None:
+        return self._session_path
 
     @property
     def main_screen(self) -> Screen:
@@ -172,9 +200,7 @@ class IDotMatrixApp(App):
     # layout
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="statusbar"):
-            yield Static("", id="status")
-            yield Static("", id="message")
+        yield StatusBar("files")
         with Horizontal(id="main"):
             with Vertical(id="left") as left:
                 left.border_title = "Files"
@@ -194,6 +220,7 @@ class IDotMatrixApp(App):
         with Horizontal(id="activity"):
             yield Label("", id="activity-text")
             yield ProgressBar(id="progress", show_eta=False, total=100)
+        yield DeviceBar()
         yield Footer()
 
     def on_mount(self) -> None:
@@ -232,12 +259,60 @@ class IDotMatrixApp(App):
         yield SystemCommand("Store in slots", "Store the marked files, or all files of the folder", self.action_store)
         yield SystemCommand("Store folder and subfolders", "Store all files below this folder", self.action_store_all)
         yield SystemCommand("Clear slots", "Delete everything stored on the display", self.action_clear_slots)
-        yield SystemCommand("Brightness", "Set the brightness of the display", self.action_brightness)
+        yield SystemCommand("Dimmer", "Lower the brightness of the display (F5)", lambda: self.action_dim(-5))
+        yield SystemCommand("Brighter", "Raise the brightness of the display (F6)", lambda: self.action_dim(5))
+        yield SystemCommand("Power", "Turn the display on or off (F7)", self.action_power)
         yield SystemCommand("Show the clock", "Switch the display to the clock", self.action_clock)
         yield SystemCommand("Displays", "Search for displays and choose one", self.action_devices)
         yield SystemCommand("Reconnect", "Connect to the display again", self.action_reconnect)
         yield SystemCommand("Mark all", "Mark all files of the folder", self.action_mark_all)
         yield SystemCommand("Unmark all", "Forget the marked files", self.action_unmark_all)
+
+    # the pages
+
+    def check_action(self, action: str, parameters: tuple) -> bool | None:
+        if action in self.FILE_ACTIONS and self.screen is not self.main_screen:
+            return False
+        return True
+
+    def _page(self, page_id: str) -> Screen | None:
+        from idotmatrix.tui.controls import ControlsScreen
+        from idotmatrix.tui.draw import DrawScreen
+        if page_id not in self._installed_pages:
+            screens = {"controls": ControlsScreen, "draw": DrawScreen}
+            if page_id not in screens:
+                return None
+            self._installed_pages[page_id] = screens[page_id]()
+            self.install_screen(self._installed_pages[page_id], page_id)
+        return self._installed_pages[page_id]
+
+    def action_page(self, page_id: str) -> None:
+        """Shows a page. The page with the files is the bottom of the stack, the other pages replace each other."""
+        current = self.screen
+        if current is self.main_screen and page_id == "files":
+            return
+        if current is not self.main_screen and not isinstance(current, PageScreen):
+            return  # a dialog or the list of displays is open
+        if page_id == "files":
+            self.pop_screen()
+            self._play_preview(True)
+            return
+        page = self._page(page_id)
+        if page is None or page is current:
+            return
+        if current is self.main_screen:
+            self._play_preview(False)
+            self.push_screen(page_id)
+        else:
+            self.switch_screen(page_id)
+
+    def _play_preview(self, playing: bool) -> None:
+        """The animation of the preview runs only while the files are shown."""
+        try:
+            preview = self.main_screen.query_one("#preview")
+        except NoMatches:
+            return
+        preview.resume() if playing else preview.pause()
 
     # messages: shown in the status bar instead of on top of the other panels
 
@@ -249,19 +324,24 @@ class IDotMatrixApp(App):
         self._message_id += 1
         message_id = self._message_id
         self._message_shown_at = time.monotonic()
-        try:
-            self.main_screen.query_one("#message", Static).update(Text(text, style=MESSAGE_STYLES.get(severity, "")))
-        except NoMatches:
-            return
+        self.message_text = Text(text, style=MESSAGE_STYLES.get(severity, ""))
+        self._refresh_bars()
         self.set_timer(timeout or MESSAGE_SECONDS.get(severity, 5), lambda: self._clear_message(message_id))
 
     def _clear_message(self, message_id: int | None = None) -> None:
         if message_id is not None and message_id != self._message_id:
             return
-        try:
-            self.main_screen.query_one("#message", Static).update("")
-        except NoMatches:
-            pass
+        self.message_text = Text()
+        self._refresh_bars()
+
+    def _refresh_bars(self) -> None:
+        """Shows the status and the message in the status bar of every page that is open."""
+        for screen in self.screen_stack:
+            for bar in screen.query(StatusBar):
+                try:
+                    bar.show(self.status_text, self.message_text)
+                except NoMatches:  # not composed yet, it asks for the texts itself
+                    pass
 
     def on_key(self, event: Key) -> None:
         if self._message_id and time.monotonic() - self._message_shown_at >= MESSAGE_MIN_SECONDS:
@@ -565,7 +645,8 @@ class IDotMatrixApp(App):
             text.append(f"  {name + ' ' if name else ''}{self.session.address}", style="dim")
         elif self.connection != "connecting":
             text.append("  no display chosen, press d", style="dim")
-        self.main_screen.query_one("#status", Static).update(text)
+        self.status_text = text
+        self._refresh_bars()
 
     async def _connect(self) -> None:
         self.connection = "connecting"
@@ -642,6 +723,7 @@ class IDotMatrixApp(App):
         self._busy = self.run_worker(self._run_operation(label, operation), group="device")
 
     async def _run_operation(self, label: str, operation: Callable[[], object]) -> None:
+        self.device_generation += 1
         try:
             await operation()
         except asyncio.CancelledError:
@@ -678,11 +760,16 @@ class IDotMatrixApp(App):
         overlay = options.overlay_for(path)
         if await asyncio.to_thread(self._is_animated, path):
             await self.client.gif.upload_gif_file(
-                path, resize_mode=options.resize, colors=options.colors_value, max_size_kb=options.max_size_kb,
-                overlay=overlay, progress=progress)
+                path, resize_mode=options.resize, palletize=options.palletize_for(True),
+                background_color=options.background_rgb,
+                colors=options.colors_value, max_size_kb=options.max_size_kb, overlay=overlay,
+                shared_palette=options.shared_palette, max_color_error=options.max_color_error, progress=progress)
         else:
+            colors = options.colors_value if isinstance(options.colors_value, int) else 256
             await self.client.image.show_image_file(
-                path, resize_mode=options.resize, overlay=overlay, progress=progress)
+                path, resize_mode=options.resize, palletize=options.palletize_for(False),
+                background_color=options.background_rgb, png=options.png, colors=colors, overlay=overlay,
+                progress=progress)
         self.notify(f"Showing {path.name}")
 
     # the slots
@@ -718,8 +805,10 @@ class IDotMatrixApp(App):
 
         used = await self.client.materials.store(
             [str(file) for file in files], slots=slots, display_time=display_time, resize_mode=options.resize,
-            colors=options.colors_value, max_size_kb=options.max_size_kb, overlay=options.overlay_for,
-            progress=progress)
+            palletize=None if options.palette == "auto" else options.palette == "on",
+            background_color=options.background_rgb, colors=options.colors_value, max_size_kb=options.max_size_kb,
+            overlay=options.overlay_for, shared_palette=options.shared_palette,
+            max_color_error=options.max_color_error, progress=progress)
         self.notify(f"Stored {len(files)} files in the slots {sorted(used)}, the display cycles through them")
 
     def action_clear_slots(self) -> None:
@@ -744,15 +833,61 @@ class IDotMatrixApp(App):
 
         self.push_screen(OptionsDialog(self.session.options), chosen)
 
-    def action_brightness(self) -> None:
-        def chosen(value: int | None) -> None:
-            if value is not None:
-                self.session.brightness = value
-                self.session.save(self._session_path)
-                self.run_device("Setting the brightness", lambda: self.client.set_brightness(value))
+    def set_brightness(self, value: int) -> None:
+        """Dims or brightens the display, once the value stopped changing for a moment."""
+        value = min(max(value, MIN_BRIGHTNESS), MAX_BRIGHTNESS)
+        self.session.brightness = value
+        self.session.save(self._session_path)
+        self._refresh_device_bars()
+        self.quick("brightness", lambda: self.client.common.set_brightness(value))
 
-        self.push_screen(
-            NumberDialog("Brightness", "Percent (5 to 100)", self.session.brightness, 5, 100), chosen)
+    def action_dim(self, step: int) -> None:
+        self.set_brightness(self.session.brightness + step)
+
+    def toggle_power(self) -> None:
+        self.screen_on = not self.screen_on
+        self._refresh_device_bars()
+        common = self.client.common if self.client is not None else None
+        self.quick("power", lambda: common.turn_on() if self.screen_on else common.turn_off())
+
+    def action_power(self) -> None:
+        self.toggle_power()
+
+    def _refresh_device_bars(self) -> None:
+        for screen in self.screen_stack:
+            for bar in screen.query(DeviceBar):
+                bar.refresh_state()
+
+    @property
+    def brightness(self) -> int:
+        return self.session.brightness
+
+    def quick(self, key: str, operation: Callable[[], object]) -> None:
+        """
+        Runs a small command on the display without the activity bar, f.e. for a slider that is dragged: only the
+        latest operation of a key is sent, and it waits while an upload runs.
+        """
+        if self.connection != "connected" or self.client is None:
+            self.show_message("Not connected, press r to try again", "warning")
+            return
+        self._quick_pending[key] = operation
+        if self._quick_worker is None or self._quick_worker.is_finished:
+            self._quick_worker = self.run_worker(self._quick_loop(), group="quick")
+
+    async def _quick_loop(self) -> None:
+        while self._quick_pending:
+            if self._busy is not None:
+                await asyncio.sleep(0.2)
+                continue
+            key = next(iter(self._quick_pending))
+            operation = self._quick_pending.pop(key)
+            try:
+                await operation()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logging.exception(key)
+                self.show_message(f"{key} failed: {e}", "error")
 
     def action_clock(self) -> None:
         self.run_device("Showing the clock", self._clock)

@@ -215,6 +215,16 @@ scale and a label, `b` the brightness, `c` shows the clock, `x` clears the slots
 and `:` lists all commands (and the themes). The folder, the displays, the options and the theme are remembered
 (`~/.config/idotmatrix-tui/session.json`).
 
+The pages are switched with `F1` (files), `F2` and `F3`. `F2` has the controls of the display, one form per feature:
+clock (style, date, 12/24 hours, color), text, a color, effects, the screen (brightness, rotation, on/off), countdown,
+stopwatch, scoreboard, eco mode, music mode and the device (time, info, reset). The values you enter are remembered.
+`F3` is a pixel editor for the DIY mode: the arrows move, `Space` paints, `Enter` puts the pen down (moving paints),
+`f` fills, `l` and `b` draw lines and boxes, `1` to `0` pick a color (`c` takes any), `u` and `y` undo and redo, `a`
+toggles sending every change to the display at once, `s` sends everything, `v` shows the drawing as a picture, `o` opens
+and `w` saves a picture. The mouse paints too (left, right erases, middle picks). The drawing is kept between runs.
+`o` on the first page sets how pictures are processed and sent: colors, the largest GIF, scale, PNG or raw RGB, the
+palette, one palette for all frames, the color error, and the background.
+
 The preview draws real pixels, exactly square and sharp, in terminals that support the Kitty graphics protocol or
 Sixel (kitty, WezTerm, foot, Ghostty, iTerm2, ...). Elsewhere it uses half blocks, which are only exact if a cell is
 twice as high as wide. A warning under the preview says when it is too small to show every pixel.
