@@ -61,6 +61,24 @@ class TestIDotMatrixClient(TestBase):
         self.manager.set_device.assert_called_once_with(device)
         self.assertEqual(ADDRESS, client.mac_address)
 
+    async def test_connect_with_a_ble_device_does_not_connect_by_address(self):
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, ble_device=MagicMock(address=ADDRESS))
+        self.manager.connect = AsyncMock()
+
+        await client.connect()
+
+        self.manager.connect.assert_awaited_once()
+        self.manager.connect_by_address.assert_not_awaited()
+
+    def test_set_ble_device(self):
+        client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)
+        device = MagicMock(address="AA:BB:CC:DD:EE:FF")
+
+        client.set_ble_device(device)
+
+        self.manager.set_device.assert_called_once_with(device)
+        self.assertEqual("AA:BB:CC:DD:EE:FF", client.mac_address)
+
     def test_install_signal_handlers_is_passed_to_the_connection_manager(self):
         IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS, install_signal_handlers=False)
 

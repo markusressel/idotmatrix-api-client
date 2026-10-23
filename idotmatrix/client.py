@@ -60,6 +60,7 @@ class IDotMatrixClient:
             transport_factory=transport_factory,
             install_signal_handlers=install_signal_handlers,
         )
+        self._uses_ble_device = ble_device is not None
         if ble_device is not None:
             mac_address = ble_device.address
             self._connection_manager.set_device(ble_device)
@@ -179,7 +180,10 @@ class IDotMatrixClient:
         """
         Connect to the IDotMatrix device.
         """
-        if self.mac_address:
+        if self._uses_ble_device:
+            # connecting by address would replace the BLEDevice
+            await self._connection_manager.connect()
+        elif self.mac_address:
             await self._connection_manager.connect_by_address(self.mac_address)
         else:
             await self._connection_manager.connect_by_discovery()
@@ -205,6 +209,15 @@ class IDotMatrixClient:
                 f"The screen type {info.screen_type} of the device is not supported, firmware {info.firmware_version}.")
         self._screen_size = info.screen_size
         return info.screen_size
+
+    def set_ble_device(self, ble_device: BLEDevice) -> None:
+        """
+        Hands over a newer `BLEDevice` of the device, f.e. when the scanner of Home Assistant found it again. An
+        established connection is not interrupted, the new one is used for the next connection.
+        """
+        self._uses_ble_device = True
+        self.mac_address = ble_device.address
+        self._connection_manager.set_device(ble_device)
 
     async def disconnect(self):
         """
