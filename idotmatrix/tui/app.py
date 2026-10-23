@@ -8,6 +8,7 @@ from textual import on
 from textual.app import App, ComposeResult, SystemCommand
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Input, Label, ProgressBar, Static
 from textual.worker import Worker
@@ -121,6 +122,8 @@ class IDotMatrixApp(App):
         self.run_worker(self._connect(), name="connect", exclusive=True, group="connect")
 
     async def on_unmount(self) -> None:
+        if self._preview_timer is not None:
+            self._preview_timer.stop()
         self.session.folder = str(self.folder)
         self.session.save(self._session_path)
         if self.client is not None:
@@ -272,8 +275,11 @@ class IDotMatrixApp(App):
         self._preview_timer = self.set_timer(PREVIEW_DELAY_SECONDS, self._start_preview)
 
     def _start_preview(self) -> None:
-        path = self.selected_path()
-        widget = self.query_one("#preview", PreviewWidget)
+        try:
+            path = self.selected_path()
+            widget = self.query_one("#preview", PreviewWidget)
+        except NoMatches:  # the timer fired while the app was closing
+            return
         self._previewed = path
         self._preview = None
         if path is None:
