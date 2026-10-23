@@ -213,8 +213,14 @@ rainbow effect, and once it rebooted. (**verified**)
   padded to 256 entries all of them played completely and smoothly. (**verified**, `image_utils.pad_palette`)
 - Frames have to be written without optimization, or PIL trims the tables again. Frames are full size, disposal
   method 2. (**verified**)
-- The code limits a GIF to 64 frames and a total duration of 2 s per loop by dropping frames; this came from the
-  earlier experiments and is not understood. (**guess**)
+- The official app sends a GIF file unchanged: all frames, the delay of every frame, no limit on frames, duration or
+  size that I could find in the decompiled code (`GifAgreement.sendImageData`, `MyMaterialActivity`). Only the
+  app's own animation editor writes GIFs (`GIFUtils.makeGif2`), with one delay for all frames. (**app**)
+- The device plays 128 frames (184 KB) and 336 frames (564 KB, an 11 s loop, uploaded in 66 s) at the original speed
+  without errors, and it honors the delay of every frame: a test animation with delays alternating 100 and 400 ms
+  stepped unevenly, one with 250 ms evenly. (**verified**) The library used to cut a GIF to 64 frames and 2 s per
+  loop by dropping frames and keeping the delay, which played long animations up to 8 times too fast: that limit
+  was only meant to shorten uploads and is gone, `max_size_kb` does that now.
 - Large GIFs (60+ frames, 50-70 KB) work, a 70 KB upload takes about 5 s. (**verified**)
 - Upload time on a local BlueZ adapter, 64x64, 3 to 125 KB: about 0.1 to 0.15 s per KB, so 120 KB takes 12 to 14 s and
   25 KB about 3 s. (**verified**)

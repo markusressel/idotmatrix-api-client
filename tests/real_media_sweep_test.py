@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock
 
 from PIL import Image
 
-from idotmatrix.modules.gif import ANIMATION_MAX_FRAME_COUNT, GifModule
+from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util.image_utils import ResizeMode
@@ -44,7 +44,6 @@ class TestRealMedia(TestBase):
 
                 result = Image.open(io.BytesIO(data))
                 self.assertEqual((64, 64), result.size)
-                self.assertLessEqual(result.n_frames, ANIMATION_MAX_FRAME_COUNT)
                 global_size, local_sizes = _color_table_sizes(data)
                 self.assertEqual(256, global_size)
                 self.assertEqual({0, 256}, set(local_sizes) | {0, 256})

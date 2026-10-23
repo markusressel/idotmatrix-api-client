@@ -20,10 +20,9 @@ from idotmatrix.util.image_utils import ResizeMode, validate_colors
 from idotmatrix.util.overlay import TextOverlay
 from idotmatrix.util.quality import DEFAULT_MAX_COLOR_ERROR, color_error, color_score
 
-ANIMATION_MAX_FRAME_COUNT = 64  # Maximum number of frames in a GIF animation
-DEFAULT_DURATION_PER_FRAME_MS = 200  # Default duration per frame in milliseconds if not specified in the GIF file
-ANIMATION_TOTAL_DURATION_LIMIT_MS = 2000
-DEFAULT_ANIMATION_TOTAL_DURATION_MS = ANIMATION_TOTAL_DURATION_LIMIT_MS
+# like browsers do, a frame without a delay or with one of 10 ms or less is shown for 100 ms
+DEFAULT_DURATION_PER_FRAME_MS = 100
+MIN_DURATION_PER_FRAME_MS = 16
 
 AUTO_COLORS = "auto"
 AUTO_COLOR_STEPS = (256, 128, 64, 32, 16)
@@ -71,7 +70,7 @@ class GifModule(IDotMatrixModule):
             palletize (bool): Whether to convert the image to a color palette. Usually bad for images with
                 high detail (like photos) but good for pixel-art or other content with high contrasts. Defaults to True.
             background_color (Tuple[int, int, int]): RGB color to fill transparent pixels. Defaults to black (0, 0, 0).
-            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, every frame keeps the duration it has in the GIF file (100 ms if it has none).
             slot (int, optional): If given (0 to 11), the GIF is stored in that slot of the device instead of being shown
                 right away. The device cycles through the stored items by itself, see `MaterialsModule`.
             display_time (int): Seconds the stored item stays on screen in that cycle. Only used with a slot.
@@ -172,7 +171,7 @@ class GifModule(IDotMatrixModule):
                 - ResizeMode.CROP: Crop the image to fit the canvas without resizing.
             palletize (bool): Whether to convert the image to a color palette. Defaults to True.
             background_color (Tuple[int, int, int]): Background color to fill transparent pixels.
-            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
+            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, every frame keeps the duration it has in the GIF file (100 ms if it has none).
             colors (int): The number of colors of the palette (2 to 256).
             max_size_kb (int, optional): The size the GIF may have at most, see `upload_gif_file`.
             overlay (TextOverlay, optional): A text that is drawn on top of every frame.
@@ -186,10 +185,12 @@ class GifModule(IDotMatrixModule):
 
         with PILImage.open(file_path) as img:
             frames = []
+            source_durations = []
             try:
-                # There doesn't seem to be a frame limit in the app, but too many frames cause problems.
-                # To be on the safe side, we limit it to 64 frames.
+                # The official app sends GIFs unchanged, with all frames and the delay of each frame, and the device
+                # plays 128 frames in the original speed. How big the upload gets is up to `max_size_kb`.
                 while True:
+                    source_durations.append(img.info.get("duration"))
                     frame = img.copy()
 
                     if frame.size != (canvas_size, canvas_size):
@@ -211,22 +212,18 @@ class GifModule(IDotMatrixModule):
             except EOFError:
                 pass
 
-            frames, duration_per_frame_in_ms = self._ensure_reasonable_frame_count(
-                img, frames, duration_per_frame_in_ms
-            )
 
-        # TODO: there are still some cases where
-        #  - the GIF is not animating all frames
+        durations = self._frame_durations(source_durations, duration_per_frame_in_ms)
 
         shared = shared_palette
         if colors == AUTO_COLORS:
-            data, colors, shared = self._encode_gif_auto(frames, duration_per_frame_in_ms, max_color_error)
+            data, colors, shared = self._encode_gif_auto(frames, durations, max_color_error)
             if max_size_kb is None or len(data) <= max_size_kb * 1024:
                 return data
             palletize = True
         if max_size_kb is None:
-            return self._encode_gif(frames, duration_per_frame_in_ms, colors, palletize, shared)
-        return self._encode_gif_within(frames, duration_per_frame_in_ms, colors, palletize, max_size_kb, shared)
+            return self._encode_gif(frames, durations, colors, palletize, shared)
+        return self._encode_gif_within(frames, durations, colors, palletize, max_size_kb, shared)
 
     @staticmethod
     def _reduce_colors(
@@ -240,7 +237,7 @@ class GifModule(IDotMatrixModule):
         return frames
 
     @staticmethod
-    def _save_gif(frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int) -> bytes:
+    def _save_gif(frames: List[PILImage.Image], durations: List[int], colors: int) -> bytes:
         """Writes the frames as a GIF whose frames all have a color table of the same size."""
         # all frames need color tables of the same size, or the device garbles / drops frames
         table_size = image_utils.palette_table_size(colors)
@@ -255,21 +252,21 @@ class GifModule(IDotMatrixModule):
             optimize=False,  # True would shrink the color tables to the number of used colors again
             append_images=frames[1:],
             loop=0,  # loop forever
-            duration=duration_per_frame_in_ms,
+            duration=durations,
             disposal=2,  # Restore to background color after each frame
         )
         gif_buffer.seek(0)
         return gif_buffer.getvalue()
 
     def _encode_gif(
-        self, frames: List[PILImage.Image], duration_per_frame_in_ms: int, colors: int, palletize: bool,
+        self, frames: List[PILImage.Image], durations: List[int], colors: int, palletize: bool,
         shared: bool = False
     ) -> bytes:
         """Encodes the frames as a GIF whose frames all have a color table of the same size."""
-        return self._save_gif(self._reduce_colors(frames, colors, palletize, shared), duration_per_frame_in_ms, colors)
+        return self._save_gif(self._reduce_colors(frames, colors, palletize, shared), durations, colors)
 
     def _encode_gif_auto(
-        self, frames: List[PILImage.Image], duration_per_frame_in_ms: int, max_color_error: float
+        self, frames: List[PILImage.Image], durations: List[int], max_color_error: float
     ) -> Tuple[bytes, int, bool]:
         """
         Finds the GIF with the fewest bytes whose color error (compared to the same GIF with 256 colors for each
@@ -284,7 +281,7 @@ class GifModule(IDotMatrixModule):
         for colors in AUTO_COLOR_STEPS:
             for shared in (False, True):
                 reduced = self._reduce_colors(frames, colors, True, shared)
-                data = self._save_gif(reduced, duration_per_frame_in_ms, colors)
+                data = self._save_gif(reduced, durations, colors)
                 score = color_score(*color_error(reference, [frame.convert("RGB") for frame in reduced]))
                 if score <= max_color_error and (best is None or len(data) < best[0]):
                     best = (len(data), data, colors, shared)
@@ -302,7 +299,7 @@ class GifModule(IDotMatrixModule):
     def _encode_gif_within(
         self,
         frames: List[PILImage.Image],
-        duration_per_frame_in_ms: int,
+        durations: List[int],
         colors: int,
         palletize: bool,
         max_size_kb: int,
@@ -315,10 +312,8 @@ class GifModule(IDotMatrixModule):
         limit = max_size_kb * 1024
         smallest = None
         for step_colors, every in self._size_reductions(colors, len(frames)):
-            kept = frames[::every]
-            if every > 1 and frames[-1] is not kept[-1] and len(kept) > 1:
-                kept[-1] = frames[-1]  # the animation still ends where it did
-            data = self._encode_gif(kept, duration_per_frame_in_ms * every, step_colors, palletize, shared)
+            kept, kept_durations = self._thin_out(frames, durations, every)
+            data = self._encode_gif(kept, kept_durations, step_colors, palletize, shared)
             if len(data) <= limit:
                 if (step_colors, every) != (colors, 1):
                     self.logging.info(
@@ -496,74 +491,25 @@ class GifModule(IDotMatrixModule):
         return crc
 
     @staticmethod
-    def _ensure_reasonable_frame_count(
-        img: PILImage.Image,
-        frames: List[PILImage.Image],
-        duration_per_frame_in_ms: int = None,
-        default_total_duration: int = DEFAULT_ANIMATION_TOTAL_DURATION_MS,
-        default_duration_per_frame: int = DEFAULT_DURATION_PER_FRAME_MS,
-        total_duration_limit_ms: int = ANIMATION_TOTAL_DURATION_LIMIT_MS,
-        max_total_frame_count: int = ANIMATION_MAX_FRAME_COUNT,
-    ) -> Tuple[List[PILImage.Image], int]:
-        """
-        The device can only handle a limited number of frames in a GIF animation, due to limited processing power and memory.
-        This function ensures that the number of frames does not exceed the maximum allowed frames (64) and adjusts the duration per frame if necessary.
+    def _frame_durations(source_durations: List[int | None], override: int | None) -> List[int]:
+        """The duration of every frame in ms: the given one for all frames, or the delay each frame has in the file."""
+        if override is not None:
+            return [override] * len(source_durations)
+        durations = []
+        for duration in source_durations:
+            if not isinstance(duration, int) or duration <= 10:
+                duration = DEFAULT_DURATION_PER_FRAME_MS
+            durations.append(max(duration, MIN_DURATION_PER_FRAME_MS))
+        return durations
 
-        Args:
-            img (PILImage.Image): The image object of the GIF.
-            frames (List[PILImage.Image]): List of frames in the GIF.
-            duration_per_frame_in_ms (int, optional): Duration of each frame in milliseconds. If not provided, defaults to the duration specified in the GIF file, or 200ms if not set.
-        Returns:
-            Tuple[List[PILImage.Image], int]: A tuple containing the list of frames and the duration per frame in milliseconds.
-        """
-        # determine the optimal duration per frame if not provided
-        if duration_per_frame_in_ms is None:
-            duration_per_frame_in_ms = img.info.get("duration", default_duration_per_frame)
-            # if the value we get is not reasonable, compute alternative value
-            if (
-                not isinstance(duration_per_frame_in_ms, int)
-                or not duration_per_frame_in_ms
-                or duration_per_frame_in_ms <= 0
-            ):
-                if len(frames) > max_total_frame_count:
-                    # if the number of frames exceeds the maximum allowed frames, set the duration so that exactly max_total_frame_count frames fit into the total duration limit
-                    duration_per_frame_in_ms = total_duration_limit_ms / max_total_frame_count
-                else:
-                    # compute the duration per frame based on the number of frames and the default total duration
-                    duration_per_frame_in_ms = default_total_duration / len(frames)
-
-            if duration_per_frame_in_ms < 16:
-                # make sure the duration is at least 16ms (60fps), otherwise the device might not be able to handle it
-                duration_per_frame_in_ms = 16
-
-        # make sure the duration of the full animation doesn't exceed (duration_per_frame_in_ms * 64)
-        # because otherwise the upload takes a very long time. If using the given duration_per_frame_in_ms exceeds the limit,
-        # intermediate frames are skipped to keep the total count of frames below max_total_frame_count.
-        original_frame_count = len(frames)
-        original_duration = original_frame_count * duration_per_frame_in_ms
-        if original_duration > total_duration_limit_ms:
-            # if the total duration limit is exceeded, skip frames (except for the first and last one) to stay within the limit
-            result_frames = [frames[0], frames[-1]]  # always keep the first and last frame
-
-            number_of_frames_to_keep = int(
-                total_duration_limit_ms / duration_per_frame_in_ms) - 2  # -2 because we keep the first and last frame
-            number_of_frames_to_keep = min(max_total_frame_count - 2, number_of_frames_to_keep)
-
-            if number_of_frames_to_keep >= original_frame_count:
-                # if the number of frames to keep is greater than or equal to the available frames, do nothing
-                return frames, duration_per_frame_in_ms
-
-            frames_excluding_first_and_last = frames[1:-1]
-            # evenly select number_of_frames_to_keep frames from frames_excluding_first_and_last and insert them into result_frames between the first and last frame
-            step = len(frames_excluding_first_and_last) // number_of_frames_to_keep
-            for i in range(0, len(frames_excluding_first_and_last), step):
-                if len(result_frames) < max_total_frame_count - 1:
-                    result_frames.insert(-1, frames_excluding_first_and_last[i])
-            frames = result_frames
-
-        logging.debug(f"GIF original frame count: {original_frame_count}")
-        logging.debug(f"GIF adjusted frame count: {len(frames)}")
-        logging.debug(f"GIF duration per frame: {duration_per_frame_in_ms} ms")
-        logging.debug(f"GIF total duration: {len(frames) * duration_per_frame_in_ms} ms")
-
-        return frames, duration_per_frame_in_ms
+    @staticmethod
+    def _thin_out(
+        frames: List[PILImage.Image], durations: List[int], every: int
+    ) -> Tuple[List[PILImage.Image], List[int]]:
+        """Keeps every n-th frame and adds the durations of the ones left out to it, so the loop takes as long as before."""
+        if every == 1:
+            return frames, durations
+        return (
+            frames[::every],
+            [sum(durations[start:start + every]) for start in range(0, len(frames), every)],
+        )
