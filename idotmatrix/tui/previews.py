@@ -180,9 +180,10 @@ class EffectPreview(Static):
             return [[colors[((x - offset) // VERTICAL_BAND) % len(colors)] for x in range(width)]
                     for _ in range(height)]
         if style == EffectStyle.DIAGONAL_RIGHT_RAINBOW.value:
-            # hard stripes without blending (verified), from the bottom left to the top right, moving
+            # hard stripes without blending that run from the top left to the bottom right and move to the top
+            # right (verified)
             offset = round(phase * len(colors) * DIAGONAL_BAND)
-            return [[colors[((x + y + offset) // DIAGONAL_BAND) % len(colors)] for x in range(width)]
+            return [[colors[((x - y - offset) // DIAGONAL_BAND) % len(colors)] for x in range(width)]
                     for y in range(height)]
         if style == EffectStyle.DIAGONAL_LEFT_RAINBOW_ON_BLACK.value:
             return [[mix(colors, ((width - x) / width + y / height) / 2 + phase)

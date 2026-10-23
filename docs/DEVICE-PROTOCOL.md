@@ -288,7 +288,7 @@ Two different mechanisms exist in the official app.
 
 Effect styles (looked at on a 64x64): `GRADIENT_HORIZONTAL_RAINBOW` (0) draws smooth horizontal stripes that move down,
 `VERTICAL_RAINBOW` (3) hard vertical stripes (4 pixels wide) that move to the right, `DIAGONAL_RIGHT_RAINBOW` (4) hard stripes without
-blending from the bottom left to the top right. (**verified**) The names of the members are fine. The other styles
+blending that run from the top left to the bottom right and move to the top right. (**verified**) The names of the members are fine. The other styles
 were not looked at.
 
 There is no command that leaves the music sync again: `06 00 00 02 00 00` (`stop_rythm`) had no effect. Showing
