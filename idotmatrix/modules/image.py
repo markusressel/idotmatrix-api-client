@@ -1,3 +1,4 @@
+import asyncio
 import binascii
 import io
 import logging
@@ -75,7 +76,9 @@ class ImageModule(IDotMatrixModule):
                 image doesn't match the devices aspect ratio. Defaults to black (0, 0, 0).
         """
         background_color = color_utils.parse_color_rgb(background_color)
-        pixel_data = self._load_image_and_adapt_to_canvas(
+        # reading and converting the file takes a while, the event loop must not be blocked
+        pixel_data = await asyncio.to_thread(
+            self._load_image_and_adapt_to_canvas,
             file_path=file_path,
             canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
             resize_mode=resize_mode,
@@ -158,7 +161,9 @@ class ImageModule(IDotMatrixModule):
                 Experimental: tested on a 64x64 device only, the official app sends raw RGB. Defaults to False.
         """
         background_color = color_utils.parse_color_rgb(background_color)
-        pixel_data = self._load_image_and_adapt_to_canvas(
+        # reading and converting the file takes a while, the event loop must not be blocked
+        pixel_data = await asyncio.to_thread(
+            self._load_image_and_adapt_to_canvas,
             file_path=file_path,
             canvas_size=self.screen_size.value[0],  # assuming square canvas, so width == height
             resize_mode=resize_mode,
