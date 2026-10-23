@@ -52,7 +52,8 @@ def _setup_signal_handlers(client: IDotMatrixClient):
 
 async def main():
     client = IDotMatrixClient(
-        screen_size=ScreenSize.SIZE_64x64,
+        # (optional) the screen size of your device, if it is left out the client asks the device when connecting
+        screen_size=ScreenSize.SIZE_64x64,  # or ScreenSize.SIZE_32x32 or ScreenSize.SIZE_16x16
         mac_address="69:36:4C:4C:B6:B7"
     )
 
