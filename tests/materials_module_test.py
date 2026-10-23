@@ -1,4 +1,8 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import AsyncMock
+
+from PIL import Image
 
 from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.image import ImageModule
@@ -101,6 +105,163 @@ class TestMaterialsModule(TestBase):
     async def test_store_nothing(self):
         self.assertEqual([], await self.under_test.store([]))
         self.connection_manager.send_bytes.assert_not_awaited()
+
+
+class TestMaterialsPlanning(TestBase):
+    """What is already in a slot stays there, only what is new is transferred."""
+
+    def setUp(self):
+        super().setUp()
+        self.connection_manager = AsyncMock()
+        self.gif = GifModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+        self.image = ImageModule(connection_manager=self.connection_manager, screen_size=ScreenSize.SIZE_64x64)
+        self.under_test = MaterialsModule(connection_manager=self.connection_manager, gif=self.gif, image=self.image)
+        self.folder = TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+
+    def _picture(self, name: str, color: int) -> Path:
+        path = Path(self.folder.name) / name
+        Image.new("RGB", (64, 64), (color, 0, 0)).save(path)
+        return path
+
+    def _uploads(self) -> list[int]:
+        """The slots that data was transferred to, in order."""
+        return [call.kwargs["packets"][0][0][15] for call in self.connection_manager.send_packets.await_args_list]
+
+    async def test_the_same_files_are_not_transferred_again(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(3)]
+        slots = await self.under_test.store(files)
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN
+        again = await self.under_test.store(files)
+
+        # THEN
+        self.assertEqual(slots, again)
+        self.connection_manager.send_packets.assert_not_awaited()
+
+    async def test_files_in_another_order_keep_their_slots(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(3)]
+        slots = await self.under_test.store(files)
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN
+        reordered = await self.under_test.store(files[::-1])
+
+        # THEN nothing is transferred and every file stays in its slot (the device cycles in the order of the slots)
+        self.assertEqual(slots[::-1], reordered)
+        self.connection_manager.send_packets.assert_not_awaited()
+
+    async def test_only_the_new_file_is_transferred_into_the_slot_that_is_no_longer_needed(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(3)]
+        await self.under_test.store(files, slots=[0, 1, 2])
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN the first file is replaced by a new one
+        new = self._picture("new.png", 99)
+        slots = await self.under_test.store([new, files[1], files[2]], slots=[0, 1, 2])
+
+        # THEN
+        self.assertEqual([0, 1, 2], slots)
+        self.assertEqual([0], self._uploads())
+
+    async def test_a_file_that_is_added_in_front_does_not_move_the_others(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(3)]
+        await self.under_test.store(files, slots=[0, 1, 2, 3])
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN
+        slots = await self.under_test.store([self._picture("new.png", 99)] + files, slots=[0, 1, 2, 3])
+
+        # THEN
+        self.assertEqual([3, 0, 1, 2], slots)
+        self.assertEqual([3], self._uploads())
+
+    async def test_changed_content_options_or_display_time_are_transferred_again(self):
+        # GIVEN
+        file = self._picture("a.png", 1)
+        await self.under_test.store([file], slots=[0], display_time=10)
+        for kwargs in ({"display_time": 20}, {"palletize": True}, {"background_color": (1, 2, 3)}):
+            with self.subTest(kwargs=kwargs):
+                self.connection_manager.send_packets.reset_mock()
+
+                # WHEN
+                await self.under_test.store([file], slots=[0], **{"display_time": 10, **kwargs})
+                await self.under_test.store([file], slots=[0], display_time=10)
+
+                # THEN
+                self.assertEqual([0, 0], self._uploads())
+
+        self.connection_manager.send_packets.reset_mock()
+        file.write_bytes(self._picture("b.png", 2).read_bytes())
+        await self.under_test.store([file], slots=[0], display_time=10)
+        self.assertEqual([0], self._uploads())
+
+    async def test_verify_sends_everything_again(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(2)]
+        await self.under_test.store(files)
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN
+        await self.under_test.store(files, verify=True)
+
+        # THEN
+        self.assertEqual(2, len(self._uploads()))
+
+    async def test_keep_order_puts_the_files_into_the_slots_in_order(self):
+        # GIVEN
+        files = [self._picture(f"{n}.png", n) for n in range(2)]
+        await self.under_test.store(files)
+
+        # WHEN
+        slots = await self.under_test.store(files[::-1], keep_order=True)
+
+        # THEN
+        self.assertEqual([0, 1], slots)
+
+    async def test_slots_that_are_known_to_be_empty_are_not_deleted_again(self):
+        # GIVEN
+        file = self._picture("a.png", 1)
+        await self.under_test.store([file], slots=[0, 1, 2])
+        self.assertEqual(1, self.connection_manager.send_bytes.await_count)  # the unused slots 1 and 2
+        self.connection_manager.send_bytes.reset_mock()
+
+        # WHEN
+        await self.under_test.store([file], slots=[0, 1, 2])
+
+        # THEN
+        self.connection_manager.send_bytes.assert_not_awaited()
+
+    async def test_a_slot_whose_upload_failed_is_not_trusted(self):
+        # GIVEN
+        file = self._picture("a.png", 1)
+        self.connection_manager.send_packets.side_effect = [RuntimeError("lost"), None]
+        with self.assertRaises(RuntimeError):
+            await self.under_test.store([file], slots=[0])
+
+        # WHEN
+        await self.under_test.store([file], slots=[0])
+
+        # THEN it was sent again
+        self.assertEqual(2, self.connection_manager.send_packets.await_count)
+
+    async def test_clear_forgets_the_slots(self):
+        # GIVEN
+        file = self._picture("a.png", 1)
+        await self.under_test.store([file], slots=[0])
+        await self.under_test.clear([0])
+        self.connection_manager.send_packets.reset_mock()
+
+        # WHEN
+        await self.under_test.store([file], slots=[0])
+
+        # THEN
+        self.assertEqual([0], self._uploads())
 
 
 class TestUploadWithSlot(TestBase):

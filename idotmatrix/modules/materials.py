@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from os import PathLike
 from typing import Iterable, Sequence, Tuple
@@ -22,7 +23,9 @@ class MaterialsModule(IDotMatrixModule):
     The slots of the device ("device materials" in the official app). The device keeps the items in its slots and
     cycles through them by itself, in the order of the slots, so after the upload no Bluetooth traffic is needed and the
     animation is not interrupted by an upload, which takes seconds for a GIF. Based on `DeviceMaterialChildFragment` of
-    the official app, which deletes the slots and then sends the items one after another.
+    the official app, which deletes the slots and then sends its items one after another.
+
+    The module remembers what it stored in which slot (as long as it lives), so storing again only transfers what is new.
     """
     logging = logging.getLogger(__name__)
 
@@ -30,6 +33,8 @@ class MaterialsModule(IDotMatrixModule):
         super().__init__(connection_manager=connection_manager)
         self._gif = gif
         self._image = image
+        # slot -> what is in it: None for empty, a fingerprint of the stored item, or missing if it is not known
+        self._contents: dict[int, tuple | None] = {}
 
     async def clear(self, slots: Iterable[int] | None = None) -> None:
         """
@@ -39,8 +44,12 @@ class MaterialsModule(IDotMatrixModule):
             slots: The slots to empty (0 to 11). All of them if not given.
         """
         slots = self._validate_slots(slots)
+        for slot in slots:
+            self._contents.pop(slot, None)
         # `11 00 02 01 <number of slots> <slot>...`, acknowledged with `05 00 02 01 01` (verified on a 64x64)
         await self._send_bytes(data=build_command(protocol.DELETE_MATERIALS, len(slots), *slots), response=True)
+        for slot in slots:
+            self._contents[slot] = None
 
     async def store(
         self,
@@ -51,27 +60,34 @@ class MaterialsModule(IDotMatrixModule):
         palletize: bool | None = None,
         background_color: Tuple[int, int, int] | int | str = (0, 0, 0),
         clear_unused: bool = True,
+        keep_order: bool = False,
+        verify: bool = False,
     ) -> list[int]:
         """
         Stores image and GIF files in the slots of the device, one file per slot, and ends up with the device cycling
         through them. Other slots are not touched, so a list of slots protects the others.
 
-        The slots are not deleted before they are filled (the official app does that): an item the device already
-        holds, with the same display time, is not transferred again, whatever slot it is in, which takes about 0.8 s
-        instead of seconds. So storing the same files again, or in another order, is fast. (verified on a 64x64)
+        Only what is new is transferred: a file that this module stored in one of the allowed slots earlier (same
+        content, options and display time) stays where it is and costs nothing. The rest goes into the other allowed
+        slots, which are overwritten, no delete is needed. A transfer of an item the device holds anyway takes about
+        0.8 s instead of seconds, also in another slot, so reordering is cheap, too. (verified on a 64x64)
 
         Args:
-            files: The files, in the order they should be shown in. Animated GIFs are stored as GIFs, the rest as images.
-            slots: The slots the device may use (0 to 11), all of them if not given. The files go into them in the order
-                of the slot numbers, which is the order of the cycle.
+            files: The files. Animated GIFs are stored as GIFs, the rest as images.
+            slots: The slots the device may use (0 to 11), all of them if not given.
             display_time: Seconds each item stays on screen.
             resize_mode: How the files are scaled to the screen.
             palletize: Reduce the colors to a palette. The default is on for GIFs and off for images.
             background_color: Color of the bars if a file does not have the shape of the screen.
-            clear_unused: Delete the slots that are allowed but get no file, so that nothing stale keeps cycling.
+            clear_unused: Delete the allowed slots that get no file, so that nothing stale keeps cycling.
+            keep_order: Put the files into the slots in the order of the slot numbers, which is the order of the cycle,
+                instead of keeping what is stored where it is. That can transfer many files again, because writing a
+                slot destroys the item that is in it.
+            verify: Do not trust what this module remembers about the slots, send all files again (which takes about
+                0.8 s for each item the device holds). Use it if something else (the app) may have changed the slots.
 
         Returns:
-            The slots that were used, one for each file.
+            The slot of each file, in the order of the files. The device cycles in the order of the slots.
 
         Raises:
             ValueError: If there are more files than slots, or a slot or the display time is invalid.
@@ -80,15 +96,29 @@ class MaterialsModule(IDotMatrixModule):
         validate_display_time(display_time)
         if len(files) > len(slots):
             raise ValueError(f"{len(files)} files do not fit into {len(slots)} slots")
-        used = slots[:len(files)]
-        if not used:
+        if not files:
             return []
 
-        unused = slots[len(files):]
-        if clear_unused and unused:
-            await self.clear(unused)
-        for slot, file in zip(used, files):
-            if await asyncio.to_thread(self._is_animated, file):
+        items = [
+            await asyncio.to_thread(self._fingerprint, file, display_time, resize_mode, palletize, background_color)
+            for file in files
+        ]
+        keys = [key for key, _ in items]
+        stored = {} if verify else self._contents
+        assignment = self._plan(keys, slots, stored, keep_order)
+
+        unused = [slot for slot in slots if slot not in assignment.values()]
+        if clear_unused:
+            unused = [slot for slot in unused if self._contents.get(slot, False) is not None]
+            if unused:
+                await self.clear(unused)
+
+        for index, file in enumerate(files):
+            slot = assignment[index]
+            if stored.get(slot) == keys[index]:
+                continue
+            self._contents.pop(slot, None)  # not known anymore, in case the upload fails
+            if items[index][1]:
                 await self._gif.upload_gif_file(
                     file_path=file,
                     resize_mode=resize_mode,
@@ -106,7 +136,35 @@ class MaterialsModule(IDotMatrixModule):
                     slot=slot,
                     display_time=display_time,
                 )
-        return used
+            self._contents[slot] = keys[index]
+        return [assignment[index] for index in range(len(files))]
+
+    @staticmethod
+    def _plan(keys: list[tuple], slots: list[int], stored: dict[int, tuple | None], keep_order: bool) -> dict[int, int]:
+        """Decides which file goes into which slot: the index of each file -> its slot."""
+        if keep_order:
+            return dict(enumerate(slots[:len(keys)]))
+        free = list(slots)
+        assignment: dict[int, int] = {}
+        for index, key in enumerate(keys):
+            for slot in free:
+                if stored.get(slot) == key:
+                    assignment[index] = slot
+                    free.remove(slot)
+                    break
+        for index in range(len(keys)):
+            if index not in assignment:
+                assignment[index] = free.pop(0)
+        return assignment
+
+    @staticmethod
+    def _fingerprint(file: PathLike | str, display_time: int, resize_mode, palletize, background_color) -> tuple:
+        """What identifies an item: the content of the file and everything that changes what is sent."""
+        with open(file, "rb") as handle:
+            digest = hashlib.sha1(handle.read()).hexdigest()
+        with PILImage.open(file) as img:
+            animated = getattr(img, "n_frames", 1) > 1
+        return (digest, animated, display_time, resize_mode, palletize, str(background_color)), animated
 
     @staticmethod
     def _validate_slots(slots: Iterable[int] | None) -> list[int]:
@@ -118,8 +176,3 @@ class MaterialsModule(IDotMatrixModule):
         if not slots:
             raise ValueError("slots must not be empty")
         return slots
-
-    @staticmethod
-    def _is_animated(file: PathLike | str) -> bool:
-        with PILImage.open(file) as img:
-            return getattr(img, "n_frames", 1) > 1
