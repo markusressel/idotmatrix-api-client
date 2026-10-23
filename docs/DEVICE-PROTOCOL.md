@@ -59,12 +59,18 @@ Each 4096 byte chunk of an image or GIF upload is answered with a notification `
 Rules:
 
 - The next chunk must not be sent before the acknowledgement of the previous one. The official app does the same
-  (it also paces the BLE writes 20 ms apart and gives up after 5 s without an answer). If chunks are sent too early,
+  (it also paces the BLE writes 20 ms apart and gives up after 5 s without an answer, counted from the first write of
+  the chunk; any notification stops that timer). If chunks are sent too early,
   the device answers `status 00`, drops data, and the animation stutters, loses frames or never changes. In the app,
   `02` for a GIF means "not enough space" (**app**). `00` is the "not ready" answer we saw in practice.
 - The last chunk is answered with "finished". If the device already has the exact same data (probably compared by the
   CRC), it answers "finished" to the first chunk and skips the rest. Uploading the same GIF twice therefore takes well
   under a second. (**verified**)
+- The app writes the 509 byte BLE packets of a chunk 20 ms apart, and with response (Android's default write type;
+  nothing in the app sets write-without-response). We used to write all but the last packet of a chunk back-to-back
+  without response. Sporadic `UploadError`s ("did not acknowledge within 5 seconds", once followed by a reboot) are
+  suspected to come from that burst overrunning the device (**guess**). Now the packets of a chunk are paced
+  20 ms apart like in the app; whether that fixes the timeouts is unverified, see `TODO.md`.
 - Implemented in `ConnectionManager.send_packets(wait_for_ack=True)` and `util/upload_ack.py`. A device that does
   not answer leads to an `UploadError` after 5 s.
 

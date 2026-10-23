@@ -56,9 +56,9 @@ class TestUploadFlowControl(FakeDeviceTestBase):
         order = []
         original_wait = self.under_test._wait_for_upload_status
 
-        async def spy():
+        async def spy(deadline):
             order.append("wait")
-            return await original_wait()
+            return await original_wait(deadline)
 
         self.under_test._wait_for_upload_status = spy
         self.transport.write.side_effect = self._recording_write(order)
@@ -148,6 +148,55 @@ class TestUploadFlowControl(FakeDeviceTestBase):
                 self.under_test.send_packets([[b"a"], [b"b"]], response=True, wait_for_ack=True), timeout=2)
 
         self.assertEqual(2, len(self.events))
+
+    async def test_paces_the_ble_packets_of_a_chunk(self):
+        # GIVEN
+        self.replies = [GIF_FINISHED]
+        sleeps = []
+
+        async def record_sleep(seconds):
+            sleeps.append(seconds)
+
+        # WHEN
+        with patch("idotmatrix.connection_manager.asyncio.sleep", record_sleep):
+            await self.under_test.send_packets([[b"a", b"b", b"c"]], response=True, wait_for_ack=True)
+
+        # THEN
+        self.assertEqual([0.02, 0.02], [s for s in sleeps if s])
+
+    async def test_does_not_pace_writes_without_ack(self):
+        # GIVEN
+        sleeps = []
+
+        async def record_sleep(seconds):
+            sleeps.append(seconds)
+
+        # WHEN
+        with patch("idotmatrix.connection_manager.asyncio.sleep", record_sleep):
+            await self.under_test.send_packets([[b"a", b"b", b"c"]], response=True)
+
+        # THEN
+        self.assertEqual([], [s for s in sleeps if s])
+
+    async def test_ack_timeout_counts_from_the_start_of_the_chunk(self):
+        # GIVEN
+        loop_time = asyncio.get_running_loop().time
+        deadlines = []
+        original_wait = self.under_test._wait_for_upload_status
+
+        async def spy(deadline):
+            deadlines.append(deadline)
+            return await original_wait(deadline)
+
+        self.under_test._wait_for_upload_status = spy
+        self.replies = [GIF_FINISHED]
+
+        # WHEN
+        started = loop_time()
+        await self.under_test.send_packets([[b"a", b"b"]], response=True, wait_for_ack=True)
+
+        # THEN the deadline was taken before the 20 ms pause between the two writes
+        self.assertLess(deadlines[0], started + 5 + 0.02)
 
 
 class TestCommandAcks(FakeDeviceTestBase):
