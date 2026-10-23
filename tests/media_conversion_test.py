@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 from PIL import Image
 
-from idotmatrix.modules.gif import ANIMATION_MAX_FRAME_COUNT, GifModule
+from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.util.image_utils import ResizeMode, palette_table_size, validate_colors
@@ -61,7 +61,6 @@ class TestConversionOfVariedMedia(TestBase):
                     self.assertEqual("GIF", result.format)
                     self.assertEqual((size, size), result.size)
                     self.assertGreaterEqual(result.n_frames, 1)
-                    self.assertLessEqual(result.n_frames, ANIMATION_MAX_FRAME_COUNT)
                     # the device garbles frames if the color tables differ
                     global_size, local_sizes = _color_table_sizes(data)
                     self.assertEqual(256, global_size)
@@ -76,7 +75,55 @@ class TestConversionOfVariedMedia(TestBase):
                     file_path=self._gif(name), canvas_size=64, resize_mode=ResizeMode.FIT)
 
                 result = Image.open(io.BytesIO(data))
-                self.assertGreaterEqual(result.info["duration"], 16)
+                for frame in range(result.n_frames):
+                    result.seek(frame)
+                    self.assertGreaterEqual(result.info["duration"], 10)
+
+    def test_all_frames_and_their_own_delays_are_kept(self):
+        # GIVEN an animation of 200 frames with alternating delays
+        path = Path(self._tmp.name) / "delays.gif"
+        frames = [Image.new("RGB", (64, 64), (i, 255 - i, 0)).quantize(256) for i in range(200)]
+        delays = [100, 400] * 100
+        frames[0].save(path, save_all=True, append_images=frames[1:], duration=delays, loop=0)
+        module = GifModule(connection_manager=AsyncMock(), screen_size=ScreenSize.SIZE_64x64)
+
+        # WHEN
+        data = module._load_gif_and_adapt_to_canvas(file_path=path, canvas_size=64, resize_mode=ResizeMode.FIT)
+
+        # THEN
+        result = Image.open(io.BytesIO(data))
+        self.assertEqual(200, result.n_frames)
+        got = []
+        for frame in range(result.n_frames):
+            result.seek(frame)
+            got.append(result.info["duration"])
+        self.assertEqual(delays, got)
+
+    def test_a_given_duration_is_used_for_all_frames(self):
+        module = GifModule(connection_manager=AsyncMock(), screen_size=ScreenSize.SIZE_64x64)
+
+        data = module._load_gif_and_adapt_to_canvas(
+            file_path=self._gif(next(iter(GIFS))), canvas_size=64, resize_mode=ResizeMode.FIT,
+            duration_per_frame_in_ms=250)
+
+        result = Image.open(io.BytesIO(data))
+        for frame in range(result.n_frames):
+            result.seek(frame)
+            self.assertEqual(250, result.info["duration"])
+
+    def test_frame_durations(self):
+        self.assertEqual([100, 100, 16, 130], GifModule._frame_durations([None, 0, 12, 130], None))
+        self.assertEqual([70, 70], GifModule._frame_durations([None, 130], 70))
+
+    def test_thinning_out_keeps_the_duration_of_the_loop(self):
+        frames = list(range(7))
+        durations = [10, 20, 30, 40, 50, 60, 70]
+
+        kept, kept_durations = GifModule._thin_out(frames, durations, 3)
+
+        self.assertEqual([0, 3, 6], kept)
+        self.assertEqual([60, 150, 70], kept_durations)
+        self.assertEqual(sum(durations), sum(kept_durations))
 
     def test_a_gif_without_palette_reduction_is_valid_too(self):
         for name in GIFS:
@@ -228,34 +275,21 @@ class TestMaxSize(TestBase):
 
         self.assertEqual(data, self._encode(max_size_kb=len(data) // 1024 + 1))
 
-    def test_colors_are_given_up_before_frames(self):
+    def test_frames_are_given_up_before_colors(self):
         # GIVEN
         data = self._encode()
         frames, duration = self._info(data)
 
-        # WHEN the limit is a bit below the size with all colors
+        # WHEN the limit is a bit below the size with all frames
         reduced = self._encode(max_size_kb=int(len(data) * 0.8) // 1024)
 
-        # THEN it fits, with all frames and the same duration, but fewer colors
-        self.assertLess(len(reduced), len(data))
+        # THEN it fits, with fewer frames and the same duration, but the same colors
         self.assertLessEqual(len(reduced), int(len(data) * 0.8))
-        self.assertEqual((frames, duration), self._info(reduced))
-        self.assertLess(_color_table_sizes(reduced)[0], 256)
-
-    def test_frames_are_dropped_when_fewer_colors_do_not_suffice_and_the_animation_takes_as_long(self):
-        # GIVEN
-        frames, duration = self._info(self._encode())
-        at_32_colors = len(self._encode(colors=32))
-
-        # WHEN the limit is below the size with 32 colors
-        reduced = self._encode(max_size_kb=int(at_32_colors * 0.6) // 1024)
-
-        # THEN
         reduced_frames, reduced_duration = self._info(reduced)
         self.assertLess(reduced_frames, frames)
         self.assertGreaterEqual(reduced_frames, 2)
         self.assertEqual(duration, reduced_duration)
-        self.assertEqual(32, _color_table_sizes(reduced)[0])
+        self.assertEqual(_color_table_sizes(data)[0], _color_table_sizes(reduced)[0])
 
     def test_the_smallest_version_is_used_when_nothing_fits(self):
         with self.assertLogs("idotmatrix.modules.gif", level="WARNING") as logs:
@@ -266,9 +300,10 @@ class TestMaxSize(TestBase):
         self.assertLess(self._info(data)[0], self._info(self._encode())[0])
 
     def test_reductions_start_with_what_was_asked_for_and_never_exceed_it(self):
-        self.assertEqual([(256, 1), (128, 1), (64, 1), (32, 1)], GifModule._size_reductions(256, 1)[:4])
-        self.assertEqual([(100, 1), (64, 1), (32, 1)], GifModule._size_reductions(100, 1)[:3])
-        self.assertEqual([(16, 1), (16, 2), (16, 3)], GifModule._size_reductions(16, 6)[:3])
+        self.assertEqual([(256, 1), (128, 1), (64, 1), (32, 1), (16, 1), (8, 1)], GifModule._size_reductions(256, 1))
+        self.assertEqual([(100, 1), (100, 2), (100, 3), (64, 3), (32, 3), (16, 3), (8, 3)],
+                         GifModule._size_reductions(100, 7))
+        self.assertEqual([(16, 1), (16, 2), (16, 3), (8, 3)], GifModule._size_reductions(16, 7))
         for colors in (256, 100, 16, 4):
             for step_colors, every in GifModule._size_reductions(colors, 40):
                 self.assertLessEqual(step_colors, colors)
