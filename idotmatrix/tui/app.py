@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import Screen
+from textual.events import Key, Resize
 from textual.widgets import DataTable, Footer, Input, Label, ProgressBar, Static
 from textual.worker import Worker
 
@@ -19,14 +21,37 @@ from idotmatrix.tui import convert
 from idotmatrix.tui.convert import Preview
 from idotmatrix.tui.devices import DevicesScreen
 from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, OptionsDialog, SlideshowDialog
-from idotmatrix.tui.files import Entry, files_in, format_size, is_supported, list_folder
+from idotmatrix.tui.files import Entry, files_in, fit_name, format_size, is_supported, list_folder, restore_index
 from idotmatrix.tui.preview import PreviewWidget
 from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
 from idotmatrix.tui.settings import Options, Session
 
 logging = logging.getLogger(__name__)
 
-PARENT_KEY = ".."
+NAME_COLUMN_MIN_WIDTH = 8
+SIZE_COLUMN_WIDTH = 8
+# the width of the cell padding of the three columns, and the mark column
+TABLE_FIXED_WIDTH = 1 + 6 + SIZE_COLUMN_WIDTH
+DEFAULT_TABLE_WIDTH = 60
+MESSAGE_SECONDS = {"information": 5, "warning": 8, "error": 12}
+# a key press dismisses the message, but not before it could be read (a held key would dismiss it at once)
+MESSAGE_MIN_SECONDS = 1.0
+MESSAGE_STYLES = {"information": "", "warning": "bold yellow", "error": "bold red"}
+
+
+class FileTable(DataTable):
+    """The list of files: ← goes to the parent folder and → into the selected folder, so it never scrolls sideways."""
+
+    BINDINGS = [
+        Binding("left", "app.parent", "Up", show=False),
+        Binding("right", "app.enter", "Open", show=False),
+        Binding("alt+up", "app.parent", "Up", show=False),
+        Binding("shift+up", "app.extend(-1)", "Extend marks", show=False),
+        Binding("shift+down", "app.extend(1)", "Extend marks", show=False),
+    ]
+
+    def on_resize(self, event: Resize) -> None:
+        self.app.table_resized(event.size.width)
 PREVIEW_DELAY_SECONDS = 0.25
 DEFAULT_CANVAS_SIZE = 64
 CONNECT_ATTEMPTS = 4
@@ -43,7 +68,9 @@ class IDotMatrixApp(App):
     TITLE = "iDotMatrix"
     CSS = """
     Screen { background: $background; }
-    #status { height: 1; padding: 0 1; background: $panel; color: $text; }
+    #statusbar { height: 1; background: $panel; color: $text; }
+    #status { width: auto; padding: 0 1; }
+    #message { width: 1fr; padding: 0 1; text-align: right; text-wrap: nowrap; text-overflow: ellipsis; }
     #main { height: 1fr; padding: 0 1; }
     #left { width: 1fr; border: round $primary; border-title-color: $primary; border-title-style: bold;
             border-subtitle-color: $text-muted; padding: 0 1; }
@@ -55,7 +82,7 @@ class IDotMatrixApp(App):
     #left:focus-within, #preview-box:focus-within { border: round $accent; }
     #filter { display: none; margin-bottom: 1; }
     #filter.visible { display: block; }
-    #files { height: 1fr; background: transparent; }
+    #files { height: 1fr; background: transparent; overflow-x: hidden; }
     #files > .datatable--header { background: transparent; text-style: bold; color: $text-muted; }
     #preview { height: 1fr; min-height: 8; }
     #info { height: auto; }
@@ -73,8 +100,8 @@ class IDotMatrixApp(App):
         Binding("x", "clear_slots", "Clear slots"),
         Binding("d", "devices", "Displays"),
         Binding("r", "reconnect", "Reconnect"),
-        Binding("backspace,left,h", "parent", "Up", show=False),
-        Binding("slash", "filter", "Filter"),
+        Binding("backspace", "parent", "Up", show=False),
+        Binding("slash,ctrl+f", "filter", "Filter"),
         Binding("escape", "escape", "Cancel"),
         Binding("colon", "command_palette", "Commands", show=False),
         Binding("q", "quit", "Quit"),
@@ -109,16 +136,22 @@ class IDotMatrixApp(App):
         self._preview_timer = None
         self._previewed: Path | None = None
         self._preview: Preview | None = None
+        self._loading = False
+        self._table_width = 0
+        self._message_id = 0
+        self._message_shown_at = 0.0
 
     # layout
 
     def compose(self) -> ComposeResult:
-        yield Static("", id="status")
+        with Horizontal(id="statusbar"):
+            yield Static("", id="status")
+            yield Static("", id="message")
         with Horizontal(id="main"):
             with Vertical(id="left") as left:
                 left.border_title = "Files"
                 yield Input(placeholder="filter", id="filter")
-                yield DataTable(id="files", cursor_type="row")
+                yield FileTable(id="files", cursor_type="row")
             with Vertical(id="right"):
                 with Vertical(id="preview-box") as box:
                     box.border_title = "On the display"
@@ -136,11 +169,8 @@ class IDotMatrixApp(App):
             self.theme = self.session.theme
         self.theme_changed_signal.subscribe(self, self._theme_changed)
         table = self.query_one("#files", DataTable)
-        table.add_column("", width=1, key="mark")
-        table.add_column("Name", key="name")
-        table.add_column("Size", key="size")
         self.query_one("#progress", ProgressBar).display = False
-        self.reload()
+        self.reload(restore=True)
         self._update_status()
         table.focus()
         if self._choose_device or not self.session.address:
@@ -176,22 +206,76 @@ class IDotMatrixApp(App):
         yield SystemCommand("Mark all", "Mark all files of the folder", self.action_mark_all)
         yield SystemCommand("Unmark all", "Forget the marked files", self.action_unmark_all)
 
+    # messages: shown in the status bar instead of on top of the other panels
+
+    def notify(self, message: str, *, title: str = "", severity="information", timeout: float | None = None,
+               markup: bool = True) -> None:
+        self.show_message(message, severity, timeout)
+
+    def show_message(self, text: str, severity: str = "information", timeout: float | None = None) -> None:
+        self._message_id += 1
+        message_id = self._message_id
+        self._message_shown_at = time.monotonic()
+        try:
+            self.query_one("#message", Static).update(Text(text, style=MESSAGE_STYLES.get(severity, "")))
+        except NoMatches:
+            return
+        self.set_timer(timeout or MESSAGE_SECONDS.get(severity, 5), lambda: self._clear_message(message_id))
+
+    def _clear_message(self, message_id: int | None = None) -> None:
+        if message_id is not None and message_id != self._message_id:
+            return
+        try:
+            self.query_one("#message", Static).update("")
+        except NoMatches:
+            pass
+
+    def on_key(self, event: Key) -> None:
+        if self._message_id and time.monotonic() - self._message_shown_at >= MESSAGE_MIN_SECONDS:
+            self._clear_message()
+        self._filter_key(event)
+
     # the file list
 
-    def reload(self) -> None:
-        """Fills the list with the folder, and keeps the cursor on the same name if it can."""
+    def reload(self, restore: bool = False) -> None:
+        """Fills the list with the folder. The cursor stays on the same name if it can, or goes to the one that was
+        selected last time in this folder (restore)."""
         table = self.query_one("#files", DataTable)
+        width = table.size.width - table.scrollbar_size_vertical or DEFAULT_TABLE_WIDTH
+        name_width = max(width - TABLE_FIXED_WIDTH, NAME_COLUMN_MIN_WIDTH)
         selected = self._selected_key()
-        table.clear()
-        if self.folder.parent != self.folder:
-            table.add_row("", "../", "", key=PARENT_KEY)
-        for entry in list_folder(self.folder, self.text_filter):
-            table.add_row(self._mark(entry.path), entry.name, "" if entry.is_dir else format_size(entry.size),
-                          key=str(entry.path))
-        if selected is not None and selected in {key.value for key in table.rows}:
-            table.move_cursor(row=table.get_row_index(selected))
-        self.query_one("#left").border_subtitle = str(self.folder)
+        self._loading = True
+        table.clear(columns=True)
+        table.add_column("", width=1, key="mark")
+        table.add_column("Name", width=name_width, key="name")
+        table.add_column("Size", width=SIZE_COLUMN_WIDTH, key="size")
+        entries = list_folder(self.folder, self.text_filter)
+        for entry in entries:
+            table.add_row(self._mark(entry.path), fit_name(entry.name, name_width),
+                          "" if entry.is_dir else format_size(entry.size), key=str(entry.path))
+        names = [str(entry.path) for entry in entries]
+        if restore:
+            remembered = self.session.selection(self.folder)
+            name, index = remembered if remembered else (None, 0)
+            row = restore_index([Path(n).name for n in names], name, index)
+        else:
+            row = names.index(selected) if selected in names else min(table.cursor_row, max(len(names) - 1, 0))
+        if names:
+            table.move_cursor(row=row)
+        self._loading = False
+        self.query_one("#left").border_subtitle = self._folder_title(width)
         self._schedule_preview()
+
+    def _folder_title(self, width: int) -> str:
+        text = str(self.folder)
+        room = max(width - 2, 10)
+        return text if len(text) <= room else "…" + text[-(room - 1):]
+
+    def table_resized(self, width: int) -> None:
+        # the names are shortened to the width of the list, so the list never scrolls sideways
+        if width != self._table_width:
+            self._table_width = width
+            self.call_after_refresh(self.reload)
 
     def _mark(self, path: Path) -> str:
         return "✓" if path in self.marked else ""
@@ -204,7 +288,7 @@ class IDotMatrixApp(App):
 
     def selected_path(self) -> Path | None:
         key = self._selected_key()
-        return None if key in (None, PARENT_KEY) else Path(key)
+        return None if key is None else Path(key)
 
     def _entry(self, path: Path) -> Entry | None:
         for entry in list_folder(self.folder, self.text_filter):
@@ -213,28 +297,27 @@ class IDotMatrixApp(App):
         return None
 
     def action_parent(self) -> None:
-        if self.focused is not None and isinstance(self.focused, Input):
+        if isinstance(self.focused, Input):
             return
         if self.folder.parent != self.folder:
             self._go_to(self.folder.parent, select=self.folder)
 
+    def action_enter(self) -> None:
+        path = self.selected_path()
+        if path is not None and path.is_dir():
+            self._go_to(path)
+
     def _go_to(self, folder: Path, select: Path | None = None) -> None:
+        if select is not None:
+            self.session.remember_selection(folder, select.name, 0)
         self.folder = folder
         self.text_filter = ""
         self.query_one("#filter", Input).value = ""
-        self.reload()
-        if select is not None:
-            table = self.query_one("#files", DataTable)
-            if str(select) in {key.value for key in table.rows}:
-                table.move_cursor(row=table.get_row_index(str(select)))
+        self.reload(restore=True)
 
     @on(DataTable.RowSelected)
     def _row_selected(self, event: DataTable.RowSelected) -> None:
-        key = event.row_key.value
-        if key == PARENT_KEY:
-            self.action_parent()
-            return
-        path = Path(key)
+        path = Path(event.row_key.value)
         if path.is_dir():
             self._go_to(path)
         elif is_supported(path):
@@ -242,6 +325,10 @@ class IDotMatrixApp(App):
 
     @on(DataTable.RowHighlighted)
     def _row_highlighted(self) -> None:
+        # not the row of the event: the events of a reload arrive when the cursor is already where it belongs
+        path = self.selected_path()
+        if path is not None and not self._loading and not self.text_filter:
+            self.session.remember_selection(self.folder, path.name, self.query_one("#files", DataTable).cursor_row)
         self._schedule_preview()
 
     # marking
@@ -258,6 +345,21 @@ class IDotMatrixApp(App):
         table.update_cell(str(path), "mark", self._mark(path))
         if table.cursor_row + 1 < table.row_count:
             table.move_cursor(row=table.cursor_row + 1)
+        self._update_info()
+
+    def action_extend(self, delta: int) -> None:
+        """Marks the selected file and the one the cursor moves to (Shift+↑/↓)."""
+        table = self.query_one("#files", DataTable)
+        for _ in range(2):
+            path = self.selected_path()
+            if path is not None and not path.is_dir() and path not in self.marked:
+                self.marked.append(path)
+                table.update_cell(str(path), "mark", self._mark(path))
+            if _ == 0:
+                row = table.cursor_row + delta
+                if not 0 <= row < table.row_count:
+                    break
+                table.move_cursor(row=row)
         self._update_info()
 
     def action_mark_all(self) -> None:
@@ -278,6 +380,20 @@ class IDotMatrixApp(App):
         field = self.query_one("#filter", Input)
         field.add_class("visible")
         field.focus()
+
+    def _filter_key(self, event: Key) -> None:
+        field = self.query_one("#filter", Input)
+        if not field.has_focus:
+            return
+        table = self.query_one("#files", DataTable)
+        moves = {"up": table.action_cursor_up, "down": table.action_cursor_down,
+                 "pageup": table.action_page_up, "pagedown": table.action_page_down}
+        if event.key in moves:
+            moves[event.key]()
+            event.stop()
+        elif event.key == "backspace" and not field.value:
+            self.action_escape()
+            event.stop()
 
     @on(Input.Changed, "#filter")
     def _filter_changed(self, event: Input.Changed) -> None:
@@ -340,12 +456,18 @@ class IDotMatrixApp(App):
         if path != self._previewed:
             return
         self._preview = preview
-        self.query_one("#preview", PreviewWidget).show_frames(preview.frames, preview.durations)
-        self._update_info()
+        try:
+            self.query_one("#preview", PreviewWidget).show_frames(preview.frames, preview.durations)
+            self._update_info()
+        except NoMatches:  # the app closed while the file was converted
+            return
 
     def _show_preview_error(self, path: Path, error: Exception) -> None:
         if path == self._previewed:
-            self.query_one("#preview", PreviewWidget).show_message(f"cannot be shown: {error}")
+            try:
+                self.query_one("#preview", PreviewWidget).show_message(f"cannot be shown: {error}")
+            except NoMatches:
+                return
 
     def _update_info(self) -> None:
         path = self._previewed

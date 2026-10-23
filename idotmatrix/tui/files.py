@@ -68,3 +68,22 @@ def format_size(size: int) -> str:
     if size < 1024 * 1024:
         return f"{size / 1024:.0f} KB"
     return f"{size / 1024 / 1024:.1f} MB"
+
+
+def fit_name(name: str, width: int) -> str:
+    """Shortens a name in the middle to `width` cells, so the end (f.e. the extension) stays visible."""
+    if len(name) <= width:
+        return name
+    if width <= 1:
+        return "…"[:max(width, 0)]
+    tail = min(8, (width - 1) // 2)
+    return name[:width - 1 - tail] + "…" + (name[-tail:] if tail else "")
+
+
+def restore_index(names: list[str], name: str | None, index: int) -> int:
+    """The row to select: the remembered name, or the row at its old index if it is gone, or the first."""
+    if not names:
+        return 0
+    if name in names:
+        return names.index(name)
+    return min(max(index, 0), len(names) - 1) if name is not None else 0

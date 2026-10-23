@@ -210,7 +210,7 @@ class MaterialsModule(IDotMatrixModule):
         with open(file, "rb") as handle:
             digest = hashlib.sha1(handle.read()).hexdigest()
         with PILImage.open(file) as img:
-            animated = getattr(img, "n_frames", 1) > 1
+            animated = image_utils.is_animated(img)
         options = (display_time, resize_mode, palletize, str(background_color), colors, max_size_kb, overlay,
                    shared_palette, max_color_error)
         return (digest, animated, *options), animated

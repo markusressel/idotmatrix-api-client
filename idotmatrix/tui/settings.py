@@ -16,6 +16,7 @@ RESIZE_CHOICES = ("fit", "fill", "stretch", "crop")
 LABEL_CHOICES = ("none", "name", "text")
 DEFAULT_SLIDESHOW_TIME_SECONDS = 10
 DEFAULT_THEME = "nord"
+MAX_REMEMBERED_SELECTIONS = 200
 
 
 @dataclass
@@ -89,6 +90,19 @@ class Session:
     brightness: int = 100
     devices: list[KnownDevice] = field(default_factory=list)
     theme: str = DEFAULT_THEME
+    # the selected name and its row of the folders that were browsed, the most recent last
+    selections: dict[str, dict] = field(default_factory=dict)
+
+    def remember_selection(self, folder: str | Path, name: str, index: int) -> None:
+        key = str(folder)
+        self.selections.pop(key, None)
+        self.selections[key] = {"name": name, "index": index}
+        while len(self.selections) > MAX_REMEMBERED_SELECTIONS:
+            del self.selections[next(iter(self.selections))]
+
+    def selection(self, folder: str | Path) -> tuple[str, int] | None:
+        remembered = self.selections.get(str(folder))
+        return (remembered["name"], remembered["index"]) if remembered else None
 
     def remember(self, address: str, name: str = "", now: float | None = None) -> None:
         """Adds a device that was connected, or updates it, and makes it the one to connect to next time."""
@@ -129,6 +143,7 @@ class Session:
                 display_time=_int_in(raw.get("display_time"), 1, 65535, DEFAULT_SLIDESHOW_TIME_SECONDS),
                 brightness=_int_in(raw.get("brightness"), 5, 100, 100),
                 devices=_devices(raw.get("devices")),
+                selections=_selections(raw.get("selections")),
                 theme=raw["theme"] if isinstance(raw.get("theme"), str) and raw["theme"] else DEFAULT_THEME,
             )
         except FileNotFoundError:
@@ -157,6 +172,14 @@ def _devices(raw) -> list[KnownDevice]:
                 last_connected=float(last) if isinstance(last, (int, float)) and not isinstance(last, bool) else None,
             ))
     return devices
+
+
+def _selections(raw) -> dict[str, dict]:
+    selections = {}
+    for folder, item in (raw if isinstance(raw, dict) else {}).items():
+        if isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("index"), int):
+            selections[str(folder)] = {"name": item["name"], "index": max(item["index"], 0)}
+    return dict(list(selections.items())[-MAX_REMEMBERED_SELECTIONS:])
 
 
 def _int_in(value, low: int, high: int, default: int) -> int:

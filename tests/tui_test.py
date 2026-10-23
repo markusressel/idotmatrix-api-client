@@ -259,7 +259,7 @@ class TestApp(AppHelpers, TestBase):
             self.assertEqual(64, app.canvas_size)
             self.client.connect.assert_awaited_once()
             self.assertEqual(
-                ["..", str(self.folder / "a.gif"), str(self.folder / "b2.png"), str(self.folder / "b10.jpg")],
+                [str(self.folder / "a.gif"), str(self.folder / "b2.png"), str(self.folder / "b10.jpg")],
                 self._rows(app))
 
     async def test_connecting_is_retried_while_bluez_is_still_busy(self):
@@ -278,7 +278,7 @@ class TestApp(AppHelpers, TestBase):
         app = self._app(client)
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("down", "down", "enter")
+            await pilot.press("down", "enter")
             await self._settle(pilot)
 
             self.assertEqual("failed", app.connection)
@@ -289,7 +289,7 @@ class TestApp(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
 
-            await pilot.press("down", "down", "enter")  # .., a.gif, b2.png
+            await pilot.press("down", "enter")  # a.gif, b2.png
             await self._settle(pilot)
 
             self.client.image.show_image_file.assert_awaited_once()
@@ -302,7 +302,7 @@ class TestApp(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
 
-            await pilot.press("down", "enter")
+            await pilot.press("enter")
             await self._settle(pilot)
 
             kwargs = self.client.gif.upload_gif_file.await_args.kwargs
@@ -323,7 +323,7 @@ class TestApp(AppHelpers, TestBase):
         app = self._app()
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("down", "enter")
+            await pilot.press("enter")
             await self._settle(pilot)
 
             self.assertEqual([(True, 3, 8)], seen)
@@ -336,7 +336,7 @@ class TestApp(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
 
-            await pilot.press("down", "enter")  # .., sub/
+            await pilot.press("enter")  # sub/
             self.assertEqual(sub, app.folder)
             await pilot.press("backspace")
 
@@ -347,7 +347,7 @@ class TestApp(AppHelpers, TestBase):
         app = self._app()
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("down", "space", "space")  # a.gif and b2.png
+            await pilot.press("space", "space")  # a.gif and b2.png
             self.assertEqual([self.folder / "a.gif", self.folder / "b2.png"], app.marked)
 
             await pilot.press("s")
@@ -448,7 +448,7 @@ class TestApp(AppHelpers, TestBase):
         app = self._app()
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("down", "down", "enter")
+            await pilot.press("down", "enter")
             await pilot.pause()
             await pilot.press("c")
             await pilot.pause()
@@ -468,7 +468,7 @@ class TestApp(AppHelpers, TestBase):
         app = self._app()
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
-            await pilot.press("down", "down", "enter")
+            await pilot.press("down", "enter")
             await started.wait()
 
             await pilot.press("escape")
@@ -483,9 +483,9 @@ class TestApp(AppHelpers, TestBase):
 
             await pilot.press("slash", "b", "1")
 
-            self.assertEqual(["..", str(self.folder / "b10.jpg")], self._rows(app))
+            self.assertEqual([str(self.folder / "b10.jpg")], self._rows(app))
             await pilot.press("escape")
-            self.assertEqual(4, len(self._rows(app)))
+            self.assertEqual(3, len(self._rows(app)))
 
     async def test_the_folder_is_remembered(self):
         app = self._app()
@@ -501,7 +501,6 @@ class TestApp(AppHelpers, TestBase):
         async with app.run_test(size=(120, 40)) as pilot:
             await self._settle(pilot)
 
-            await pilot.press("down")
             await pilot.pause(0.5)
             await self._settle(pilot)
 
@@ -666,3 +665,146 @@ class TestAgo(TestBase):
         self.assertEqual("5 min ago", format_ago(0, 300))
         self.assertEqual("2 h ago", format_ago(0, 7300))
         self.assertEqual("3 d ago", format_ago(0, 3 * 86400 + 5))
+
+
+class TestJpegWithSeveralPictures(TestBase):
+
+    def test_a_jpeg_with_several_pictures_is_not_an_animation(self):
+        # GIVEN a phone style MPO file: a JPEG that holds more than one picture
+        import io
+        buffer = io.BytesIO()
+        first = Image.new("RGB", (40, 40), (200, 0, 0))
+        first.save(buffer, "MPO", save_all=True, append_images=[Image.new("RGB", (40, 40), (0, 0, 200))])
+        path = Path(TemporaryDirectory().name + ".jpg")
+        path.write_bytes(buffer.getvalue())
+        try:
+            # WHEN / THEN
+            self.assertGreater(Image.open(path).n_frames, 1)
+            self.assertFalse(convert.is_animated(path))
+            self.assertEqual(1, len(convert.convert(path, 64, Options()).frames))
+        finally:
+            path.unlink()
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestBrowsing(AppHelpers, TestBase):
+
+    def _make_folders(self):
+        from textual.widgets import DataTable, Input  # noqa: F401
+        for name in ("one", "two"):
+            _make_pictures(self.folder / name)
+
+    async def test_right_enters_the_selected_folder_and_left_goes_up_with_the_folder_selected(self):
+        self._make_folders()
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("down", "right")
+            self.assertEqual(self.folder / "two", app.folder)
+            await pilot.press("left")
+            await self._settle(pilot)
+
+            self.assertEqual(self.folder, app.folder)
+            self.assertEqual(self.folder / "two", app.selected_path())
+
+    async def test_right_on_a_file_does_nothing_and_alt_up_goes_up(self):
+        self._make_folders()
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("down", "down", "right")
+            self.assertEqual(self.folder, app.folder)
+            await pilot.press("alt+up")
+
+            self.assertEqual(self.folder.parent, app.folder)
+
+    async def test_the_selection_of_a_folder_is_remembered_when_coming_back(self):
+        self._make_folders()
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("right", "down", "down")  # one/: a.gif, b2.png
+            selected = app.selected_path()
+            await pilot.press("left", "down", "right")  # two/
+            await pilot.press("left", "up", "right")  # one/ again
+            await self._settle(pilot)
+
+            self.assertEqual(selected, app.selected_path())
+
+    async def test_the_selections_are_remembered_between_runs(self):
+        self._make_folders()
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("right", "down")
+            selected = app.selected_path()
+            await pilot.press("left")
+            await self._settle(pilot)
+
+        again = self._app()
+        async with again.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("right")
+            await self._settle(pilot)
+
+            self.assertEqual(selected, again.selected_path())
+
+    async def test_a_selection_that_is_gone_moves_to_the_row_it_was_on(self):
+        self._make_folders()
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+            await pilot.press("right", "down", "down")
+            (self.folder / "one" / "b2.png").unlink()
+            await pilot.press("left", "right")
+            await self._settle(pilot)
+
+            self.assertEqual(self.folder / "one" / "b10.jpg", app.selected_path())
+
+    async def test_long_names_are_shortened_so_the_list_does_not_scroll_sideways(self):
+        from textual.widgets import DataTable, Input  # noqa: F401
+        long_name = "a" * 120 + ".png"
+        Image.new("RGB", (8, 8)).save(self.folder / long_name)
+        app = self._app()
+        async with app.run_test(size=(70, 30)) as pilot:
+            await self._settle(pilot)
+            await pilot.pause(0.2)
+
+            table = app.query_one("#files", DataTable)
+            self.assertEqual(0, table.max_scroll_x)
+            names = [table.get_row_at(row)[1] for row in range(table.row_count)]
+            self.assertTrue(any(name.endswith(".png") and "…" in name for name in names))
+
+    async def test_up_and_down_move_through_the_list_while_the_filter_is_typed(self):
+        from textual.widgets import DataTable, Input  # noqa: F401
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("slash", "down")
+            self.assertEqual(self.folder / "b2.png", app.selected_path())
+            await pilot.press("backspace")  # nothing typed: leaves the filter
+            self.assertFalse(app.query_one("#filter", Input).has_class("visible"))
+
+    async def test_shift_down_marks_the_files_it_passes(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("shift+down", "shift+down")
+
+            self.assertEqual([self.folder / "a.gif", self.folder / "b2.png", self.folder / "b10.jpg"], app.marked)
+
+    async def test_messages_are_shown_in_the_status_bar_not_as_popups(self):
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            app.notify("Something happened", severity="warning")
+            await pilot.pause()
+
+            self.assertIn("Something happened", str(app.query_one("#message").render()))
+            self.assertEqual(0, len(app._notifications))

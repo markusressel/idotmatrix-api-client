@@ -8,6 +8,7 @@ from idotmatrix.modules.gif import GifModule
 from idotmatrix.modules.image import ImageModule
 from idotmatrix.screensize import ScreenSize
 from idotmatrix.tui.settings import Options
+from idotmatrix.util import image_utils
 
 # seconds of upload per KB, measured on a local BlueZ adapter (a Bluetooth proxy can be slower)
 UPLOAD_SECONDS_PER_KB = 0.12
@@ -32,7 +33,7 @@ class Preview:
 
 def is_animated(path: Path) -> bool:
     with PILImage.open(path) as img:
-        return getattr(img, "n_frames", 1) > 1
+        return image_utils.is_animated(img)
 
 
 def convert(path: Path, canvas_size: int, options: Options) -> Preview:

@@ -172,3 +172,12 @@ def resize_image(
     image = new_img
 
     return image
+
+
+# formats that can hold an animation; a JPEG with several pictures (MPO, f.e. from phones) is no animation
+ANIMATED_FORMATS = {"GIF", "PNG", "WEBP"}
+
+
+def is_animated(image: PILImage.Image) -> bool:
+    """Whether an opened picture has several frames that are played one after the other."""
+    return image.format in ANIMATED_FORMATS and getattr(image, "n_frames", 1) > 1
