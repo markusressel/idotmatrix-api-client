@@ -177,6 +177,15 @@ class TestRender(TestBase):
         self.assertEqual(5, len(lines))
         self.assertEqual(10, len(lines[0]))
 
+    def test_taller_cells_make_the_picture_wider_so_it_stays_square(self):
+        from idotmatrix.tui.preview import render_frame
+
+        text = render_frame(Image.new("RGB", (10, 10), (1, 2, 3)), 80, 24, aspect=2.4)
+
+        lines = text.plain.splitlines()
+        self.assertEqual(5, len(lines))
+        self.assertEqual(12, len(lines[0]))  # 10 pixels, each 1.2 cells wide
+
 
 class FakeScanner:
     """Finds the given displays, right away."""
@@ -808,3 +817,85 @@ class TestBrowsing(AppHelpers, TestBase):
 
             self.assertIn("Something happened", str(app.query_one("#message").render()))
             self.assertEqual(0, len(app._notifications))
+
+
+class TestParsePath(TestBase):
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = TemporaryDirectory()
+        self.base = Path(self._tmp.name)
+        (self.base / "sub").mkdir()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_pasted_forms_of_a_path_are_understood(self):
+        from idotmatrix.tui.dialogs import parse_path
+        sub = self.base / "sub"
+
+        for text in (f" {sub} ", f"'{sub}'", f'"{sub}"', f"file://{sub}", "sub", "./sub/", "sub/../sub"):
+            with self.subTest(text=text):
+                self.assertEqual(sub, parse_path(text, self.base))
+
+    def test_home_is_expanded(self):
+        from idotmatrix.tui.dialogs import parse_path
+
+        self.assertEqual(Path.home(), parse_path("~", self.base))
+
+    def test_a_missing_path_or_nothing_is_rejected(self):
+        from idotmatrix.tui.dialogs import parse_path
+
+        for text in ("", "  ", "nothing-here"):
+            with self.subTest(text=text):
+                with self.assertRaises(ValueError):
+                    parse_path(text, self.base)
+
+
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
+class TestGoTo(AppHelpers, TestBase):
+
+    async def test_g_opens_a_dialog_and_enter_goes_to_the_pasted_folder(self):
+        from textual.widgets import Input
+        target = self.folder / "sub"
+        _make_pictures(target)
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("g")
+            field = app.screen.query_one("#path", Input)
+            field.value = f"'{target}'"
+            await pilot.press("enter")
+            await self._settle(pilot)
+
+            self.assertEqual(target, app.folder)
+
+    async def test_a_file_opens_its_folder_with_the_file_selected(self):
+        from textual.widgets import Input
+        target = self.folder / "sub"
+        _make_pictures(target)
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("g")
+            app.screen.query_one("#path", Input).value = str(target / "b2.png")
+            await pilot.press("enter")
+            await self._settle(pilot)
+
+            self.assertEqual(target, app.folder)
+            self.assertEqual(target / "b2.png", app.selected_path())
+
+    async def test_a_wrong_path_keeps_the_dialog_open(self):
+        from textual.widgets import Input
+        app = self._app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await self._settle(pilot)
+
+            await pilot.press("g")
+            app.screen.query_one("#path", Input).value = str(self.folder / "missing")
+            await pilot.press("enter")
+
+            self.assertEqual(self.folder, app.folder)
+            self.assertIsNotNone(app.screen.query("#path").first())

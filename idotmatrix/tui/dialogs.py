@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
@@ -150,6 +154,39 @@ class NumberDialog(Dialog):
         if not text or not self._low <= int(text) <= self._high:
             raise ValueError(f"Enter a number from {self._low} to {self._high}")
         return int(text)
+
+
+def parse_path(text: str, base: Path) -> Path:
+    """A pasted path: quotes, `file://` and `~` are fine, a relative path is relative to `base`."""
+    text = text.strip()
+    if len(text) > 1 and text[0] == text[-1] and text[0] in "'\"":
+        text = text[1:-1].strip()
+    if text.startswith("file://"):
+        text = unquote(urlparse(text).path)
+    if not text:
+        raise ValueError("Enter a path")
+    path = Path(text).expanduser()
+    path = path if path.is_absolute() else base / path
+    path = Path(os.path.normpath(path))
+    if not path.exists():
+        raise ValueError(f"{path} does not exist")
+    return path
+
+
+class PathDialog(Dialog):
+    """Asks for a folder, or a file whose folder is opened with the file selected."""
+
+    def __init__(self, folder: Path):
+        super().__init__()
+        self.title_text = "Go to"
+        self._folder = folder
+
+    def fields(self) -> ComposeResult:
+        yield Label("Path of a folder or file, paste it here", classes="field")
+        yield Input(str(self._folder), id="path", compact=True, select_on_focus=True)
+
+    def result(self) -> Path:
+        return parse_path(self.query_one("#path", Input).value, self._folder)
 
 
 class ConfirmDialog(Dialog):

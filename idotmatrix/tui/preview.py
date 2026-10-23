@@ -1,24 +1,63 @@
+import os
+import struct
+import sys
+
 from PIL import Image as PILImage
 from rich.style import Style
 from rich.text import Text
 from textual.widgets import Static
 
+try:
+    import fcntl
+    import termios
+except ImportError:  # not on Windows
+    fcntl = termios = None
+
 HALF_BLOCK = "▀"
+DEFAULT_CELL_ASPECT = 2.2
 
 
-def render_frame(image: PILImage.Image, max_columns: int, max_rows: int) -> Text:
+def cell_aspect() -> float:
     """
-    Draws a picture with half blocks, two pixels on top of each other in a cell, which are about square in a terminal.
-    The picture is scaled down (not up beyond a whole pixel per cell) to fit.
+    Height of a terminal cell divided by its width. Asked from the terminal (if it reports its size in pixels),
+    or taken from `IDOTMATRIX_TUI_CELL_ASPECT`, or a typical 2.2.
     """
-    side = max(1, min(image.width, max_columns, max_rows * 2))
+    try:
+        value = float(os.environ.get("IDOTMATRIX_TUI_CELL_ASPECT", ""))
+        if 1 <= value <= 4:
+            return value
+    except ValueError:
+        pass
+    for fd in (sys.__stdout__, sys.__stdin__) if fcntl else ():
+        try:
+            rows, columns, width, height = struct.unpack(
+                "HHHH", fcntl.ioctl(fd.fileno(), termios.TIOCGWINSZ, b"\0" * 8))
+            if rows and columns and width and height:
+                value = (height / rows) / (width / columns)
+                if 1 <= value <= 4:
+                    return value
+        except (OSError, ValueError, AttributeError, TypeError):
+            continue
+    return DEFAULT_CELL_ASPECT
+
+
+def render_frame(image: PILImage.Image, max_columns: int, max_rows: int, aspect: float = 2.0) -> Text:
+    """
+    Draws a picture with half blocks, two pixels on top of each other in a cell. A pixel is as wide as it is high
+    (a half cell is `aspect / 2` cells wide), so the picture is square. The picture is scaled down (not up beyond a
+    whole pixel) to fit.
+    """
+    per_pixel = aspect / 2
+    side = max(1, min(image.width, int(max_columns / per_pixel), max_rows * 2))
     if side != image.width or side != image.height:
         image = image.resize((side, side), PILImage.Resampling.NEAREST)
     image = image.convert("RGB")
     pixels = image.load()
+    columns = max(1, round(side * per_pixel))
     text = Text(no_wrap=True, overflow="crop")
     for y in range(0, side, 2):
-        for x in range(side):
+        for column in range(columns):
+            x = min(int(column / per_pixel), side - 1)
             top = pixels[x, y]
             bottom = pixels[x, y + 1] if y + 1 < side else (0, 0, 0)
             text.append(HALF_BLOCK, Style(color=f"rgb({top[0]},{top[1]},{top[2]})",
@@ -44,6 +83,7 @@ class PreviewWidget(Static):
         self._durations: list[int] = []
         self._index = 0
         self._timer = None
+        self._aspect = cell_aspect()
 
     def show_message(self, message: str) -> None:
         self._stop()
@@ -69,7 +109,7 @@ class PreviewWidget(Static):
     def _draw(self) -> None:
         size = self.size
         if size.width and size.height:
-            self.update(render_frame(self._frames[self._index], size.width, size.height))
+            self.update(render_frame(self._frames[self._index], size.width, size.height, self._aspect))
 
     def _schedule(self) -> None:
         self._timer = self.set_timer(max(self._durations[self._index], 20) / 1000, self._next)

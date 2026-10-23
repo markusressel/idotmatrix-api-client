@@ -20,7 +20,7 @@ from idotmatrix.screensize import ScreenSize
 from idotmatrix.tui import convert
 from idotmatrix.tui.convert import Preview
 from idotmatrix.tui.devices import DevicesScreen
-from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, OptionsDialog, SlideshowDialog
+from idotmatrix.tui.dialogs import ConfirmDialog, NumberDialog, PathDialog, OptionsDialog, SlideshowDialog
 from idotmatrix.tui.files import Entry, files_in, fit_name, format_size, is_supported, list_folder, restore_index
 from idotmatrix.tui.preview import PreviewWidget
 from idotmatrix.tui.scanner import BleakDeviceScanner, DeviceScanner
@@ -102,6 +102,7 @@ class IDotMatrixApp(App):
         Binding("r", "reconnect", "Reconnect"),
         Binding("backspace", "parent", "Up", show=False),
         Binding("slash,ctrl+f", "filter", "Filter"),
+        Binding("g", "goto", "Go to"),
         Binding("escape", "escape", "Cancel"),
         Binding("colon", "command_palette", "Commands", show=False),
         Binding("q", "quit", "Quit"),
@@ -195,6 +196,7 @@ class IDotMatrixApp(App):
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         yield from super().get_system_commands(screen)
+        yield SystemCommand("Go to", "Open a folder by its path", self.action_goto)
         yield SystemCommand("Options", "Colors, size limit, scale, label", self.action_options)
         yield SystemCommand("Store in slots", "Store the marked files, or all files of the folder", self.action_store)
         yield SystemCommand("Store folder and subfolders", "Store all files below this folder", self.action_store_all)
@@ -301,6 +303,17 @@ class IDotMatrixApp(App):
             return
         if self.folder.parent != self.folder:
             self._go_to(self.folder.parent, select=self.folder)
+
+    def action_goto(self) -> None:
+        def chosen(path: Path | None) -> None:
+            if path is None:
+                return
+            if path.is_dir():
+                self._go_to(path)
+            else:
+                self._go_to(path.parent, select=path)
+
+        self.push_screen(PathDialog(self.folder), chosen)
 
     def action_enter(self) -> None:
         path = self.selected_path()
