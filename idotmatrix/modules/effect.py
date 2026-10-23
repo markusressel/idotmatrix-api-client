@@ -10,11 +10,9 @@ from idotmatrix.util import color_utils
 
 class EffectStyle(Enum):
     """
-    Enum for the different effect styles.
-
-    The names of the members come from the original library, not from looking at the device: tried on a 64x64,
-    GRADIENT_HORIZONTAL_RAINBOW (0) shows vertical stripes, so the colors change from left to right. The others
-    were not checked.
+    Enum for the different effect styles. Tried on a 64x64: GRADIENT_HORIZONTAL_RAINBOW (0) is smooth horizontal
+    stripes moving down, VERTICAL_RAINBOW (3) is hard vertical stripes moving to the right and
+    DIAGONAL_RIGHT_RAINBOW (4) is hard stripes from the bottom left to the top right. The others were not checked.
     """
 
     GRADIENT_HORIZONTAL_RAINBOW = 0

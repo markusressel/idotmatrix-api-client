@@ -19,7 +19,7 @@ WHITE: Color = (255, 255, 255)
 SEPARATORS = {0x02: (8, 16), 0x05: (16, 32)}  # the first byte of the separator in front of a character -> its cell
 MAX_CHARACTERS = 16
 EFFECT_WIDTH, EFFECT_HEIGHT = 32, 16
-DIAGONAL_BAND = 5  # the width of a stripe of the diagonal effect, in pixels along a row
+DIAGONAL_BAND = 5  # the width of a stripe of the effects with hard stripes, in pixels along a row
 
 
 def style_of(color: Color) -> str:
@@ -170,9 +170,13 @@ class EffectPreview(Static):
         style = self._style
         pick = self._random.choice
         if style == EffectStyle.GRADIENT_HORIZONTAL_RAINBOW.value:
-            return [[mix(colors, x / width + phase) for x in range(width)] for _ in range(height)]
+            # smooth horizontal stripes that move down (verified)
+            return [[mix(colors, y / height - phase)] * width for y in range(height)]
         if style == EffectStyle.VERTICAL_RAINBOW.value:
-            return [[mix(colors, y / height + phase)] * width for y in range(height)]
+            # hard vertical stripes that move to the right (verified)
+            offset = round(phase * len(colors) * DIAGONAL_BAND)
+            return [[colors[((x - offset) // DIAGONAL_BAND) % len(colors)] for x in range(width)]
+                    for _ in range(height)]
         if style == EffectStyle.DIAGONAL_RIGHT_RAINBOW.value:
             # hard stripes without blending (verified), from the bottom left to the top right, moving
             offset = round(phase * len(colors) * DIAGONAL_BAND)

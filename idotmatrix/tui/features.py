@@ -18,11 +18,11 @@ CLOCK_STYLES = {
 }
 
 
-# the names of the library say "horizontal" for the style whose colors change along the width, which draws vertical
-# stripes (verified on a 64x64 for the first one; the vertical one is assumed to be the other way around)
+# what the styles look like on a 64x64, as far as it was looked at (see docs/DEVICE-PROTOCOL.md)
 EFFECT_STYLES = {
-    EffectStyle.GRADIENT_HORIZONTAL_RAINBOW: "Rainbow in vertical stripes",
-    EffectStyle.VERTICAL_RAINBOW: "Rainbow in horizontal stripes",
+    EffectStyle.GRADIENT_HORIZONTAL_RAINBOW: "Smooth rainbow, horizontal stripes",
+    EffectStyle.VERTICAL_RAINBOW: "Hard rainbow, vertical stripes",
+    EffectStyle.DIAGONAL_RIGHT_RAINBOW: "Hard rainbow, diagonal stripes",
 }
 
 
