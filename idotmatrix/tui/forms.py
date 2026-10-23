@@ -1,7 +1,7 @@
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from textual import on
 from textual.app import ComposeResult
