@@ -3,12 +3,12 @@ from typing import List, Sequence, Tuple
 
 from PIL import Image, ImageChops, ImageCms, ImageStat
 
-# Calibrated by eye on a 64x64 display with 6 real animations. Every version that looked acceptable scored up to
-# 8.3 (one that "flickers but is ok" 9.7), every one that looked broken or muted scored 11 or more: 9 is the limit of
-# what is still fine. What was preferred when there was a choice scored 0 to 4 (for 8351169 the preferred version
-# had 128 colors with a score of 0, the one with a shared 64 color palette that scored 7.5 looked as smooth, but
-# duller), so the default favors that.
-DEFAULT_MAX_COLOR_ERROR = 5.0
+# Calibrated by eye on a 64x64 display with 6 real animations, then moved to the scale of "compared to the original
+# frames" (the first calibration compared to the 256 color output, which is itself 2 to 6 off the original). On that
+# scale everything that looked acceptable scored up to about 12, what looked broken or muted 11 or more, and what was
+# preferred when there was a choice up to about 6. 8 gives files about as big as the first default did, with
+# colors closer to the original.
+DEFAULT_MAX_COLOR_ERROR = 8.0
 # a color that jumps between frames is much more noticeable than a constant error
 FLICKER_WEIGHT = 8.0
 

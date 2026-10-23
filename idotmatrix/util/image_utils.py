@@ -20,12 +20,17 @@ def palettize(
     if not isinstance(image, PILImage.Image):
         raise TypeError("Input must be a PIL Image.")
 
-    return image.convert(
-        mode="P",
-        dither=dither,
-        palette=PILImage.Palette.ADAPTIVE,
-        colors=colors
-    )
+    # quantize from RGB: the quantizer for RGBA input is coarse and leaves a part of the colors unused
+    return to_rgb(image).quantize(colors=colors, dither=dither)
+
+
+def to_rgb(image: PILImage.Image) -> PILImage.Image:
+    """The image as RGB, transparent areas shown on black like on the display."""
+    if image.mode in ("RGBA", "LA") or "transparency" in image.info:
+        rgba = image.convert("RGBA")
+        background = PILImage.new("RGBA", rgba.size, (0, 0, 0, 255))
+        return PILImage.alpha_composite(background, rgba).convert("RGB")
+    return image.convert("RGB")
 
 
 def validate_colors(colors: int) -> int:
@@ -47,7 +52,7 @@ def palettize_together(images: list[PILImage.Image], colors: int = 256) -> list[
     Converts the images to one common palette, built from all of them. In an animation that keeps a color the
     same from frame to frame, where a palette for each frame makes colors jump (flicker).
     """
-    rgb = [image.convert("RGB") for image in images]
+    rgb = [to_rgb(image) for image in images]
     montage = PILImage.new("RGB", (rgb[0].width, rgb[0].height * len(rgb)))
     for index, image in enumerate(rgb):
         montage.paste(image, (0, index * image.height))

@@ -277,15 +277,14 @@ class GifModule(IDotMatrixModule):
         good enough the one with the lowest error is used.
         Returns the GIF, its number of colors and whether the palette is shared.
         """
-        # compared to the GIF with all colors, which is what the limit was calibrated on
-        reference = [frame.convert("RGB") for frame in self._reduce_colors(frames, 256, True)]
+        reference = [image_utils.to_rgb(frame) for frame in frames]
         best = None  # (size, data, colors, shared) of the smallest that is good enough
         closest = None  # (score, data, colors, shared)
         for colors in AUTO_COLOR_STEPS:
             for shared in (False, True):
                 reduced = self._reduce_colors(frames, colors, True, shared)
                 data = self._save_gif(reduced, duration_per_frame_in_ms, colors)
-                score = color_score(*color_error(reference, [frame.convert("RGB") for frame in reduced]))
+                score = color_score(*color_error(reference, [image_utils.to_rgb(frame) for frame in reduced]))
                 if score <= max_color_error and (best is None or len(data) < best[0]):
                     best = (len(data), data, colors, shared)
                 if closest is None or score < closest[0]:

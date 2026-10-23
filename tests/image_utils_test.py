@@ -15,6 +15,22 @@ class TestImageUtils(TestBase):
         self.assertEqual("P", result.mode)
         self.assertEqual((4, 4), result.size)
 
+    def test_palettize_keeps_all_colors_that_fit(self):
+        # GIVEN 200 different colors, in an RGBA image like the ones the GIF module reduces
+        image = PILImage.new("RGBA", (20, 10))
+        image.putdata([(index, 255 - index, (index * 7) % 256, 255) for index in range(200)])
+        # WHEN palettizing with 256 colors
+        result = image_utils.palettize(image, colors=256)
+        # THEN no color is merged
+        self.assertEqual(image.convert("RGB").tobytes(), result.convert("RGB").tobytes())
+
+    def test_palettize_shows_transparent_pixels_on_black(self):
+        image = PILImage.new("RGBA", (2, 1), (255, 255, 255, 0))
+        image.putpixel((1, 0), (255, 0, 0, 255))
+        result = image_utils.palettize(image, colors=4).convert("RGB")
+        self.assertEqual((0, 0, 0), result.getpixel((0, 0)))
+        self.assertEqual((255, 0, 0), result.getpixel((1, 0)))
+
     def test_palettize_rejects_non_image(self):
         with self.assertRaises(TypeError):
             image_utils.palettize("not an image")
