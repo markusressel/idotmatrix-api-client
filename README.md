@@ -18,16 +18,14 @@
 
 ## Features
 
-A library to control displays like the one below without the official
+<img src="docs/images/device.png" alt="An iDotMatrix pixel display showing a pixel art picture" width="220" align="right">
+
+A library to control displays like the one on the right without the official
 [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) app, based on its reverse engineered
 Bluetooth protocol.
 
 Looking for Home Assistant? The [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix) integration is built on
 this library.
-
-<p align="center">
-  <img src="docs/images/device.png" alt="An iDotMatrix pixel display showing a pixel art picture" width="400">
-</p>
 
 * Show photos, animated GIFs and pixel art, with text on top, or store them in the slots of the device so that it
   cycles through them on its own
@@ -41,6 +39,8 @@ this library.
 
 Open ends (alarm and buzzer, the cloud API, password protection, firmware update) are collected in the
 [device protocol notes](docs/DEVICE-PROTOCOL.md#not-understood-yet).
+
+<br clear="right"/>
 
 ## Getting Started
 
