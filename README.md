@@ -1,6 +1,6 @@
 <br/>
 <p align="center">
-  <a href="https://github.com/derkamarkusressel/python3-idotmatrix-library">
+  <a href="https://github.com/markusressel/idotmatrix-api-client">
     <img src="images/logo.png" alt="Logo" width="250" height="250">
   </a>
 
@@ -10,29 +10,13 @@
     Control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
     <br/>
     <br/>
-    <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Report Bug</a>
+    <a href="https://github.com/markusressel/idotmatrix-api-client/issues">Report Bug</a>
     or
-    <a href="https://github.com/markusressel/python3-idotmatrix-library/issues">Request Feature</a>
+    <a href="https://github.com/markusressel/idotmatrix-api-client/issues">Request Feature</a>
   </p>
 </p>
 
-![Contributors](https://img.shields.io/github/contributors/markusressel/python3-idotmatrix-library?color=dark-green) ![License](https://img.shields.io/github/license/markusressel/python3-idotmatrix-library)
-
-## Table Of Contents
-
-* [About the Project](#about-the-project)
-* [Getting Started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
-* [Usage](#usage)
-  * [Terminal UI](#terminal-ui)
-* [Fonts](#fonts)
-* [Roadmap](#roadmap)
-* [Contributing](#contributing)
-* [License](#license)
-* [Differences From The Original Project](#differences-from-the-original-project)
-* [Authors](#authors)
-* [Acknowledgements](#acknowledgements)
+![Contributors](https://img.shields.io/github/contributors/markusressel/idotmatrix-api-client?color=dark-green) ![License](https://img.shields.io/github/license/markusressel/idotmatrix-api-client)
 
 ## About The Project
 
@@ -58,13 +42,13 @@ Please install the following for your distribution (Windows may work but it is u
 1. Clone the repo
 
 ```sh
-git clone https://github.com/markusressel/python3-idotmatrix-library.git
+git clone https://github.com/markusressel/idotmatrix-api-client.git
 ```
 
 2. Install the latest version locally
 
 ```sh
-cd python3-idotmatrix-library/
+cd idotmatrix-api-client/
 python3 -m venv venv
 source venv/bin/activate  # on Windows use `venv\Scripts\activate`
 pip install --upgrade pip poetry
@@ -357,7 +341,7 @@ of this repository. Create GitHub tickets for bugs and new features and comment 
 ## License
 
 Distributed under the GNU GENERAL PUBLIC License.
-See [LICENSE](https://github.com/markusressel/python3-idotmatrix-library/blob/main/LICENSE) for more information.
+See [LICENSE](https://github.com/markusressel/idotmatrix-api-client/blob/main/LICENSE) for more information.
 
 ## Differences From The Original Project
 
