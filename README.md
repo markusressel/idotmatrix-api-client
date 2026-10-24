@@ -52,13 +52,7 @@ pip install idotmatrix-api-client
 
 The terminal UI needs an extra: `pip install 'idotmatrix-api-client[tui]'`.
 
-To work on the library, clone the repo and install it with [Poetry](https://python-poetry.org/):
-
-```sh
-git clone https://github.com/markusressel/idotmatrix-api-client.git
-cd idotmatrix-api-client/
-poetry install --with test
-```
+To work on the library, see the [development notes](docs/DEVELOPMENT.md).
 
 ## Usage
 
