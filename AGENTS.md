@@ -46,7 +46,7 @@ idotmatrix/
     __init__.py          IDotMatrixModule base class (_send_bytes, _connect)
   util/                  color_utils, image_utils, file_watch, upload_ack, device_material
 tests/                   *_module_test.py, one per module; shared TestBase in tests/__init__.py
-example*.py              runnable usage examples (need a real device)
+examples/                runnable usage examples (need a real device, run from the repo root)
 ```
 
 ## Conventions
@@ -99,4 +99,4 @@ The most important rules:
 - Do not add dependencies without need; update `pyproject.toml` and `poetry.lock` together (`poetry lock`).
 - Do not commit `.venv/` or `.idea/`.
 - `idotmatrix/fonts/` and `images/` are bundled assets; keep license files with them.
-- Examples (`example*.py`) hit real hardware. Do not run them in automated checks.
+- Examples (`examples/`) hit real hardware. Do not run them in automated checks.
