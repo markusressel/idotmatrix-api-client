@@ -18,14 +18,32 @@
 
 ![Contributors](https://img.shields.io/github/contributors/markusressel/idotmatrix-api-client?color=dark-green) ![License](https://img.shields.io/github/license/markusressel/idotmatrix-api-client)
 
-## About The Project
+## Features
 
 This repository aims to reverse engineer
 the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen
 displays like the one below. The goal is to provide a library which can be used to
 connect and control these displays without the need for the official app.
 
-![An iDotMatrix pixel display showing a pixel art picture](docs/images/device.png)
+Looking for Home Assistant? The [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix) integration is built on
+this library.
+
+<p align="center">
+  <img src="docs/images/device.png" alt="An iDotMatrix pixel display showing a pixel art picture" width="400">
+</p>
+
+* Show photos, animated GIFs and pixel art, with text on top, or store them in the slots of the device so that it
+  cycles through them on its own
+* Clock, countdown, chronograph, scoreboard, graffiti board, effects and a full screen color
+* Scrolling text with the bundled pixel fonts
+* Music sync with the microphone of the device
+* Brightness, eco mode, power and time
+* Digital picture frame for a folder of pictures
+* Terminal UI to try all of it
+* Works with the 16x16, 32x32 and 64x64 displays, with `bleak` or with the Bluetooth stack of Home Assistant
+
+Open ends (alarm and buzzer, the cloud API, password protection, firmware update) are collected in the
+[device protocol notes](docs/DEVICE-PROTOCOL.md#not-understood-yet).
 
 ## Getting Started
 
@@ -295,32 +313,6 @@ Always test a new font at the font size you intend to use before committing to i
 pixel-style fonts are only pixel-perfect at their native design size and look uneven at others.
 Check each font's license before bundling/redistributing it (see the existing `*-License.txt`
 files next to each font in [`idotmatrix/fonts/`](idotmatrix/fonts/) for examples).
-
-## Roadmap
-
-If you want to contribute please focus on the reverse-engineering part because my personal skills are not that good.
-Many thanks for all contributions! If you want to dive deep
-into other issues please check for "#TODO" comments in the source code as well.
-
-* [ ] Reverse Engineering
-    * [X] Chronograph
-    * [X] Clock
-    * [X] Countdown
-    * [x] Graffiti Board
-    * [X] DIY-Mode
-    * [X] Animated Images
-    * [X] Display Text
-    * [ ] Alarm & Buzzer (available according to issue #18)
-    * [ ] Cloud-API to download images
-    * [ ] Cloud-API to upload images to device
-    * [ ] Cloud-Firmware Update possible?
-    * [X] Eco-Mode
-    * [X] Fullscreen Color
-    * [X] MusicSync (with the microphone of the device)
-    * [X] Scoreboard
-    * [ ] bluetooth password protection
-    * [ ] understand the returned byte arrays of the device for better error logs (done for the upload acknowledgements,
-      see the protocol notes in [AGENTS.md](./AGENTS.md))
 
 ## Helpful Links
 

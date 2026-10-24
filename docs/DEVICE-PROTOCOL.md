@@ -301,6 +301,8 @@ something else, f.e. the clock, does. (**verified**)
 - The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`). A protected device is unlocked with a verify
   command according to the app (see Device info), nobody tried it.
 - Firmware update (OTA) over `ae00`: encrypted, not a goal for now.
+- Alarm and buzzer: no module yet, the command is not known (see issue #18; a third-party source mentions a buzzer).
+- Cloud API of the app (download and upload of pictures): not looked at.
 - What byte 6 of the device info stands for, and whether any command produces other notifications.
 
 ## Third-party sources

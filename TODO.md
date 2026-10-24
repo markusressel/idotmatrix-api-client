@@ -51,7 +51,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [x] Moved `digital_picture_frame.py` to `idotmatrix/apps/` (import path changed to `idotmatrix.apps.digital_picture_frame`, no re-export of the old one)
 - [x] GIF upload reliability: ack flow control and uniform color table sizes (see commits)
 
-## 5. Verify on a device (README roadmap items without confirmation)
+## 5. Verify on a device (former README roadmap items without confirmation)
 
 - [x] MusicSync with the device microphone works (`set_mic_type`, fixed). Not done: streaming sound from the computer to the device (`06 00 00 02 <level> 01` for the image scenes, 28 frequency levels for the bar scenes, see docs/DEVICE-PROTOCOL.md), and finding out how many scenes exist
 - [ ] Bluetooth password protection: `CommonModule.set_password` exists, but nobody confirmed the whole flow (setting a password, then connecting and authenticating against a protected device)
