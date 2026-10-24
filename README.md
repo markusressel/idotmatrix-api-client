@@ -4,15 +4,10 @@
     <img src="images/logo.png" alt="Logo" width="250" height="250">
   </a>
 
-<h3 align="center">Pixel Display Library</h3>
+<h3 align="center">idotmatrix-api-client</h3>
 
   <p align="center">
-    Control all your 16x16 or 32x32 or 64x64 iDotMatrix Pixel Displays
-    <br/>
-    <br/>
-    <a href="https://github.com/markusressel/idotmatrix-api-client/issues">Report Bug</a>
-    or
-    <a href="https://github.com/markusressel/idotmatrix-api-client/issues">Request Feature</a>
+    Control 16x16, 32x32 and 64x64 sized iDotMatrix Pixel Displays
   </p>
 </p>
 
