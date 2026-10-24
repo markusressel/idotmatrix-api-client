@@ -9,9 +9,12 @@
   <p align="center">
     Control 16x16, 32x32 and 64x64 sized iDotMatrix Pixel Displays
   </p>
-</p>
 
-![Contributors](https://img.shields.io/github/contributors/markusressel/idotmatrix-api-client?color=dark-green) ![License](https://img.shields.io/github/license/markusressel/idotmatrix-api-client)
+  <p align="center">
+    <img src="https://img.shields.io/github/contributors/markusressel/idotmatrix-api-client?color=dark-green" alt="Contributors">
+    <img src="https://img.shields.io/github/license/markusressel/idotmatrix-api-client" alt="License">
+  </p>
+</p>
 
 ## Features
 
@@ -42,31 +45,20 @@ Open ends (alarm and buzzer, the cloud API, password protection, firmware update
 
 ## Getting Started
 
-### Prerequisites
+Requires Python 3.12 or newer. Windows may work but is untested.
 
-Please install the following for your distribution (Windows may work but it is untested):
+```sh
+pip install idotmatrix-api-client
+```
 
-* latest Python3
-* Python3 Virtual Env
+The terminal UI needs an extra: `pip install 'idotmatrix-api-client[tui]'`.
 
-### Installation
-
-#### use latest github source code
-
-1. Clone the repo
+To work on the library, clone the repo and install it with [Poetry](https://python-poetry.org/):
 
 ```sh
 git clone https://github.com/markusressel/idotmatrix-api-client.git
-```
-
-2. Install the latest version locally
-
-```sh
 cd idotmatrix-api-client/
-python3 -m venv venv
-source venv/bin/activate  # on Windows use `venv\Scripts\activate`
-pip install --upgrade pip poetry
-poetry install
+poetry install --with test
 ```
 
 ## Usage
