@@ -18,10 +18,9 @@
 
 ## Features
 
-This repository aims to reverse engineer
-the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen
-displays like the one below. The goal is to provide a library which can be used to
-connect and control these displays without the need for the official app.
+A library to control displays like the one below without the official
+[iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) app, based on its reverse engineered
+Bluetooth protocol.
 
 Looking for Home Assistant? The [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix) integration is built on
 this library.
