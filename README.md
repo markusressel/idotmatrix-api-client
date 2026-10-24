@@ -110,9 +110,19 @@ tested at fixed `font_size` values. See the [font notes](docs/FONTS.md) for the 
 
 ## Helpful Links
 
-* Create Images or GIFs
-  * [pixilart](https://www.pixilart.com/draw)
-    * Create a new drawing and select a preset for the size of your display (e.g. 64x64)
+* This project
+  * [idotmatrix-api-client on PyPI](https://pypi.org/project/idotmatrix-api-client/)
+  * [Device protocol notes](docs/DEVICE-PROTOCOL.md): what is known about the Bluetooth protocol of the displays
+* Related projects
+  * [ha-idotmatrix](https://github.com/markusressel/ha-idotmatrix): Home Assistant integration built on this library
+  * [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library): the original
+    project this is a fork of
+  * [8none1/idotmatrix](https://github.com/8none1/idotmatrix): further notes and tools for the displays
+  * [fbnlrz/homeyidotmatrix](https://github.com/fbnlrz/homeyidotmatrix): Homey integration with protocol notes
+* The official [iDotMatrix app](https://play.google.com/store/apps/details?id=com.tech.idotmatrix) (Android)
+* Create images or GIFs
+  * [pixilart](https://www.pixilart.com/draw): create a new drawing and select a preset for the size of your display
+    (e.g. 64x64)
 
 ## Other Hardware
 This software is specifically built for devices which are supported by the iDotMatrix app. There are other devices
