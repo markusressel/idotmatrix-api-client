@@ -44,48 +44,64 @@ Open ends (alarm and buzzer, the cloud API, password protection, firmware update
 
 ## Getting Started
 
-Requires Python 3.12 or newer. Windows may work but is untested.
+You need Python 3.12 or newer and a display that works with the iDotMatrix app (Windows may work but is untested).
 
 ```sh
 pip install idotmatrix-api-client
 ```
 
-The terminal UI needs an extra: `pip install 'idotmatrix-api-client[tui]'`.
+### Terminal UI
 
-To work on the library, see the [development notes](docs/DEVELOPMENT.md).
+The quickest way to try your display: browse a folder, preview how pictures and animations look on the display, send
+them, and control its features, with a pixel editor.
 
-## Usage
+![The terminal UI: the files of a folder, the preview as it looks on the display and the details](docs/images/tui.png)
 
-### Device API Client
+```sh
+pip install 'idotmatrix-api-client[tui]'
+idotmatrix-tui /path/to/pictures
+```
 
-The [examples](./examples) show how to connect to a device, show text, images and GIFs, and how to store files in the
-slots of the device.
+See the [TUI notes](docs/TUI.md) for the keys and options.
 
-#### Home Assistant and other Bluetooth stacks
+### API Client
 
-If something else owns the Bluetooth stack, like Home Assistant with its scanner and Bluetooth proxies, see the
-[integration notes](docs/INTEGRATION.md).
+To control the display from your own code, use the `IDotMatrixClient`:
 
-### Digital Picture Frame
+```python
+import asyncio
 
-Besides the `IDotMatrixClient`, this repository also contains a `DigitalPictureFrame` class which can be used
-to display images and GIFs in a slideshow fashion.
-See [examples/example_digital_picture_frame.py](./examples/example_digital_picture_frame.py)
-for more details on how to use it.
+from idotmatrix import IDotMatrixClient, ScreenSize
 
-The `DigitalPictureFrame` can
+
+async def main():
+    client = IDotMatrixClient(screen_size=ScreenSize.SIZE_64x64)
+    await client.connect()  # connects to the first iDotMatrix display it finds
+
+    await client.set_brightness(50)
+    await client.text.show_text("Hello World!")
+    await client.image.show_image_file("photo.jpg")
+
+
+asyncio.run(main())
+```
+
+The [examples](./examples) show more: GIFs, labels, effects, and storing files in the slots of the device.
+
+#### Digital Picture Frame
+
+The `DigitalPictureFrame` class builds on the client and shows images and GIFs as a slideshow. It can
 
 * display a static list of images and/or GIFs
 * watch one or more directories for images and GIFs
 * automatically reconnect to the device in case of an error or connection loss
 
-### Terminal UI
+See [examples/example_digital_picture_frame.py](./examples/example_digital_picture_frame.py) for how to use it.
 
-![The terminal UI: the files of a folder, the preview as it looks on the display and the details](docs/images/tui.png)
+#### Home Assistant and other Bluetooth stacks
 
-A terminal UI to browse a folder, preview how pictures and animations look on the display, send them, and control the
-features of the display, with a pixel editor. Install it with the `tui` extra and run `idotmatrix-tui /path/to/pictures`,
-see the [TUI notes](docs/TUI.md) for the keys and options.
+If something else owns the Bluetooth stack, like Home Assistant with its scanner and Bluetooth proxies, see the
+[integration notes](docs/INTEGRATION.md).
 
 ## Fonts
 
@@ -108,6 +124,8 @@ non-iDotMatrix-compatible hardware and associated software.
 
 GitHub is for social coding: if you want to write code, I encourage contributions through pull requests from forks
 of this repository. Create GitHub tickets for bugs and new features and comment on the ones that you are interested in.
+
+To work on the library, see the [development notes](docs/DEVELOPMENT.md).
 
 ## License
 
