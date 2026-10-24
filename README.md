@@ -22,9 +22,10 @@
 
 This repository aims to reverse engineer
 the [iDotMatrix](https://play.google.com/store/apps/details?id=com.tech.idotmatrix&pli=1) Android App for pixel screen
-displays like [this one on Aliexpress](https://de.aliexpress.com/item/1005006105517779.html). The goal is to provide a
-library which can be used to
+displays like the one below. The goal is to provide a library which can be used to
 connect and control these displays without the need for the official app.
+
+![An iDotMatrix pixel display showing a pixel art picture](docs/images/device.png)
 
 ## Getting Started
 
