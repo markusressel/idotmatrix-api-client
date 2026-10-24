@@ -46,10 +46,6 @@ Open ends (alarm and buzzer, the cloud API, password protection, firmware update
 
 You need Python 3.12 or newer and a display that works with the iDotMatrix app (Windows may work but is untested).
 
-```sh
-pip install idotmatrix-api-client
-```
-
 ### Terminal UI
 
 The quickest way to try your display: browse a folder, preview how pictures and animations look on the display, send
@@ -66,7 +62,11 @@ See the [TUI notes](docs/TUI.md) for the keys and options.
 
 ### API Client
 
-To control the display from your own code, use the `IDotMatrixClient`:
+To control the display from your own code, install the library and use the `IDotMatrixClient`:
+
+```sh
+pip install idotmatrix-api-client
+```
 
 ```python
 import asyncio
