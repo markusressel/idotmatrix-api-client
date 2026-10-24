@@ -1,20 +1,3 @@
-> [!NOTE]  
-> This is a fork of the original
-> project [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) which is no
-> longer maintained due to the
-> author's health condition. This fork aims to continue the development and maintenance of the library, ensuring it
-> remains functional and up-to-date for users who rely on it for
-> controlling iDotMatrix pixel displays.
-
-> [!CAUTION]
-> **Not compatible with the original project!**  
-> While the featureset should be identical (or better), the structure of the original project has been significantly
-> altered to improve usability and maintainability. This means it is not possible to switch between the original and
-> this fork without manually adjusting the code.
->
-> In addition to that, the support for returning the raw bytearray data for specific commands **has been dropped**
-> to simplify maintenance and usability of the library.
-
 <br/>
 <p align="center">
   <a href="https://github.com/derkamarkusressel/python3-idotmatrix-library">
@@ -47,6 +30,7 @@
 * [Roadmap](#roadmap)
 * [Contributing](#contributing)
 * [License](#license)
+* [Differences From The Original Project](#differences-from-the-original-project)
 * [Authors](#authors)
 * [Acknowledgements](#acknowledgements)
 
@@ -367,30 +351,22 @@ non-iDotMatrix-compatible hardware and associated software.
 
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to be learn, inspire, and create. Any
-contributions you make are **greatly appreciated**.
-
-* If you have suggestions for adding or removing projects, feel free
-  to [open an issue](https://github.com/markusressel/python3-idotmatrix-library/issues/new) to discuss it, or
-  directly create a pull request after you edit the *README.md* file with necessary changes.
-* Please make sure you check your spelling and grammar.
-* Create individual PR for each suggestion.
-* Please also read through
-  the [Code Of Conduct](https://github.com/markusressel/python3-idotmatrix-library/blob/main/CODE_OF_CONDUCT.md) before
-  posting your first idea as well.
-
-### Creating A Pull Request
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+GitHub is for social coding: if you want to write code, I encourage contributions through pull requests from forks
+of this repository. Create GitHub tickets for bugs and new features and comment on the ones that you are interested in.
 
 ## License
 
 Distributed under the GNU GENERAL PUBLIC License.
 See [LICENSE](https://github.com/markusressel/python3-idotmatrix-library/blob/main/LICENSE) for more information.
+
+## Differences From The Original Project
+
+This is a fork of [derkalle4/python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library),
+which is no longer maintained. The fork continues its development and maintenance.
+
+The API is not compatible with the original: the structure was reworked for usability and maintainability, so code
+written for the original needs some adjustments to run with this library. Returning the raw bytearray data of commands
+was dropped to keep the library simple.
 
 ## Acknowledgements
 
