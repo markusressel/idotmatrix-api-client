@@ -25,7 +25,6 @@ class ImageFileEventHandler(FileSystemEventHandler):
         self._on_deleted_callback = on_deleted if on_deleted else lambda _: None
 
     def on_any_event(self, event: FileSystemEvent):
-        # TODO: Implement filtering logic if needed
         if not self._event_matches_filter(event):
             return
 

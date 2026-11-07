@@ -39,6 +39,8 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [x] Drop `matplotlib` (named colours via `PIL.ImageColor`)
 - [x] Remove commented-out block in `send_packets`
 - [x] Remove duplicate address assignment in `IDotMatrixClient.__init__`
+- [x] `DigitalPictureFrame.start_slideshow` no longer installs signal handlers that stop the event loop (and replaced
+  the handlers of the client and the application); the application stops the slideshow on shutdown
 - [x] Stop touching `client._backend.address`
 - [x] Reconnect loop backoff
 - [x] Cache module instances in `IDotMatrixClient`
@@ -75,3 +77,5 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 - [ ] Make the ack parser accept a different first byte (the app does not check it), after a 32x32 owner confirmed what their device sends.
 - [ ] Check behind an ESPHome Bluetooth proxy whether writing every upload packet with response (like the app) ends the upload timeouts and the reboots on the first upload after a reconnect (0.2.2, pacing only, did not). Measure the upload time with BlueZ too
 - [ ] Look at the effect styles 1, 2 and 6 on a device, and the stripe width of the diagonal right rainbow (0, 3, 4 and 5 are known); the TUI preview of those is a guess, and the width of the diagonal stripes is too (the vertical ones are 4 pixels wide)
+- [ ] The mirroring modes of the drawing (`GraffitiModule`, byte after the command: 1 to 4 in the app, 0 = no mirroring): find out what each one does and support them
+- [ ] `SystemModule.get_device_location`: the app encrypts the request with AES in a native library (`csh.tiro.cc.aes`), the key and mode are not known, so it does not work yet
