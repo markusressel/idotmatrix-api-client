@@ -51,7 +51,6 @@ class CountdownModule(IDotMatrixModule):
         """
         if mode not in range(0, 4):
             raise ValueError("Countdown.setMode expects parameter mode to be between 0 and 3")
-        # TODO: check for valid range of minutes
         if seconds > 59 or seconds < 0:
             raise ValueError("Countdown.setMode expects parameter seconds to be between 0 and 59")
         if minutes > 59 or minutes < 0:

@@ -129,10 +129,8 @@ class GifModule(IDotMatrixModule):
 
         packets = self.create_gif_data_packets(
             gif_data=gif_data,
-            # TODO: figure out what this does
-            #  this might be the index that this GIF will be stored within the device's memory :think:
-            #  it doesn't seem to have an effect when sending a single GIF like it is done here though
-            # shows the GIF right away, like the official app does
+            # the index: show the GIF right away, like the official app does, or store it in a slot
+            # (docs/DEVICE-PROTOCOL.md)
             gif_type=INDEX_SHOW_NOW if slot is None else slot,
             time_sign=0,
             display_time=None if slot is None else display_time,
@@ -142,7 +140,7 @@ class GifModule(IDotMatrixModule):
     async def clear_storage(self) -> None:
         """
         Deletes all materials that are stored on the device. This is the command the official app
-        sends when the user deletes the materials on the device. Not verified on a real device yet.
+        sends when the user deletes the materials on the device (verified on a 64x64, see `MaterialsModule.clear`).
 
         Uploading a GIF the device already has is fast, because the device skips the transfer.
         """

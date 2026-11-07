@@ -18,17 +18,17 @@ logging.basicConfig(
 logging.getLogger("bleak").setLevel(logging.WARNING)
 
 
-def _setup_signal_handlers(client: IDotMatrixClient):
+def _setup_signal_handlers(digital_picture_frame: DigitalPictureFrame):
     """
-    Sets up signal handlers for graceful shutdown.
-    This is useful to ensure that the connection is properly closed when the application is terminated.
+    Sets up signal handlers for graceful shutdown: the slideshow is stopped, which shows the clock and closes the
+    connection, then the application exits.
     """
     import signal
     async def async_signal_handler():
         """
         Handles the signal to stop the slideshow gracefully.
         """
-        await client.disconnect()
+        await digital_picture_frame.stop_slideshow()
 
     def done_callback(future):
         """
@@ -57,8 +57,6 @@ async def main():
         mac_address="69:36:4C:4C:B6:B7"
     )
 
-    _setup_signal_handlers(client)
-
     image_folder = Path("/home/markus/pictures/DPF")
 
     digital_picture_frame = DigitalPictureFrame(
@@ -68,6 +66,8 @@ async def main():
         resize_mode=ResizeMode.FILL,
         shuffle_images=True,
     )
+    # replaces the handlers of the client, which only close the connection
+    _setup_signal_handlers(digital_picture_frame)
 
     digital_picture_frame.watch_folders(
         folders=[image_folder],

@@ -62,10 +62,10 @@ class GraffitiModule(IDotMatrixModule):
         if len(xys) > MAX_PIXEL_LIST_LENGTH:
             raise ValueError("xys coordinate list must have length <= {}".format(MAX_PIXEL_LIST_LENGTH))
 
-        # the subcommand is the mirroring mode 1-4; TODO: support these
         return build_command(
             protocol.GRAFFITI,
-            0,  # ???
+            # the drawing of the app can mirror (modes 1 to 4, not supported here, see TODO.md), 0 draws as given
+            0,
             r % 256, g % 256, b % 256,  # R, G, B and the coordinates have to be within byte range
             *[coordinate for xy in xys for coordinate in xy],
         )

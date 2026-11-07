@@ -39,7 +39,7 @@ class SystemModule(IDotMatrixModule):
         """
         Gets the device location (untested yet). Missing some AES encryption stuff of iDotMatrix to work.
         """
-        # TODO: implement Aes encryption according to iDotMatrix Android App
+        # the app encrypts this with AES in a native library, which is not known (docs/DEVICE-PROTOCOL.md)
         command = bytearray(
             [
                 6,

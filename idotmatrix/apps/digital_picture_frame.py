@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import re
-import signal
 from asyncio import sleep, Task
 from enum import Enum
 from os import PathLike
@@ -272,6 +271,9 @@ class DigitalPictureFrame:
         """
         Starts a slideshow of images on the digital picture frame.
 
+        It does not handle signals: the application decides how it shuts down, and calls `stop_slideshow()` then
+        (see examples/example_digital_picture_frame.py).
+
         Args:
             interval (int): Time in seconds between image changes. Defaults to 5 seconds.
         """
@@ -280,24 +282,6 @@ class DigitalPictureFrame:
         if interval is not None:
             self.set_interval(interval)
 
-        async def async_signal_handler():
-            """
-            Handles the signal to stop the slideshow gracefully.
-            """
-            await self.stop_slideshow()
-            # TODO: doing it like this is probably a bad idea,
-            #  since it will also kill anything else that is currently running,
-            #  or even fail to stop the loop,
-            #  but I haven't gotten anything else to work yet :(
-            asyncio.get_event_loop().stop()
-
-        def signal_handler(signum):
-            signame = signal.Signals(signum).name
-            logging.info(f'Signal handler called with signal {signame} ({signum})')
-            asyncio.ensure_future(async_signal_handler())
-
-        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, lambda: signal_handler(signal.SIGINT))
-        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, lambda: signal_handler(signal.SIGTERM))
         self._slideshow_task = self._start_slideshow_task()
         await asyncio.sleep(0)
         return self._slideshow_task
@@ -331,9 +315,6 @@ class DigitalPictureFrame:
         # so we simply show the clock
         await self.device_client.clock.show(show_date=False)
         await self.device_client.disconnect()
-
-        asyncio.get_event_loop().remove_signal_handler(signal.SIGINT)
-        asyncio.get_event_loop().remove_signal_handler(signal.SIGTERM)
 
     def is_slideshow_running(self) -> bool:
         """
