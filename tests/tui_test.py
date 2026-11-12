@@ -686,6 +686,7 @@ class TestDevices(AppHelpers, TestBase):
             self.assertIn("bluetooth is off", str(app.screen.query_one("#scan-state", Label).render()))
 
 
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
 class TestAgo(TestBase):
 
     def test_format_ago(self):
@@ -839,6 +840,7 @@ class TestBrowsing(AppHelpers, TestBase):
             self.assertEqual(0, len(app._notifications))
 
 
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
 class TestParsePath(TestBase):
 
     def setUp(self):
@@ -1021,6 +1023,7 @@ class TestPixelPreview(AppHelpers, TestBase):
                 self.assertTrue(app.query_one("#preview-warning").has_class("visible"))
 
 
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
 class TestDetectPixelImage(TestBase):
 
     def test_the_pixel_widget_can_be_switched_off(self):

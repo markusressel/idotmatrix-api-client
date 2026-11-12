@@ -1,4 +1,5 @@
-uv_test := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-xdist --with pytest-mock --with mock --with asyncmock --with textual --with textual-image"
+uv_test_core := "uv run --no-project --python 3.13 --with-editable .. --with pytest --with pytest-asyncio --with pytest-cov --with pytest-xdist --with pytest-mock --with mock --with asyncmock"
+uv_test := uv_test_core + " --with textual --with textual-image"
 
 [default]
 default:
@@ -10,6 +11,13 @@ test *args:
     set -euxo pipefail
     cd tests
     {{uv_test}} python -m pytest {{ if args == "" { "-n auto" } else { "" } }} {{args}}
+
+# run tests without the `tui` extra (textual), like the main CI job: the API client must not need it
+test-core *args:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    cd tests
+    {{uv_test_core}} python -m pytest {{ if args == "" { "-n auto" } else { "" } }} {{args}}
 
 # run the terminal UI, extra args go to it, f.e. `just tui ~/pictures --choose`
 tui *args:
