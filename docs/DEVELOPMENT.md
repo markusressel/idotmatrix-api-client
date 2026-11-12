@@ -10,7 +10,7 @@ cd idotmatrix-api-client/
 poetry install --with test
 ```
 
-Add `--extras tui` to work on the terminal UI.
+Add `--extras tui` to work on the terminal UI. Its tests that need textual are skipped without it.
 
 ## Commands
 
@@ -18,6 +18,7 @@ Add `--extras tui` to work on the terminal UI.
 
 ```sh
 just test       # all tests, extra arguments go to pytest
+just test-core  # the tests without textual (the `tui` extra), like the main CI job
 just coverage   # line coverage with missing lines
 just lint       # the same flake8 checks as CI
 just build      # poetry build

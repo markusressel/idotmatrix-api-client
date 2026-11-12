@@ -7,6 +7,11 @@ pip install 'idotmatrix-api-client[tui]'
 idotmatrix-tui /path/to/pictures
 ```
 
+The terminal UI lives in `idotmatrix.tui` and needs the `tui` extra (textual and textual-image). Without it,
+`idotmatrix-tui` says what to install. The API client (`idotmatrix`, `IDotMatrixClient` and everything it uses) never
+imports the terminal UI or textual, so programs built on it, like the Home Assistant integration, don't need them;
+`tests/dependencies_test.py` checks that.
+
 It works without any argument: it connects to the display it used last, and opens the list of displays (`d`) if there is
 none or it cannot connect. The list searches while it is open and shows every display it knows with its state
 (connected, online with the signal strength, offline); Enter connects, `a` takes an address, `f` forgets a display.

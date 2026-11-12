@@ -19,6 +19,7 @@ it keeps working when you change those, and keep the library free of anything th
 
 ```sh
 just test                 # all tests (runs from tests/, like CI); extra args go to pytest
+just test-core            # tests without the `tui` extra (textual), like the main CI job
 just test clock_module_test.py::TestClockModule::test_show
 just coverage             # line coverage with missing lines
 just lint                 # same flake8 checks as CI
@@ -27,7 +28,9 @@ just build                # poetry build
 
 `make <target>` proxies to `just <target>`. Without `just`/`uv`, use `poetry install --with test` and `cd tests && pytest`.
 
-CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12, 3.13 and 3.14. Keep code compatible with all of them.
+CI (`.github/workflows/pythonpackage.yml`) runs on Python 3.12, 3.13 and 3.14 without the `tui` extra, and once more on
+3.13 with it. Keep code compatible with all of them. Tests that need textual skip without it (`HAS_TEXTUAL` in
+`tests/tui_test.py`).
 
 ## Layout
 
@@ -40,8 +43,9 @@ idotmatrix/
   screensize.py          ScreenSize enum
   const.py               BLE UUIDs and constants
   apps/                  things built on top of the client (digital_picture_frame.py: slideshow of a folder)
-  tui/                   terminal UI (textual, optional `tui` extra): app (files page), pages, controls (forms and
-                         features), draw (canvas), dialogs, preview, session settings
+  tui/                   terminal UI (textual, optional `tui` extra, `idotmatrix-tui` command): app (files page),
+                         pages, controls (forms and features), draw (canvas), dialogs, preview, session settings.
+                         Nothing outside `tui/` may import it or textual (tests/dependencies_test.py checks that)
   modules/               one class per device feature (clock, text, gif, image, ...)
     __init__.py          IDotMatrixModule base class (_send_bytes, _connect)
   util/                  color_utils, image_utils, file_watch, upload_ack, device_material

@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# the terminal UI: `idotmatrix-tui` (idotmatrix.tui). The API client never imports it, see tests/dependencies_test.py
 tui = ["textual>=8.0.0", "textual-image>=0.14.0"]
 
 [project.scripts]

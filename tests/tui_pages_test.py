@@ -7,9 +7,11 @@ from tests import TestBase
 from tests.tui_test import HAS_TEXTUAL, AppHelpers
 
 from idotmatrix.tui.canvas import PixelCanvas
-from idotmatrix.tui.features import FEATURES
-from idotmatrix.tui.forms import Feature, Field
 from idotmatrix.tui.settings import Options, Session
+
+if HAS_TEXTUAL:
+    from idotmatrix.tui.features import FEATURES
+    from idotmatrix.tui.forms import Feature, Field
 
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
@@ -72,6 +74,7 @@ class TestPixelCanvas(TestBase):
         self.assertEqual(RED, canvas.get(1, 1))
 
 
+@unittest.skipUnless(HAS_TEXTUAL, "needs textual")
 class TestFeatures(TestBase):
 
     def test_every_feature_accepts_its_defaults(self):

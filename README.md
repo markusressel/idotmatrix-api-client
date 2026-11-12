@@ -58,7 +58,8 @@ pip install 'idotmatrix-api-client[tui]'
 idotmatrix-tui /path/to/pictures
 ```
 
-See the [TUI notes](docs/TUI.md) for the keys and options.
+See the [TUI notes](docs/TUI.md) for the keys and options. The terminal UI and its dependencies (textual) are optional:
+`pip install idotmatrix-api-client` installs only the API client, which never loads them.
 
 ### API Client
 
