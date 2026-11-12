@@ -16,7 +16,8 @@ from idotmatrix.protocol import build_command
 from idotmatrix.util import color_utils
 from idotmatrix.util.image_utils import ResizeMode
 
-# The alarms the official app offers (0 to 9). Only slot 0 was seen to ring, on a 16x16 (docs/DEVICE-PROTOCOL.md).
+# The alarms the official app offers (0 to 9, according to issue #51). Only slot 0 was seen to ring, on a 16x16
+# (docs/DEVICE-PROTOCOL.md).
 ALARM_SLOTS = tuple(range(10))
 # The ring durations the official app offers, in seconds. The header has two bytes for it.
 APP_RING_DURATIONS_SECONDS = (10, 30, 60, 300, 900)
@@ -76,7 +77,8 @@ class AlarmModule(IDotMatrixModule):
         progress: Callable[[int, int], None] | None = None,
     ) -> None:
         """
-        Sets an alarm. The device shows its picture right away as a preview, and again when the alarm goes off.
+        Sets an alarm. The device shows its picture right away as a preview (replacing what is on screen), and again
+        when the alarm goes off.
 
         Args:
             slot (int): The alarm to set (0 to 9). Only slot 0 is known to ring, slot 9 did not on a 16x16.
@@ -95,6 +97,10 @@ class AlarmModule(IDotMatrixModule):
             background_color (Tuple[int, int, int] | int | str): The color of transparent pixels. Defaults to black.
             progress (Callable[[int, int], None], optional): Called with (chunks sent, chunks in total) while the
                 picture is transferred, see `ConnectionManager.send_packets`.
+
+        Raises:
+            UploadError: If the device does not acknowledge a part in time. Only the acknowledgement that accepts a
+                part is known, so a rejection shows up as a missing acknowledgement.
 
         For a while after an alarm went off the device keeps showing its picture and ignores new uploads (about
         3 minutes on a 16x16).
@@ -115,7 +121,7 @@ class AlarmModule(IDotMatrixModule):
         if sync_time:
             await self._common.set_time(datetime.now())
 
-        packets = self.create_alarm_packets(
+        packets = self._create_alarm_packets(
             gif_data=gif_data, slot=slot, flags=flags, hour=hour, minute=minute,
             ring_duration=ring_duration, buzzer=buzzer,
         )
@@ -124,8 +130,8 @@ class AlarmModule(IDotMatrixModule):
     async def disable_alarm(
         self,
         slot: int,
-        hour: int = 0,
-        minute: int = 0,
+        hour: int,
+        minute: int,
         weekdays: Iterable[Weekday | int] | None = None,
         ring_duration: int = DEFAULT_RING_DURATION_SECONDS,
         buzzer: bool = True,
@@ -152,7 +158,7 @@ class AlarmModule(IDotMatrixModule):
         await self._send_bytes(data=data)
 
     @staticmethod
-    def create_alarm_packets(
+    def _create_alarm_packets(
         gif_data: bytes,
         slot: int,
         flags: int,

@@ -58,7 +58,8 @@ Each 4096 byte chunk of an image or GIF upload is answered with a notification `
 | `02` | static image | like GIF (**app**) |
 
 An alarm (command `00 80`) is answered with `05 00 00 80 03` for every part (**claim**, issue #51), so `03` means
-"send the next part" there. Other statuses are not known.
+"send the next part" there. Other statuses are not known: the library ignores them, so a rejected alarm ends in an
+`UploadError` after the timeout of 5 s.
 
 Rules:
 
@@ -255,11 +256,12 @@ rainbow effect, and once it rebooted. (**verified**)
 
 ## Alarm and buzzer
 
-Source: issue #51, which read the packet in `TimerAgreement.sendData` of the official app (2.1.7), confirmed it byte
-for byte with an HCI snoop capture of the app, and made a 16x16 beep with it from an ESP32
+Source: issue #51 and the longer write-up of its author
 ([ozeraser/pixel-weather-esphome](https://github.com/ozeraser/pixel-weather-esphome),
-`docs/IDOTMATRIX_ALARM_PROTOCOL.md`). Everything here is **claim** unless marked otherwise, nobody tried it on our
-devices. Implemented in `AlarmModule`.
+`docs/IDOTMATRIX_ALARM_PROTOCOL.md`). They read the packet in `TimerAgreement.sendData` of the official app (2.1.7),
+confirmed it byte for byte with an HCI snoop capture of the app, and made a 16x16 beep with it from an ESP32.
+Everything here is **claim**, from those two sources, unless marked otherwise; nobody tried it on our devices.
+Implemented in `AlarmModule`.
 
 - The buzzer sounds when an alarm with the buzzer flag goes off. There is no command that just beeps.
 - The device has no clock that survives a power cycle. Set the time first (`0b 00 01 80 ...`, see Device info), then
@@ -272,11 +274,11 @@ devices. Implemented in `AlarmModule`.
 |---|---|
 | 0-1 | size of this part including the header |
 | 2-3 | `00 80` |
-| 4 | slot, 0 to 9 in the app |
+| 4 | slot, the app offers 10 alarms (0 to 9) |
 | 5 | flags: bit 0 = enabled, bits 1 to 7 = repeats on Monday to Sunday, `01` = once |
 | 6 | hour |
 | 7 | minute |
-| 8-9 | how long it rings in seconds, the app offers 10, 30, 60, 300 and 900. Only values up to 255 were tried |
+| 8-9 | how long it rings in seconds, the app offers 10, 30, 60, 300 and 900. Only 10 s was captured, and the ESP32 code of the write-up writes only byte 8 (at most 255) |
 | 10 | type of the picture: `01` = GIF file, `02` = raw 16x16 RGB (768 bytes), `03` = text |
 | 11 | buzzer: `01` = on, `00` = off |
 | 12 | `00` for the first part, `02` for the following |
@@ -289,14 +291,15 @@ The capture of the app (slot 0, once, 21:18, 10 s, GIF, buzzer on, a GIF of 4183
 `18 10 00 80 00 01 15 12 0a 00 01 01 00 57 10 00 00 41 8c ea 21 00 00 14 47 49 46 38 39 61 ...`
 
 - Switching an alarm off: the app sends only the first 12 bytes (length `0c 00`, `00 80`, slot, the flags with bit 0
-  cleared, hour, minute, duration, type, buzzer). (**app**, not tried) `AlarmModule.disable_alarm`.
+  cleared, hour, minute, duration, type, buzzer). (write-up, read in the app, not tried by anyone)
+  `AlarmModule.disable_alarm`.
 - On the 16x16 slot 0 rang. Slot 9 was acknowledged but never went off, slots 1 to 8 were not tried.
 - The device shows the picture as a preview as soon as it arrives, and again when the alarm goes off.
 - For a while after the alarm went off the device keeps showing its picture and ignores new GIF uploads (it
   acknowledges them, but does not show them): one about 1 minute later did not show, one about 3 minutes later did.
-- Only the GIF type is implemented. The raw RGB type is fixed to 16x16 in the app; what larger screens expect, and
-  how the text type is laid out, is not known.
-- While the official app is connected, other clients cannot connect (status 133).
+- Only the GIF type is implemented. The write-up describes the raw RGB type as 16x16 (768 bytes); what larger screens
+  expect there, and how the text type is laid out, is not known.
+- While the official app is connected, other clients cannot connect (connect status 133, from the write-up).
 
 ## Text
 

@@ -11,6 +11,7 @@ GIF_NEXT = bytes.fromhex("0500010001")
 GIF_FINISHED = bytes.fromhex("0500010003")
 IMAGE_NEXT = bytes.fromhex("0500000002")
 IMAGE_FINISHED = bytes.fromhex("0500000001")
+ALARM_NEXT = bytes.fromhex("0500008003")
 
 
 class TestParseUploadNotification(TestBase):
@@ -29,7 +30,7 @@ class TestParseUploadNotification(TestBase):
     def test_alarm(self):
         # GIVEN the acknowledgement of each part of an alarm (issue #51)
         # THEN it means: send the next part
-        self.assertEqual(UploadStatus.NEXT, parse_upload_notification(bytes.fromhex("0500008003")))
+        self.assertEqual(UploadStatus.NEXT, parse_upload_notification(ALARM_NEXT))
         # other statuses are not known
         self.assertIsNone(parse_upload_notification(bytes.fromhex("0500008001")))
 
@@ -132,6 +133,25 @@ class TestUploadFlowControl(FakeDeviceTestBase):
                 [[b"a"], [b"b"]], response=True, wait_for_ack=True, progress=progress)
 
         self.assertEqual(2, self.transport.write.await_count)
+
+    async def test_alarm_acks_do_not_end_the_upload_early(self):
+        # GIVEN the device acknowledges every part of an alarm with 05 00 00 80 03 (issue #51)
+        self.replies = [ALARM_NEXT, ALARM_NEXT, ALARM_NEXT]
+
+        # WHEN
+        await self.under_test.send_packets([[b"a"], [b"b"], [b"c"]], response=True, wait_for_ack=True)
+
+        # THEN every part is sent
+        self.assertEqual(3, self.transport.write.await_count)
+
+    async def test_alarm_without_ack_raises(self):
+        # GIVEN the device answers with a status that is not known for alarms
+        self.replies = [bytes.fromhex("0500008000")]
+
+        # WHEN / THEN
+        with patch("idotmatrix.connection_manager.UPLOAD_ACK_TIMEOUT_SECONDS", 0.05):
+            with self.assertRaises(UploadError):
+                await self.under_test.send_packets([[b"a"], [b"b"]], response=True, wait_for_ack=True)
 
     async def test_image_acks(self):
         self.replies = [IMAGE_NEXT, IMAGE_FINISHED]

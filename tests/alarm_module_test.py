@@ -34,10 +34,11 @@ class TestAlarmModule(TestBase):
         crc = zlib.crc32(GIF_DATA).to_bytes(4, "little")
 
         # WHEN
-        packets = AlarmModule.create_alarm_packets(
+        packets = AlarmModule._create_alarm_packets(
             gif_data=GIF_DATA, slot=0, flags=0x01, hour=21, minute=18, ring_duration=10, buzzer=True)
 
-        # THEN the header of the capture (with the CRC of our data), repeated in front of each part of 4096 bytes
+        # THEN the header of the capture, repeated in front of each part of 4096 bytes. The CRC is the one of our data:
+        # the GIF of the capture is not known, so the CRC variant (zlib CRC-32, like for GIF uploads) is not confirmed
         parts = [b"".join(ble_packets) for ble_packets in packets]
         self.assertEqual(2, len(parts))
         self.assertEqual(bytes.fromhex("18100080000115120a0001010057100000") + crc + bytes.fromhex("000014"),
@@ -48,7 +49,7 @@ class TestAlarmModule(TestBase):
 
     def test_create_alarm_packets_splits_into_ble_packets(self):
         # WHEN
-        packets = AlarmModule.create_alarm_packets(
+        packets = AlarmModule._create_alarm_packets(
             gif_data=GIF_DATA, slot=0, flags=0x01, hour=21, minute=18, ring_duration=10, buzzer=True)
 
         # THEN
@@ -56,7 +57,7 @@ class TestAlarmModule(TestBase):
 
     def test_create_alarm_packets_rejects_empty_data(self):
         with self.assertRaises(ValueError):
-            AlarmModule.create_alarm_packets(
+            AlarmModule._create_alarm_packets(
                 gif_data=b"", slot=0, flags=1, hour=0, minute=0, ring_duration=10, buzzer=True)
 
     async def test_set_alarm(self):
@@ -143,5 +144,5 @@ class TestAlarmModule(TestBase):
 
     async def test_disable_alarm_validates(self):
         with self.assertRaises(ValueError):
-            await self.under_test.disable_alarm(slot=10)
+            await self.under_test.disable_alarm(slot=10, hour=0, minute=0)
         self.connection_manager.send_bytes.assert_not_awaited()
