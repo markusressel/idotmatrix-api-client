@@ -46,7 +46,7 @@ idotmatrix/
   tui/                   terminal UI (textual, optional `tui` extra, `idotmatrix-tui` command): app (files page),
                          pages, controls (forms and features), draw (canvas), dialogs, preview, session settings.
                          Nothing outside `tui/` may import it or textual (tests/dependencies_test.py checks that)
-  modules/               one class per device feature (clock, text, gif, image, ...)
+  modules/               one class per device feature (clock, text, gif, image, alarm, ...)
     __init__.py          IDotMatrixModule base class (_send_bytes, _connect)
   util/                  color_utils, image_utils, file_watch, upload_ack, device_material
 tests/                   *_module_test.py, one per module; shared TestBase in tests/__init__.py

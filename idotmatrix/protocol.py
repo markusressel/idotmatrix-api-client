@@ -21,6 +21,7 @@ SCREEN_FLIP = Command(6, 0x80)
 SCREEN_ON_OFF = Command(7, 1)
 SET_JOINT = Command(12, 0x80)  # not acknowledged
 DELETE_MATERIALS = Command(2, 1)
+ALARM = Command(0, 0x80)  # with a picture behind a 24 byte header, see AlarmModule
 
 # modes
 CLOCK = Command(6, 1)

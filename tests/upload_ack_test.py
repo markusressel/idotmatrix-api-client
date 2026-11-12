@@ -26,6 +26,13 @@ class TestParseUploadNotification(TestBase):
         self.assertEqual(UploadStatus.FINISHED, parse_upload_notification(IMAGE_FINISHED))
         self.assertEqual(UploadStatus.FINISHED, parse_upload_notification(bytes.fromhex("0500000000")))
 
+    def test_alarm(self):
+        # GIVEN the acknowledgement of each part of an alarm (issue #51)
+        # THEN it means: send the next part
+        self.assertEqual(UploadStatus.NEXT, parse_upload_notification(bytes.fromhex("0500008003")))
+        # other statuses are not known
+        self.assertIsNone(parse_upload_notification(bytes.fromhex("0500008001")))
+
     def test_unrelated_notifications_are_ignored(self):
         for data in (b"", b"\x05\x00\x01", bytes.fromhex("0500040101"), bytes.fromhex("0900010001"[:8])):
             with self.subTest(data=data.hex()):

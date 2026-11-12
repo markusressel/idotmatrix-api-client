@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from idotmatrix.client import IDotMatrixClient
 from idotmatrix.connection_manager import ConnectionListener
+from idotmatrix.modules.alarm import AlarmModule
 from idotmatrix.modules.chronograph import ChronographModule
 from idotmatrix.modules.clock import ClockModule
 from idotmatrix.modules.common import CommonModule
@@ -94,6 +95,7 @@ class TestIDotMatrixClient(TestBase):
     def test_modules_are_wired_to_the_connection_manager(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)
         expected = {
+            "alarm": AlarmModule,
             "chronograph": ChronographModule,
             "clock": ClockModule,
             "common": CommonModule,
@@ -117,7 +119,7 @@ class TestIDotMatrixClient(TestBase):
 
     def test_modules_are_created_once(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32)
-        for attr in ("chronograph", "clock", "common", "countdown", "eco", "effect", "color", "gif", "graffiti",
+        for attr in ("alarm", "chronograph", "clock", "common", "countdown", "eco", "effect", "color", "gif", "graffiti",
                      "image", "music_sync", "scoreboard", "system", "text"):
             with self.subTest(module=attr):
                 self.assertIs(getattr(client, attr), getattr(client, attr))
@@ -126,6 +128,7 @@ class TestIDotMatrixClient(TestBase):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_16x16)
         self.assertEqual(ScreenSize.SIZE_16x16, client.gif.screen_size)
         self.assertEqual(ScreenSize.SIZE_16x16, client.image.screen_size)
+        self.assertIs(client.gif, client.alarm._gif)
 
     async def test_connect_with_address(self):
         client = IDotMatrixClient(screen_size=ScreenSize.SIZE_32x32, mac_address=ADDRESS)

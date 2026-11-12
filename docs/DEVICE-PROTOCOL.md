@@ -14,7 +14,7 @@ is wrong**, and say how sure you are (see the legend).
 | **guess** | Our interpretation of an observation |
 
 Devices used so far: a 64x64 panel on Linux/BlueZ (verified), a 32x32 panel on macOS Catalina (issue #11, reported by
-its owner).
+its owner), a 16x16 panel driven by an ESP32 (issue #51, alarm and buzzer, reported by its owner).
 
 ## Bluetooth basics
 
@@ -39,7 +39,8 @@ A command is a byte string `[length, 0, command, subcommand, ...arguments]`. The
 Known quirks:
 
 - `reset()` writes `04 00 03 80` and `05 00 04 80 50`. The display goes back to its defaults and replays the boot
-  animation. (**verified**) The boot beep is said to be the only way to make the device beep. (**claim**)
+  animation. (**verified**) Besides the boot beep, the device only beeps when an alarm with the buzzer flag goes off, see
+  [Alarm and buzzer](#alarm-and-buzzer). There is no command that just beeps. (**claim**, issue #51)
 - Brightness below 5 % is not accepted. (**claim**)
 - The device does not resize anything it is sent. Data for a larger screen is cropped to the top-left corner, so
   the host has to scale to the exact screen size. (**verified**)
@@ -55,6 +56,9 @@ Each 4096 byte chunk of an image or GIF upload is answered with a notification `
 | `00` | DIY image | `02` = send the next chunk, `01` (or `00`) = finished |
 | `01` | GIF | `01` = send the next chunk, `03` = finished, `00` = rejected (see below) |
 | `02` | static image | like GIF (**app**) |
+
+An alarm (command `00 80`) is answered with `05 00 00 80 03` for every part (**claim**, issue #51), so `03` means
+"send the next part" there. Other statuses are not known.
 
 Rules:
 
@@ -249,6 +253,51 @@ rainbow effect, and once it rebooted. (**verified**)
 - We never got a "no space" answer. The rejections we saw were all status `00` ("not ready"). The size of the storage
   is not known, the app does not ask for it. (**verified**)
 
+## Alarm and buzzer
+
+Source: issue #51, which read the packet in `TimerAgreement.sendData` of the official app (2.1.7), confirmed it byte
+for byte with an HCI snoop capture of the app, and made a 16x16 beep with it from an ESP32
+([ozeraser/pixel-weather-esphome](https://github.com/ozeraser/pixel-weather-esphome),
+`docs/IDOTMATRIX_ALARM_PROTOCOL.md`). Everything here is **claim** unless marked otherwise, nobody tried it on our
+devices. Implemented in `AlarmModule`.
+
+- The buzzer sounds when an alarm with the buzzer flag goes off. There is no command that just beeps.
+- The device has no clock that survives a power cycle. Set the time first (`0b 00 01 80 ...`, see Device info), then
+  the alarm for a later minute. Setting the clock to a made-up time just before the alarm minute, after the alarm was
+  sent, never made it go off. `AlarmModule.set_alarm` sets the current time first by default.
+- Setting an alarm is an upload: a picture behind a 24 byte header, split into parts of 4096 bytes, each part with
+  the header in front. Each part is acknowledged with `05 00 00 80 03` (see Acknowledgements).
+
+| Byte | Content |
+|---|---|
+| 0-1 | size of this part including the header |
+| 2-3 | `00 80` |
+| 4 | slot, 0 to 9 in the app |
+| 5 | flags: bit 0 = enabled, bits 1 to 7 = repeats on Monday to Sunday, `01` = once |
+| 6 | hour |
+| 7 | minute |
+| 8-9 | how long it rings in seconds, the app offers 10, 30, 60, 300 and 900. Only values up to 255 were tried |
+| 10 | type of the picture: `01` = GIF file, `02` = raw 16x16 RGB (768 bytes), `03` = text |
+| 11 | buzzer: `01` = on, `00` = off |
+| 12 | `00` for the first part, `02` for the following |
+| 13-16 | size of the whole picture |
+| 17-20 | CRC32 of the whole picture |
+| 21-22 | `00 00` |
+| 23 | id of the picture, the app sends slot + 20 |
+
+The capture of the app (slot 0, once, 21:18, 10 s, GIF, buzzer on, a GIF of 4183 bytes):
+`18 10 00 80 00 01 15 12 0a 00 01 01 00 57 10 00 00 41 8c ea 21 00 00 14 47 49 46 38 39 61 ...`
+
+- Switching an alarm off: the app sends only the first 12 bytes (length `0c 00`, `00 80`, slot, the flags with bit 0
+  cleared, hour, minute, duration, type, buzzer). (**app**, not tried) `AlarmModule.disable_alarm`.
+- On the 16x16 slot 0 rang. Slot 9 was acknowledged but never went off, slots 1 to 8 were not tried.
+- The device shows the picture as a preview as soon as it arrives, and again when the alarm goes off.
+- For a while after the alarm went off the device keeps showing its picture and ignores new GIF uploads (it
+  acknowledges them, but does not show them): one about 1 minute later did not show, one about 3 minutes later did.
+- Only the GIF type is implemented. The raw RGB type is fixed to 16x16 in the app; what larger screens expect, and
+  how the text type is laid out, is not known.
+- While the official app is connected, other clients cannot connect (status 133).
+
 ## Text
 
 The device has no fonts: the host draws every character with PIL and sends bitmaps. (**verified**)
@@ -301,11 +350,16 @@ something else, f.e. the clock, does. (**verified**)
 - The password flow: `set_password` exists (`08 00 04 02 01 <3 bytes>`). A protected device is unlocked with a verify
   command according to the app (see Device info), nobody tried it.
 - Firmware update (OTA) over `ae00`: encrypted, not a goal for now.
-- Alarm and buzzer: no module yet, the command is not known (see issue #18; a third-party source mentions a buzzer).
+- Alarm and buzzer: `AlarmModule` follows issue #51, untested by us. Open: slots 1 to 9, ring durations above 255 s,
+  switching an alarm off, the raw RGB and text picture types, other screen sizes, the meaning of other ack statuses.
 - Cloud API of the app (download and upload of pictures): not looked at.
 - What byte 6 of the device info stands for, and whether any command produces other notifications.
 
 ## Third-party sources
+
+- Issue #51 and [ozeraser/pixel-weather-esphome](https://github.com/ozeraser/pixel-weather-esphome)
+  (`docs/IDOTMATRIX_ALARM_PROTOCOL.md`, `components/pixel_weather/pw_extra.h`): the alarm and buzzer packet, read in the
+  app, confirmed with a capture and tried on a 16x16 from an ESP32 running ESPHome.
 
 - [fbnlrz/homeyidotmatrix](https://github.com/fbnlrz/homeyidotmatrix) (`docs/idm.md`, `docs/AE-SERVICE.md`): notes
   from a Homey integration, tested on a 32x32 and written with the help of an AI, so treat them as claims. Source of
