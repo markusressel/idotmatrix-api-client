@@ -4,6 +4,7 @@ from typing import Optional
 # The device acknowledges every 4096 byte chunk of an image or GIF upload with a notification
 # of the form 05 00 <type> 00 <status>. The official app does not send the next chunk before it
 # received that acknowledgement.
+# An alarm (command 00 80) is acknowledged with 05 00 00 80 03 for every part.
 TYPE_DIY_IMAGE = 0
 TYPE_GIF = 1
 TYPE_IMAGE = 2
@@ -23,6 +24,10 @@ def parse_upload_notification(data: bytes | bytearray) -> Optional[UploadStatus]
     Returns:
         The status the notification stands for, or None if it is not related to uploads.
     """
+    if len(data) >= 5 and tuple(data[:4]) == (5, 0, 0, 0x80):
+        # the acknowledgement of each part of an alarm (third party, docs/DEVICE-PROTOCOL.md), other statuses unknown
+        return UploadStatus.NEXT if data[4] == 3 else None
+
     if len(data) < 5 or data[0] != 5 or data[1] != 0 or data[3] != 0:
         return None
 

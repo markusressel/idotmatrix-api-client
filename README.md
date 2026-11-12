@@ -33,11 +33,12 @@ this library.
 * Scrolling text with the bundled pixel fonts
 * Music sync with the microphone of the device
 * Brightness, eco mode, power and time
+* Alarms, which make the device beep (untested, see [the protocol notes](docs/DEVICE-PROTOCOL.md#alarm-and-buzzer))
 * Digital picture frame for a folder of pictures
 * Terminal UI to try all of it
 * Works with the 16x16, 32x32 and 64x64 displays, with `bleak` or with the Bluetooth stack of Home Assistant
 
-Open ends (alarm and buzzer, the cloud API, password protection, firmware update) are collected in the
+Open ends (the cloud API, password protection, firmware update) are collected in the
 [device protocol notes](docs/DEVICE-PROTOCOL.md#not-understood-yet).
 
 <br clear="right"/>

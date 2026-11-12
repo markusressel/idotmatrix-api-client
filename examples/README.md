@@ -68,3 +68,25 @@ not answer.
 
 `client.image.upload_image_file` uses the DIY mode instead (see `client.image.set_mode`), which is meant for drawing
 pixel by pixel and has to be left again before a GIF can be shown.
+
+## Alarms
+
+The device beeps only when an alarm goes off (untested by us, see
+[the protocol notes](../docs/DEVICE-PROTOCOL.md#alarm-and-buzzer)):
+
+```python
+from idotmatrix.modules.alarm import Weekday
+
+# sets the time of the device, then an alarm in slot 0 that rings for 30 s with the picture and the buzzer
+await client.alarm.set_alarm(slot=0, hour=7, minute=30, file_path="alarm.gif", ring_duration=30)
+
+# every Monday and Friday instead of once
+await client.alarm.set_alarm(slot=0, hour=7, minute=30, file_path="alarm.gif",
+                             weekdays=[Weekday.MONDAY, Weekday.FRIDAY])
+
+# switch it off again (pass the settings it was set with)
+await client.alarm.disable_alarm(slot=0, hour=7, minute=30, weekdays=[Weekday.MONDAY, Weekday.FRIDAY])
+```
+
+The device shows the picture right away as a preview. For a few minutes after an alarm went off it ignores new
+uploads.

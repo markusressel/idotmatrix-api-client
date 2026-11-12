@@ -57,7 +57,7 @@ Baseline was 25 tests, 44% line coverage. Order: tests first (bug tests written 
 
 - [x] MusicSync with the device microphone works (`set_mic_type`, fixed). Not done: streaming sound from the computer to the device (`06 00 00 02 <level> 01` for the image scenes, 28 frequency levels for the bar scenes, see docs/DEVICE-PROTOCOL.md), and finding out how many scenes exist
 - [ ] Bluetooth password protection: `CommonModule.set_password` exists, but nobody confirmed the whole flow (setting a password, then connecting and authenticating against a protected device)
-- [ ] Alarm & Buzzer (see issue #18): no module yet
+- [ ] Alarm & Buzzer: `AlarmModule` built from issue #51 (third party, tested on a 16x16 only). To try on a device: that an alarm in slot 0 goes off and beeps, the slots 1 to 9, ring durations above 255 s (two bytes, only 10 s was captured), `disable_alarm`, repeating on weekdays, the raw RGB (`02`) and text (`03`) picture types, the acknowledgement statuses besides `03`
 - [ ] Cloud-API to download / upload images: not started
 - [ ] Cloud-firmware update: unknown whether possible
 - [ ] Understand the other notifications of the device (only the upload acknowledgements on `fa03` are known, see `util/upload_ack.py`)

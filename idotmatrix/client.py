@@ -5,6 +5,7 @@ from typing import Optional
 from bleak.backends.device import BLEDevice
 
 from idotmatrix.connection_manager import ConnectionManager, ConnectionListener
+from idotmatrix.modules.alarm import AlarmModule
 from idotmatrix.modules.chronograph import ChronographModule
 from idotmatrix.modules.clock import ClockModule
 from idotmatrix.modules.common import CommonModule
@@ -90,6 +91,14 @@ class IDotMatrixClient:
     @screen_size.setter
     def screen_size(self, screen_size: ScreenSize) -> None:
         self._screen_size = screen_size
+
+    @cached_property
+    def alarm(self) -> AlarmModule:
+        return AlarmModule(
+            connection_manager=self._connection_manager,
+            gif=self.gif,
+            common=self.common,
+        )
 
     @cached_property
     def chronograph(self) -> ChronographModule:
